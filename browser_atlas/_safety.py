@@ -29,11 +29,15 @@ _WORDS = [
     "결제", "구매", "주문", "송금", "이체", "제출", "신청", "지원하기", "전송", "보내기", "발송", "삭제",
     "탈퇴", "해지", "게시", "발행", "등록하기", "예매", "예약하기", "충전", "환전", "매수", "매도", "동의하고",
     # English
-    "pay", "purchase", "buy", "order", "checkout", "check out", "submit", "send", "delete", "remove",
+    "pay", "purchase", "buy", "order", "checkout", "check out", "submit", "send", "delete",
     "unsubscribe", "apply", "publish", "post", "transfer", "book now", "reserve", "place order", "confirm",
+    "add to cart", "add to bag", "add to basket",
 ]
-_PATTERN = re.compile("|".join(re.escape(w) if not w.isascii() else r"\b" + re.escape(w) + r"\b"
-                               for w in _WORDS), re.IGNORECASE)
+# Putting something in a cart moves toward a purchase, so it stops; taking it out undoes that,
+# so "remove" is deliberately not on the list (observed: the agent could add but not undo).
+_CART = r"(장바구니|카트|쇼핑백)\s*(에\s*)?(담기|담|추가|넣기)|바로\s*구매|바로\s*주문"
+_PATTERN = re.compile("|".join([_CART] + [re.escape(w) if not w.isascii() else r"\b" + re.escape(w) + r"\b"
+                                         for w in _WORDS]), re.IGNORECASE)
 TOKEN_TTL = 600
 
 

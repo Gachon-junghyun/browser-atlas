@@ -45,21 +45,28 @@ def looks_blocked(text: str) -> bool:
     return bool(_CAPTCHA.search(text or ""))
 
 
-def judge(ep: dict) -> tuple[str, float]:
-    """Outcome and quality from what happened in the episode."""
+def judge(ep: dict, said: str | None = None) -> tuple[str, float]:
+    """Outcome and quality from what happened in the episode.
+
+    A safety stop (NeedsHuman) and a "no such control" answer are the tools working as intended,
+    so they cost nothing: a route should not rank lower because the agent was careful.
+    `said` is the agent's own verdict at close ("success", "partial", "fail"): it wins over the
+    signals except that a block stays a block.
+    """
+    hard = [s for s in ep["steps"] if not s["ok"] and not s.get("soft")]
+    real = [s for s in ep["steps"] if s["ok"] or not s.get("soft")]
     if ep["blocked"]:
         outcome = "blocked"
+    elif said in ("success", "partial", "fail"):
+        outcome = said
     elif ep["reads"] == 0:
         outcome = "fail"
-    elif ep["steps"] and not ep["steps"][-1]["ok"]:
-        outcome = "partial"
-    elif ep["needs_human"]:
+    elif real and not real[-1]["ok"]:
         outcome = "partial"
     else:
         outcome = "success"
-    errors = sum(1 for s in ep["steps"] if not s["ok"])
-    extra = max(0, len(ep["steps"]) - 8)
-    q = BASE_QUALITY[outcome] - 0.05 * min(errors, 6) - 0.01 * min(extra, 20)
+    extra = max(0, len(real) - 8)
+    q = BASE_QUALITY[outcome] - 0.05 * min(len(hard), 6) - 0.01 * min(extra, 20)
     return outcome, round(max(0.0, min(1.0, q)), 3)
 
 
@@ -145,8 +152,9 @@ class Recorder:
             return
         ep["last"] = time.time()
         err = f"{type(error).__name__}: {error}"[:200] if error else ""
-        ep["steps"].append({"tool": tool, "ok": ok, "error": err, "t": round(time.time() - ep["started"], 1)})
         name = type(error).__name__ if error else ""
+        ep["steps"].append({"tool": tool, "ok": ok, "error": err, "t": round(time.time() - ep["started"], 1),
+                            "soft": name in ("NeedsHuman", "NoControl")})
         if name in ("Blocked",) or looks_blocked(err):
             ep["blocked"] = True
         if name == "NeedsHuman":
@@ -166,21 +174,22 @@ class Recorder:
             if control:
                 self._propose_from_success(ep, control, url)
             if tool == "browser_type" and isinstance(result, dict) and result.get("search"):
-                ep["searches"].append(result.get("value", "")[:80])
-        if url and _bare(url) != self.current_url(tab) and tool == "browser_click":
+                ep["searches"].append(str(result.get("value", "")).strip()[:80])
+        if url and _bare(url) != self.current_url(tab) and tool in ("browser_click", "browser_type",
+                                                                     "browser_goto", "browser_back"):
             ep["route"].append({"url": _bare(url)})
         self._save()
 
-    def finish(self, tab: str, reason: str = "closed") -> dict | None:
+    def finish(self, tab: str, reason: str = "closed", said: str | None = None) -> dict | None:
         ep = self.open.pop(tab, None)
         self._save()
         if ep is None or not ep["steps"]:
             return None
-        outcome, quality = judge(ep)
+        outcome, quality = judge(ep, said)
         site_label = (_atlas.load().get(ep["site"] or "", {}) or {}).get("label", "")
         goal = " ".join(x for x in (ep["goal"] or site_label, ep["host"] if not ep["goal"] else "",
                                      *ep["searches"]) if x)
-        notes = json.dumps({"auto": True, "reason": reason, "steps": len(ep["steps"]),
+        notes = json.dumps({"auto": True, "reason": reason, "agent_said": said, "steps": len(ep["steps"]),
                             "errors": [s["error"] for s in ep["steps"] if s["error"]][:5],
                             "searches": ep["searches"][:5]}, ensure_ascii=False)
         rid = _memory.record(goal, ep["site"], ep["route"], outcome,

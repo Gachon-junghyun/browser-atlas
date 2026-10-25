@@ -49,9 +49,19 @@ _TARGET_JS = r"""
       const role = e.getAttribute('role') || (tag === 'A' ? 'link' : tag === 'BUTTON' ? 'button'
         : tag === 'INPUT' && ['submit', 'button', 'image', 'reset'].includes(type) ? 'button'
         : tag === 'INPUT' || tag === 'TEXTAREA' || e.isContentEditable ? 'textbox' : 'generic');
-      const search = type === 'search' || e.getAttribute('role') === 'searchbox'
-        || !!e.closest('[role=search]') || /search|query|keyword|^q$/i.test((e.name || '') + ' ' + (e.id || ''))
-        || /search|검색/i.test(((e.form && e.form.getAttribute('action')) || ''));
+      // Enter is allowed only where it searches. Fields where Enter sends something never count.
+      const hint = [e.name, e.id, e.getAttribute('placeholder'), e.getAttribute('aria-label'),
+                    e.getAttribute('title'), name].join(' ');
+      const sends = /mail|이메일|구독|subscribe|전화|phone|메시지|message|댓글|comment|비밀번호|password|인증|코드|code|쿠폰|coupon|카드|card/i;
+      const form = e.form;
+      const texts = form ? form.querySelectorAll('input:not([type=hidden]):not([type=submit]):not([type=button])'
+                                                + ':not([type=checkbox]):not([type=radio]):not([type=image]), textarea').length : 0;
+      const pw = form ? !!form.querySelector('input[type=password]') : false;
+      const search = !sends.test(hint) && !['email', 'tel', 'password'].includes(type) && !pw && (
+        type === 'search' || e.getAttribute('role') === 'searchbox' || !!e.closest('[role=search]')
+        || /search|query|keyword|검색|찾기|종목|회사명|^q$|^q /i.test(hint)
+        || /search|검색/i.test((form && form.getAttribute('action')) || '')
+        || (form && texts === 1));
       return {x, y, w: r.width, h: r.height, vw: innerWidth, vh: innerHeight, name, role, search};
     }
     if (t && !by) by = (t.tagName + '.' + (typeof t.className === 'string' ? t.className : '')
@@ -62,6 +72,26 @@ _TARGET_JS = r"""
   return {err: 'covered', by: by || '(nothing)'};
 })()
 """
+
+
+def _nearest(role: str, name: str, nodes: list[dict], n: int = 6) -> list[str]:
+    """Names worth trying instead: containing the wanted name first, then similar spellings;
+    same role before other roles (a 'Remove' link may really be a 'Remove Stardew Valley' button)."""
+    want = name.casefold().strip()
+    named = [x for x in nodes if x["name"]]
+    ranked: list[str] = []
+    for pool in ([x for x in named if x["role"] == role], named):
+        names = [x["name"] for x in pool]
+        ranked += [s for s in names if want and (want in s.casefold() or s.casefold() in want)]
+        ranked += difflib.get_close_matches(name, names, n=n, cutoff=0.45)
+    if not ranked:                                       # nothing alike: show what this role does offer
+        ranked = [x["name"] for x in named if x["role"] == role]
+    seen, out = set(), []
+    for s in ranked:
+        if s not in seen:
+            seen.add(s)
+            out.append(s)
+    return out[:n]
 
 
 class NoControl(RuntimeError):
@@ -143,24 +173,31 @@ class Pointer:
                     return c
         return None
 
-    def _control(self, role, name, exact=True) -> str:
+    def _control(self, role, name, exact=True, index: int | None = None) -> str:
+        """Find a control by role and name. With several of the same name, `index` picks the n-th
+        (0-based, page order); without it the first visible one is used."""
         self._guard()
         nodes = _ax.snapshot(self.c)
-        node = _ax.find(self.c, role, name, exact=exact, nodes=nodes)
+        norm = lambda s: " ".join((s or "").split())  # noqa: E731
+        same = [n for n in nodes if n["role"] == role and (
+            norm(n["name"]) == norm(name) if exact else norm(name).casefold() in norm(n["name"]).casefold())]
+        node = (same[index] if index < len(same) else None) if index is not None else \
+            _ax.find(self.c, role, name, exact=exact, nodes=nodes)
         if node is None:
-            same_role = [n["name"] for n in nodes if n["role"] == role and n["name"]]
-            near = difflib.get_close_matches(name, same_role, n=5, cutoff=0.3)
-            raise NoControl(role, name, near or same_role[:10])
+            raise NoControl(role, name, _nearest(role, name, nodes))
+        self.matches = len(same)
         return _ax.mark(self.c, node["backend"])
 
-    def click_control(self, role, name, exact=True) -> dict:
-        return self.click(self._control(role, name, exact))
+    def click_control(self, role, name, exact=True, index=None) -> dict:
+        r = self.click(self._control(role, name, exact, index))
+        return {**r, "same_name_controls": self.matches}
 
-    def move_control(self, role, name, exact=True) -> dict:
-        return self.move(self._control(role, name, exact))
+    def move_control(self, role, name, exact=True, index=None) -> dict:
+        return self.move(self._control(role, name, exact, index))
 
-    def type_control(self, role, name, text, exact=True, clear=False, model=None) -> dict:
-        return self.type(self._control(role, name, exact), text, clear=clear, model=model)
+    def type_control(self, role, name, text, exact=True, clear=False, model=None, index=None) -> dict:
+        r = self.type(self._control(role, name, exact, index), text, clear=clear, model=model)
+        return {**r, "same_name_controls": self.matches}
 
     def type(self, css, text, clear=False, model=None, secret=False) -> dict:
         """`secret=True` (passwords): the value never appears in the result or in an error."""
@@ -185,7 +222,10 @@ class Pointer:
         value = self.c.eval("(() => { const e = document.querySelector(" + json.dumps(css) +
                             "); return e ? (e.matches('input, textarea') ? e.value : "
                             "e.isContentEditable ? e.innerText : null) : null; })()")
-        if not isinstance(value, str) or not value.endswith(text):
+        pressed_enter = "\n" in text or "\r" in text
+        if pressed_enter and not value:                 # also when the site clears the box after searching
+            value = text.rstrip("\r\n")                 # Enter submitted and the page moved on: that is success
+        if not isinstance(value, str) or not value.rstrip("\r\n").endswith(text.rstrip("\r\n")):
             if secret:
                 raise RuntimeError(f"input did not stick in {css} (secret field; values withheld)")
             raise RuntimeError(f"input did not stick: expected {text!r}, got {value!r}")

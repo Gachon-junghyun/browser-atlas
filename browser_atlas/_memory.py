@@ -77,6 +77,23 @@ def connect(path: Path | str | None = None) -> sqlite3.Connection:
 _HANGUL = re.compile(r"[가-힣]+")
 _WORD = re.compile(r"[a-z0-9][a-z0-9._+-]*")
 _STOP = {"the", "a", "an", "of", "to", "in", "on", "for", "and", "or", "is", "what", "how", "with"}
+# Request words and particle fragments that made unrelated goals look alike ("DART 에서 ...",
+# "... 알아보기" matched a Steam goal through 에서/알아/보기 alone).
+_KO_ENDINGS = ("알아보기", "알아내기", "찾아보기", "확인하기", "해주세요", "해줘", "하기", "보기", "찾기",
+               "에서는", "에서", "에게", "으로", "까지", "부터", "이랑", "하고", "의", "는", "은", "이", "가",
+               "을", "를", "와", "과", "도", "만", "로", "랑")
+_KO_STOP = {"에서", "에게", "으로", "하기", "알아", "아보", "보기", "하는", "해서", "에는", "까지", "부터",
+            "하고", "찾기", "해줘", "세요", "주세", "알려", "려줘", "가져", "오기", "정도", "보고", "하면",
+            "있는", "없는", "대한", "관한", "통해", "내기", "아내", "확인", "인하", "최근", "지금", "오늘",
+            "알아보기", "알아내기", "찾아보기", "확인하기"}
+
+
+def _strip_ending(run: str) -> str:
+    """Drop one trailing particle or request ending: 삼성전자의 -> 삼성전자, 알아보기 -> ''."""
+    for e in _KO_ENDINGS:
+        if run.endswith(e) and (len(run) - len(e) >= 2 or run == e):
+            return run[: len(run) - len(e)]
+    return run
 
 
 def keywords(text: str) -> list[str]:
@@ -88,9 +105,11 @@ def keywords(text: str) -> list[str]:
     t = text.lower()
     out = [w for w in _WORD.findall(t) if w not in _STOP and len(w) > 1]
     for run in _HANGUL.findall(t):
-        if len(run) == 1:
-            out.append(run)
-        out += [run[i:i + 2] for i in range(len(run) - 1)]
+        run = _strip_ending(run)
+        if not run or run in _KO_STOP:
+            continue
+        out.append(run)                                  # the whole word, so 광화문 matches 광화문
+        out += [b for b in (run[i:i + 2] for i in range(len(run) - 1)) if b not in _KO_STOP]
     seen, uniq = set(), []
     for w in out:
         if w not in seen:
@@ -160,9 +179,23 @@ def _route_scores(rows: list[sqlite3.Row]) -> dict[str, dict]:
     return acc
 
 
+def _on_host(route_json: str, host: str) -> bool:
+    from urllib.parse import urlparse
+    for step in json.loads(route_json):
+        h = (urlparse(str(step.get("url", ""))).hostname or "").lower() if isinstance(step, dict) else ""
+        if h and (h == host or h.endswith("." + host) or host.endswith("." + h)):
+            return True
+    return False
+
+
 def recall(goal: str, k: int = 5, explore: int = 1, shared: bool = False, site: str | None = None,
-           owner: str = "me", now: float | None = None, con: sqlite3.Connection | None = None) -> list[dict]:
-    """Best past routes for `goal`. `explore` slots go to similar but rarely tried routes."""
+           owner: str = "me", now: float | None = None, con: sqlite3.Connection | None = None,
+           host: str | None = None) -> list[dict]:
+    """Best past routes for `goal`. `explore` slots go to similar but rarely tried routes.
+
+    `site` or `host` keeps only routes on that site: a route from another site is not a starting
+    point for this one, however similar the goal sounds.
+    """
     con = con or connect()
     now = now or time.time()
     q_kw = keywords(goal)
@@ -170,6 +203,9 @@ def recall(goal: str, k: int = 5, explore: int = 1, shared: bool = False, site: 
     if site:
         sql, args = sql + " where site = ?", [site]
     rows = con.execute(sql, args).fetchall()
+    if host:
+        host = host.lower().removeprefix("www.")
+        rows = [r for r in rows if _on_host(r["route"], host)]
     if not shared:
         rows = [r for r in rows if r["owner"] == owner]
     routes = _route_scores(rows)
@@ -316,7 +352,7 @@ def shareable(owner: str = "me", con: sqlite3.Connection | None = None, unshared
         kws = [w for w in json.loads(r["keywords"]) if w in vocab]
         row = {"id": r["id"], "site": r["site"], "keywords": kws, "route": route, "outcome": r["outcome"],
                "quality": r["quality"], "quality_source": r["quality_source"],
-               "seconds": r["seconds"], "day": time.strftime("%Y-%m-%d", time.gmtime(r["created"]))}
+               "seconds": r["seconds"], "day": time.strftime("%Y-%m-%d", time.localtime(r["created"]))}
         if _has_pii(json.dumps([route, kws], ensure_ascii=False)):   # the free-form parts only
             continue
         out.append(row)
