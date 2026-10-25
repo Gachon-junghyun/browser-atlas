@@ -12,11 +12,13 @@ Do not attach this server to an unattended agent that is meant to have no way to
 """
 from __future__ import annotations
 
+import atexit
 import json
 import os
 import sys
+from urllib.parse import urlparse
 
-from . import _atlas, _ax, _cdp, _memory, _safety
+from . import _atlas, _ax, _cdp, _episodes, _memory, _safety
 
 VERSION = "0.1.0"
 
@@ -74,8 +76,11 @@ TOOLS += [
      "description": "List open tabs. Tabs you did not open may be a human's work: do not touch them.",
      "inputSchema": {"type": "object", "properties": {"port": _PORT}}},
     {"name": "browser_open",
-     "description": "Open a URL in a NEW tab and wait for it. Refused on blocked sites. Returns the tab id.",
+     "description": "Open a URL in a NEW tab and wait for it. Refused on blocked sites. Returns the tab id and "
+                    "past_routes: how earlier attempts here went (best first, plus one to explore). Everything you do "
+                    "in the tab is recorded and judged automatically; browser_close returns the verdict.",
      "inputSchema": {"type": "object", "properties": {"url": {"type": "string"},
+                                                      "goal": {"type": "string", "description": "what you are trying to do, in a few words; past routes for it come back, and this attempt is remembered under it"},
                                                       "until": {"type": "string", "description": "JS, truthy when ready"},
                                                       "port": _PORT}, "required": ["url"]}},
     {"name": "browser_read",
@@ -99,6 +104,9 @@ TOOLS += [
     {"name": "browser_close",
      "description": "Close a tab this server opened.",
      "inputSchema": {"type": "object", "properties": {"tab": _TAB, "port": _PORT}, "required": ["tab"]}},
+    {"name": "map_proposals",
+     "description": "Button-map fixes learned from use (renamed or new controls), waiting for a human to approve.",
+     "inputSchema": {"type": "object", "properties": {}}},
     {"name": "login_sites",
      "description": "Sites with a login recipe: mode (auto/manual) and whether the stored credentials exist. "
                     "Never returns credential values.",
@@ -205,20 +213,81 @@ def _browser(name: str, args: dict):
         p = Pointer(c)
         which = (args.get("role"), args.get("name"))
         if name == "browser_click":
-            return p.click_control(*which) if which[1] else p.click(args["css"])
-        if name == "browser_type":
+            r = p.click_control(*which) if which[1] else p.click(args["css"])
+        elif name == "browser_type":
             if which[1]:
-                return p.type_control(*which, args["text"], clear=bool(args.get("clear")))
-            return p.type(args["css"], args["text"], clear=bool(args.get("clear")))
-    raise KeyError(f"unknown tool {name}")
+                r = p.type_control(*which, args["text"], clear=bool(args.get("clear")))
+            else:
+                r = p.type(args["css"], args["text"], clear=bool(args.get("clear")))
+        else:
+            raise KeyError(f"unknown tool {name}")
+        try:
+            r["url"] = c.eval("location.href", timeout=5)
+        except Exception:
+            pass
+        return r
+
+
+# ── the loop: every browser call is recorded, judged and recalled by the server itself ──
+REC = _episodes.Recorder()
+atexit.register(REC.finish_all)
+
+
+def _compact(p: dict) -> dict:
+    return {k: p[k] for k in ("route", "outcome", "quality", "attempts", "why", "age_days") if k in p}
+
+
+def _tracked(name: str, args: dict):
+    REC.sweep()
+    if name == "browser_open":
+        hit = _atlas.site_for(args["url"])
+        site = hit[0] if hit else None
+        query = args.get("goal") or (hit[1].get("label", "") if hit else "") or (urlparse(args["url"]).hostname or "")
+        past = _memory.recall(query, k=3, explore=1, site=site)
+        r = _browser(name, args)
+        REC.start(r["tab"], r.get("url") or args["url"], args.get("goal"))
+        REC.step(r["tab"], name, True, url=r.get("url", ""))
+        if _episodes.looks_blocked(r.get("title", "")):
+            REC.open[r["tab"]]["blocked"] = True
+        r["past_routes"] = [_compact(p) for p in past]
+        if not args.get("goal"):
+            r["hint"] = "pass goal= to browser_open so this attempt is remembered under what you were doing"
+        return r
+    if name == "browser_login":
+        r = _browser(name, args)
+        REC.start(r["tab"], r.get("url", "") or "about:blank", f"login {args['site']}")
+        REC.step(r["tab"], name, bool(r.get("ok")), error=None if r.get("ok") else _safety.NeedsHuman(r.get("reason", "")))
+        if r.get("ok"):
+            REC.open[r["tab"]]["reads"] += 1
+        return r
+    if name == "browser_close":
+        episode = REC.finish(args["tab"])
+        r = _browser(name, args)
+        r["episode"] = episode
+        return r
+    tab = args.get("tab")
+    control = [args["role"], args["name"]] if args.get("role") and args.get("name") else None
+    try:
+        r = _browser(name, args)
+    except Exception as e:
+        if tab:
+            REC.step(tab, name, False, error=e, control=control, css=args.get("css"),
+                     url=REC.current_url(tab))
+        raise
+    if tab:
+        REC.step(tab, name, True, control=control, css=args.get("css"), result=r,
+                 url=r.get("url", "") if isinstance(r, dict) else "")
+    return r
 
 
 def call(name: str, args: dict):
     if name == "login_sites":
         from . import _login
         return _login.summary()
+    if name == "map_proposals":
+        return _episodes.proposals()
     if name.startswith("browser_"):
-        return _browser(name, args)
+        return _tracked(name, args)
     if name == "atlas_find":
         return _find(args["query"])
     if name == "atlas_site":

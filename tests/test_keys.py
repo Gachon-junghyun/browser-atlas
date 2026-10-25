@@ -85,7 +85,8 @@ class KeysTest(unittest.TestCase):
         c = FakeCDP("prefix abc")
         with patch("browser_atlas._pointer._load_state", return_value={}):
             p = Pointer(c, model=Model())
-        with patch.object(p, "click") as click, patch("browser_atlas._pointer.time.sleep"):
+        with patch.object(p, "click") as click, patch("browser_atlas._pointer.time.sleep"), \
+                patch.object(p, "target", return_value={"search": False, "name": "q"}):
             result = p.type("input", "abc", clear=True)
             click.assert_called_once_with("input")
             self.assertEqual(result["value"], "prefix abc")

@@ -17,6 +17,7 @@
 """
 from __future__ import annotations
 
+import difflib
 import json
 import random
 import time
@@ -61,6 +62,14 @@ _TARGET_JS = r"""
   return {err: 'covered', by: by || '(nothing)'};
 })()
 """
+
+
+class NoControl(RuntimeError):
+    """The page has no control with this role and name; `nearest` are names it does have."""
+
+    def __init__(self, role: str, name: str, nearest: list[str]):
+        self.role, self.name, self.nearest = role, name, nearest
+        super().__init__(f"no control: role={role!r} name={name!r}; nearest: {nearest!r}")
 
 
 def _state_path():
@@ -139,8 +148,9 @@ class Pointer:
         nodes = _ax.snapshot(self.c)
         node = _ax.find(self.c, role, name, exact=exact, nodes=nodes)
         if node is None:
-            names = [n["name"] for n in nodes if n["role"] == role][:10]
-            raise RuntimeError(f"no control: role={role!r} name={name!r}; available: {names!r}")
+            same_role = [n["name"] for n in nodes if n["role"] == role and n["name"]]
+            near = difflib.get_close_matches(name, same_role, n=5, cutoff=0.3)
+            raise NoControl(role, name, near or same_role[:10])
         return _ax.mark(self.c, node["backend"])
 
     def click_control(self, role, name, exact=True) -> dict:
@@ -155,10 +165,9 @@ class Pointer:
     def type(self, css, text, clear=False, model=None, secret=False) -> dict:
         """`secret=True` (passwords): the value never appears in the result or in an error."""
         self._guard()
-        if "\n" in text or "\r" in text:
-            field = self.target(css)
-            if not field.get("search"):
-                _safety.require_enter(field.get("name") or css)
+        field = self.target(css)
+        if ("\n" in text or "\r" in text) and not field.get("search"):
+            _safety.require_enter(field.get("name") or css)
         self.click(css)
         if clear:
             ctrl = {"key": "Control", "code": "ControlLeft", "windowsVirtualKeyCode": 17}
@@ -180,7 +189,8 @@ class Pointer:
             if secret:
                 raise RuntimeError(f"input did not stick in {css} (secret field; values withheld)")
             raise RuntimeError(f"input did not stick: expected {text!r}, got {value!r}")
-        return {"value": "<hidden>" if secret else value, "events": len(plan)}
+        return {"value": "<hidden>" if secret else value, "events": len(plan),
+                "search": bool(field.get("search")) and not secret, "field": field.get("name", "")}
 
     def _start(self, info: dict) -> tuple[float, float]:
         if self.pos is not None:

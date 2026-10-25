@@ -13,6 +13,7 @@
   python -m browser_atlas creds | login-sites           # names and recipe readiness, never values
   python -m browser_atlas login <site> [--port N]       # check the session, log in if a recipe allows
   python -m browser_atlas login-check <site> [--port N]
+  python -m browser_atlas proposals [apply N]           # map fixes learned from use; human approves
   python -m browser_atlas mcp                           # MCP server on stdio
   python -m browser_atlas memory stats|recall <GOAL>|shareable
 
@@ -110,6 +111,16 @@ def main(argv: list[str]) -> int:
         from . import _login
         value = sys.stdin.read().strip() if not sys.stdin.isatty() else getpass.getpass(f"{rest[0]}: ")
         print(f"saved: {_login.set_credential(rest[0], value)}")
+        return 0
+    if cmd == "proposals":
+        # map fixes learned from use; applying one is a human decision (it edits the local overlay map)
+        from . import _episodes
+        if len(rest) == 2 and rest[0] == "apply":
+            _dump(_episodes.apply(int(rest[1])))
+            return 0
+        for i, p in enumerate(_episodes.proposals()):
+            what = f"{p['from']!r} -> {p['to']!r}" if p["kind"] == "rename" else repr(p["name"])
+            print(f"[{i}] {p['kind']:6s} {p['site']:18s} {p['role']:9s} {what}  (seen {p['seen']}x, {p['last']})")
         return 0
     if cmd in ("creds", "login-sites"):
         from . import _login

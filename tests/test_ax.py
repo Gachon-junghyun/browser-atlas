@@ -86,7 +86,7 @@ class AXTest(unittest.TestCase):
         with patch.object(p, "type", return_value={}) as typing:
             p.type_control("textbox", "Company", "abc", clear=True)
             self.assertEqual(typing.call_args.args[1], "abc")
-        with self.assertRaisesRegex(RuntimeError, "no control: role=.*available:.*Search"):
+        with self.assertRaisesRegex(RuntimeError, "no control: role=.*nearest:.*Search"):
             p.click_control("button", "Absent")
 
     def test_blocked_before_input(self):
