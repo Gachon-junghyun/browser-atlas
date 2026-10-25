@@ -152,7 +152,8 @@ class Pointer:
     def type_control(self, role, name, text, exact=True, clear=False, model=None) -> dict:
         return self.type(self._control(role, name, exact), text, clear=clear, model=model)
 
-    def type(self, css, text, clear=False, model=None) -> dict:
+    def type(self, css, text, clear=False, model=None, secret=False) -> dict:
+        """`secret=True` (passwords): the value never appears in the result or in an error."""
         self._guard()
         if "\n" in text or "\r" in text:
             field = self.target(css)
@@ -176,8 +177,10 @@ class Pointer:
                             "); return e ? (e.matches('input, textarea') ? e.value : "
                             "e.isContentEditable ? e.innerText : null) : null; })()")
         if not isinstance(value, str) or not value.endswith(text):
+            if secret:
+                raise RuntimeError(f"input did not stick in {css} (secret field; values withheld)")
             raise RuntimeError(f"input did not stick: expected {text!r}, got {value!r}")
-        return {"value": value, "events": len(plan)}
+        return {"value": "<hidden>" if secret else value, "events": len(plan)}
 
     def _start(self, info: dict) -> tuple[float, float]:
         if self.pos is not None:

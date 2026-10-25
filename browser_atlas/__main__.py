@@ -9,6 +9,10 @@
   python -m browser_atlas controls --tab STR [--port N]
   python -m browser_atlas check <site|--all> [--port N]
   python -m browser_atlas allow "<control name>"        # human only: one irreversible action, 10 min
+  python -m browser_atlas set-cred <name>               # human only: store a credential (stdin / hidden prompt)
+  python -m browser_atlas creds | login-sites           # names and recipe readiness, never values
+  python -m browser_atlas login <site> [--port N]       # check the session, log in if a recipe allows
+  python -m browser_atlas login-check <site> [--port N]
   python -m browser_atlas mcp                           # MCP server on stdio
   python -m browser_atlas memory stats|recall <GOAL>|shareable
 
@@ -97,6 +101,36 @@ def main(argv: list[str]) -> int:
         item = _safety.allow(" ".join(rest))
         print(f"allowed once: {item['name']!r} (expires in {_safety.TOKEN_TTL // 60} min)")
         return 0
+    if cmd == "set-cred":
+        # human-only: the value comes from stdin or a hidden prompt, never from argv
+        if not rest:
+            print("usage: set-cred <name>   (value from stdin or a hidden prompt)")
+            return 2
+        import getpass
+        from . import _login
+        value = sys.stdin.read().strip() if not sys.stdin.isatty() else getpass.getpass(f"{rest[0]}: ")
+        print(f"saved: {_login.set_credential(rest[0], value)}")
+        return 0
+    if cmd in ("creds", "login-sites"):
+        from . import _login
+        _dump(_login.list_credentials() if cmd == "creds" else _login.summary())
+        return 0
+    if cmd in ("login", "login-check"):
+        if not rest:
+            print("usage: login|login-check <site> [--port N]")
+            return 2
+        from . import _login
+        _cdp.launch(port)
+        tid = _cdp.new_tab("about:blank", port)["id"]
+        with _cdp.CDP(port, tid) as c:
+            if cmd == "login-check":
+                ok = _login.is_logged_in(c, _login.recipe(rest[0]))
+                print(f"{rest[0]}: {'logged in' if ok else 'not logged in'}")
+                res = {"ok": ok}
+            else:
+                res = _login.ensure_login(c, rest[0])
+                _dump(res)
+        return 0 if res["ok"] else 1
     if cmd == "mcp":
         from . import mcp_server
         sys.stdin.reconfigure(encoding="utf-8")

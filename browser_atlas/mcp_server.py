@@ -99,6 +99,17 @@ TOOLS += [
     {"name": "browser_close",
      "description": "Close a tab this server opened.",
      "inputSchema": {"type": "object", "properties": {"tab": _TAB, "port": _PORT}, "required": ["tab"]}},
+    {"name": "login_sites",
+     "description": "Sites with a login recipe: mode (auto/manual) and whether the stored credentials exist. "
+                    "Never returns credential values.",
+     "inputSchema": {"type": "object", "properties": {}}},
+    {"name": "browser_login",
+     "description": "Make sure the session for a site is logged in, in a new tab. auto sites: logs in from "
+                    "stored credentials without the values ever reaching you. manual sites (Google, Naver...) or "
+                    "any failure: returns needs_human; then stop and ask the human to log in in that Chrome "
+                    "window. Tries once, never retries (retries lock accounts).",
+     "inputSchema": {"type": "object", "properties": {"site": {"type": "string"}, "port": _PORT},
+                     "required": ["site"]}},
 ]
 
 
@@ -165,6 +176,13 @@ def _browser(name: str, args: dict):
                 c.call("Page.navigate", {"url": "about:blank"})
                 raise
         return {"tab": tid, **r}
+    if name == "browser_login":
+        from . import _login
+        _cdp.launch(port)
+        tid = _cdp.new_tab("about:blank", port)["id"]
+        _remember_tab(tid)
+        with _cdp.CDP(port, tid) as c:
+            return {"tab": tid, **_login.ensure_login(c, args["site"])}
     tab = args["tab"]
     if name == "browser_close":
         if tab not in _opened():
@@ -196,6 +214,9 @@ def _browser(name: str, args: dict):
 
 
 def call(name: str, args: dict):
+    if name == "login_sites":
+        from . import _login
+        return _login.summary()
     if name.startswith("browser_"):
         return _browser(name, args)
     if name == "atlas_find":

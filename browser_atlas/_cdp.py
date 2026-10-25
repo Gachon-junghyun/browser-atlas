@@ -53,6 +53,17 @@ def _find_chrome() -> str:
     raise RuntimeError("Chrome not found. Set CHROME_PATH.")
 
 
+def profile_dir(port: int) -> str:
+    """BROWSER_ATLAS_PROFILE, else an existing `%LOCALAPPDATA%\\ChromeDebugProfile<port>` (the layout
+    other CDP tools use, so sessions you already logged into keep working), else our own folder."""
+    if os.environ.get("BROWSER_ATLAS_PROFILE"):
+        return os.environ["BROWSER_ATLAS_PROFILE"]
+    legacy = Path(os.environ.get("LOCALAPPDATA", "")) / f"ChromeDebugProfile{port}"
+    if os.environ.get("LOCALAPPDATA") and legacy.exists():
+        return str(legacy)
+    return str(Path.home() / ".browser_atlas" / f"chrome-profile-{port}")
+
+
 def launch(port: int = DEFAULT_PORT, url: str = "about:blank", profile: str | None = None,
            wait: float = 20) -> dict:
     """Start Chrome with a debug port and its own profile. No-op if the port is already up.
@@ -61,8 +72,7 @@ def launch(port: int = DEFAULT_PORT, url: str = "about:blank", profile: str | No
     log in once by hand in that window and the session stays in that profile.
     Chrome 136+ refuses remote debugging on the default profile, hence the separate one.
     """
-    prof = profile or os.environ.get("BROWSER_ATLAS_PROFILE") or str(
-        Path.home() / ".browser_atlas" / f"chrome-profile-{port}")
+    prof = profile or profile_dir(port)
     if status(port, 1.0)["ok"]:
         return {"ok": True, "port": port, "profile": prof, "launched": False}
     args = [_find_chrome(), f"--remote-debugging-port={port}", "--remote-allow-origins=*",
