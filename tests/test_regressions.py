@@ -113,5 +113,59 @@ class Wave2(unittest.TestCase):
         self.assertIn("did_you_mean", m._site("polly"))
 
 
+class Wave2a(unittest.TestCase):
+    def setUp(self):
+        home = tempfile.mkdtemp()
+        os.environ["BROWSER_ATLAS_HOME"] = home
+        m = {"books": {"label": "Books", "access": "open", "hosts": ["books.example"], "pages": {
+            "search": {"url": "https://books.example/search?q={query}", "controls": [
+                {"role": "searchbox", "name": "통합검색어 입력", "where": "", "act": "search", "does": ""}]}}}}
+        p = os.path.join(home, "m.json")
+        with open(p, "w", encoding="utf-8") as f:
+            json.dump(m, f)
+        os.environ["BROWSER_ATLAS_MAP"] = p
+
+    def tearDown(self):
+        os.environ.pop("BROWSER_ATLAS_MAP", None)
+
+    def episode(self, url):
+        from browser_atlas._pointer import NoControl
+        rec = _episodes.Recorder(recover=False)
+        rec.start("t", url, "search a book")
+        rec.step("t", "browser_type", False, error=NoControl("searchbox", "통합검색어 입력", ["검색어 입력"]),
+                 control=["searchbox", "통합검색어 입력"], url=url)
+        rec.step("t", "browser_type", True, control=["searchbox", "검색어 입력"], result={"search": True}, url=url)
+        rec.step("t", "browser_read", True, result={"untrusted_page_content": "x"})
+        rec.finish("t")
+
+    def test_no_rename_from_another_page(self):
+        self.episode("https://books.example/")                   # the home page, not the mapped search page
+        self.assertFalse([p for p in _episodes.proposals() if p["kind"] == "rename"])
+
+    def test_rename_on_the_mapped_page_only_touches_that_page(self):
+        self.episode("https://books.example/search")
+        renames = [p for p in _episodes.proposals() if p["kind"] == "rename"]
+        self.assertEqual([(r["page"], r["to"]) for r in renames], [("search", "검색어 입력")])
+
+    def test_generic_close_is_not_learned(self):
+        rec = _episodes.Recorder(recover=False)
+        rec.start("t", "https://books.example/", "x")
+        rec.step("t", "browser_click", True, control=["link", "닫기"], result={}, url="https://books.example/")
+        rec.step("t", "browser_read", True, result={"untrusted_page_content": "x"})
+        rec.finish("t")
+        self.assertEqual(_episodes.proposals(), [])
+
+    def test_page_matches(self):
+        from browser_atlas._atlas import page_matches
+        self.assertTrue(page_matches("https://www.books.example/item/{id}", "https://books.example/item/42?x=1"))
+        self.assertFalse(page_matches("https://books.example/item/{id}", "https://books.example/"))
+
+    def test_recall_follows_the_redirect(self):
+        from browser_atlas import mcp_server as m
+        _memory.record("삼성전자 현재가", None, [{"url": "https://stock.naver.example/price"}], "success", 0.9)
+        got = m._recall_for("삼성전자 현재가", ["https://finance.naver.example/item", "https://stock.naver.example/price"])
+        self.assertEqual(len(got), 1)
+
+
 if __name__ == "__main__":
     unittest.main()

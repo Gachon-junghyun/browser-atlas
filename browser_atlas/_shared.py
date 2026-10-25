@@ -75,14 +75,14 @@ def _public_ops() -> list[dict]:
     for p in _episodes.proposals():
         if p.get("shared") or p.get("site") not in public:
             continue
-        if p.get("kind") == "new" and p.get("seen", 1) < 2:     # one sighting may be page content
+        if p.get("seen", 1) < 2:                # one sighting may be page content or the wrong page
             continue
         if public[p["site"]].get("access") not in ("open", "api"):
             continue
-        op = {k: p.get(k) for k in ("id", "kind", "site", "role", "name", "from", "to", "url", "seen")}
+        op = {k: p.get(k) for k in ("id", "kind", "site", "page", "role", "name", "from", "to", "url", "seen")}
         if p["kind"] == "new" and op.get("url"):
             op["url"] = _atlas._bare(op["url"])
-        texts = [str(op.get(k) or "") for k in ("role", "name", "from", "to", "url")]
+        texts = [str(op.get(k) or "") for k in ("role", "name", "from", "to", "url", "page")]
         if any(not _FIELD.match(t) for t in texts) or _memory._has_pii(" ".join(texts)):
             continue
         out.append(op)
@@ -124,7 +124,7 @@ def sync(limit: int = 5000) -> dict:
     rows = _req("GET", f"/rest/v1/experience?select=*&order=created_at.desc&limit={int(limit)}") or []
     fixes = _req("GET", f"/rest/v1/map_fixes?select=*&order=created_at.desc&limit={int(limit)}") or []
     new = _memory.add_community(rows)
-    keep = [{k: f.get(k) for k in ("kind", "site", "role", "name", "from", "to", "url")} for f in fixes
+    keep = [{k: f.get(k) for k in ("kind", "site", "page", "role", "name", "from", "to", "url")} for f in fixes
             if f.get("kind") in ("rename", "new")]
     path = _atlas.community_path()
     path.parent.mkdir(parents=True, exist_ok=True)

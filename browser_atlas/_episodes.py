@@ -31,6 +31,8 @@ from . import _atlas, _memory
 from ._mouse import home
 
 IDLE_SECONDS = 900
+GENERIC_NAMES = {"닫기", "close", "x", "×", "확인", "취소", "ok", "cancel", "닫기 버튼", "팝업 닫기",
+                 "오늘 하루 보지 않기", "다시 보지 않기", "오늘 그만 보기", "dismiss", "got it", "no thanks"}
 _CAPTCHA = re.compile(r"captcha|recaptcha|hcaptcha|turnstile|보안\s*확인|자동입력\s*방지|unusual traffic|"
                       r"rate limit|too many requests|비정상(적인)?\s*접근|\b429\b", re.I)
 BASE_QUALITY = {"success": 0.8, "partial": 0.5, "fail": 0.1, "blocked": 0.0}
@@ -220,12 +222,20 @@ class Recorder:
         site = ep["site"]
         if not site:
             return
+        pages = _atlas.load().get(site, {}).get("pages") or {}
         for miss in ep["missing"]:
-            if miss["role"] == role and name in miss["nearest"] and miss["name"] != name:
-                propose({"kind": "rename", "site": site, "role": role, "from": miss["name"], "to": name,
-                         "url": miss["url"]})
-        controls = [c for pg in (_atlas.load().get(site, {}).get("pages") or {}).values()
-                    for c in pg.get("controls", [])]
+            if miss["role"] != role or name not in miss["nearest"] or miss["name"] == name:
+                continue
+            # A rename only counts on the page the map describes: the same name missing from another
+            # page means the agent was elsewhere, not that the site changed (observed: a home page
+            # "renamed" the results page's search box and the wrong fix was queued for sharing).
+            key = next((k for k, pg in pages.items() if _atlas.page_matches(pg.get("url", ""), miss["url"])
+                        and any(c.get("role") == role and c.get("name") == miss["name"]
+                                for c in pg.get("controls", []))), None)
+            if key:
+                propose({"kind": "rename", "site": site, "page": key, "role": role, "from": miss["name"],
+                         "to": name, "url": miss["url"]})
+        controls = [c for pg in pages.values() for c in pg.get("controls", [])]
         if (role, name) in {(c.get("role"), c.get("name")) for c in controls}:
             return
         # Content is not a control: a search result titled "Tree" or "카카오톡 KakaoTalk" is a row of the
@@ -234,6 +244,8 @@ class Recorder:
         if any(c.get("dynamic") and c.get("role") == role for c in controls):
             return
         if same >= 3 or (role == "link" and len(name) > 30) or re.search(r"\d{2,}", name):
+            return
+        if name.strip().casefold() in GENERIC_NAMES:      # every popup has one; it says nothing about the site
             return
         propose({"kind": "new", "site": site, "role": role, "name": name, "url": _bare(url)})
 

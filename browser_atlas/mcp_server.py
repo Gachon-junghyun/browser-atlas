@@ -95,7 +95,11 @@ TOOLS += [
      "inputSchema": {"type": "object", "properties": {"tab": _TAB, "url": {"type": "string"},
                                                       "until": {"type": "string"}}, "required": ["tab", "url"]}},
     {"name": "browser_back",
-     "description": "Go back one page in the tab's history.",
+     "description": "Go back one page in the tab's history. moved=false means there was nowhere to go back to.",
+     "inputSchema": {"type": "object", "properties": {"tab": _TAB}, "required": ["tab"]}},
+    {"name": "browser_dismiss",
+     "description": "Close popups and overlays covering the page (presses visible 닫기/close/× and "
+                    "'do not show today' controls, one after another). Use it when a click reports 'covered'.",
      "inputSchema": {"type": "object", "properties": {"tab": _TAB}, "required": ["tab"]}},
     {"name": "browser_read",
      "description": "Read a tab: 'controls' (role and name of named interactive elements, page order), 'text' or "
@@ -123,7 +127,8 @@ TOOLS += [
      "inputSchema": {"type": "object", "properties": {"tab": _TAB}, "required": ["tab"]}},
     {"name": "browser_close",
      "description": "Close a tab this server opened and get the episode verdict. result= tells whether you got "
-                    "what you came for (success / partial / fail); it overrides the automatic verdict.",
+                    "what you came for (success / partial / fail); it overrides the automatic verdict. A tab "
+                    "opened and closed with nothing done in it is not recorded (episode null) unless you give result.",
      "inputSchema": {"type": "object", "properties": {"tab": _TAB, "result": {"type": "string",
                      "enum": ["success", "partial", "fail"]}}, "required": ["tab"]}},
     {"name": "browser_close_mine",
@@ -308,6 +313,33 @@ def _read(c, args: dict) -> dict:
     return {"url": c.eval("location.href"), "untrusted_page_content": data, "truncated": truncated}
 
 
+_CLOSERS = ("닫기", "close", "×", "x", "오늘 하루 보지 않기", "오늘 그만 보기", "다시 보지 않기",
+            "닫기 버튼", "팝업 닫기", "no thanks", "dismiss", "got it")
+
+
+def _dismiss(c, limit: int = 8) -> dict:
+    """Close popups that cover the page: press visible close-like controls until none are left.
+    Uses the normal pointer, so safety rules still apply (an 'agree and continue' is not pressed)."""
+    from ._pointer import Pointer
+    p = Pointer(c)
+    pressed = []
+    for _ in range(limit):
+        nodes = [n for n in _ax.snapshot(c) if n["role"] in ("button", "link")
+                 and n["name"].strip().casefold() in _CLOSERS]
+        done = False
+        for n in nodes:
+            try:
+                p.click(_ax.mark(c, n["backend"]))
+                pressed.append(n["name"])
+                done = True
+                break
+            except RuntimeError:                      # hidden or covered: try the next one
+                continue
+        if not done:
+            break
+    return {"pressed": pressed, "left": len(pressed) == limit}
+
+
 def _browser(name: str, args: dict):
     from ._pointer import Pointer
     port = _port(args)
@@ -369,7 +401,10 @@ def _browser(name: str, args: dict):
         if name == "browser_back":
             before = c.eval("location.href")
             c.eval("history.back()")
-            return {"url": _settle(c, before)}
+            after = _settle(c, before)
+            return {"url": after, "moved": after != before}
+        if name == "browser_dismiss":
+            return _dismiss(c)
         p = Pointer(c)
         which = (args.get("role"), args.get("name"))
         idx = args.get("index")
@@ -428,15 +463,45 @@ def _compact(p: dict) -> dict:
     return out
 
 
+def _recall_for(query: str, urls: list[str]) -> list[dict]:
+    """Past routes for every site or host among the requested and the final URL (old addresses
+    redirect: finance.naver.com lands on stock.naver.com), merged, best first."""
+    seen, out = set(), []
+    for u in urls:
+        hit = _atlas.site_for(u)
+        host = (urlparse(u).hostname or "").removeprefix("www.")
+        if not (hit or host):
+            continue
+        for p in _memory.recall(query, k=3, explore=1, shared=True,
+                                site=hit[0] if hit else None, host=None if hit else host):
+            key = json.dumps(p["route"], ensure_ascii=False)
+            if key not in seen:
+                seen.add(key)
+                out.append(p)
+    return sorted(out, key=lambda p: (p.get("why") != "best", -p.get("quality", 0)))[:4]
+
+
+def _map_hint(role: str, name: str, url: str) -> str:
+    """Where the map expects a control, when it is missing from the page the agent is on."""
+    hit = _atlas.site_for(url)
+    if not hit:
+        return ""
+    for key, pg in (hit[1].get("pages") or {}).items():
+        if any(c.get("role") == role and c.get("name") == name for c in pg.get("controls", [])):
+            here = _atlas.page_matches(pg.get("url", ""), url)
+            return (f" The map lists it on page '{key}' ({pg.get('url')})"
+                    + ("." if here else "; you are on a different page."))
+    return ""
+
+
 def _tracked(name: str, args: dict):
     REC.sweep()
     if name == "browser_open":
         hit = _atlas.site_for(args["url"])
         site = hit[0] if hit else None
         query = args.get("goal") or (hit[1].get("label", "") if hit else "") or (urlparse(args["url"]).hostname or "")
-        host = (urlparse(args["url"]).hostname or "").removeprefix("www.")
-        past = _memory.recall(query, k=3, explore=1, site=site, shared=True, host=None if site else host)
         r = _browser(name, args)
+        past = _recall_for(query, [args["url"], r.get("url") or ""])
         REC.start(r["tab"], r.get("url") or args["url"], args.get("goal"))
         REC.step(r["tab"], name, True, url=r.get("url", ""))
         if _episodes.looks_blocked(r.get("title", "")):
@@ -474,6 +539,10 @@ def _tracked(name: str, args: dict):
         if tab:
             REC.step(tab, name, False, error=e, control=control, css=args.get("css"),
                      url=REC.current_url(tab))
+        if type(e).__name__ == "NoControl" and control:
+            hint = _map_hint(control[0], control[1], REC.current_url(tab) if tab else "")
+            if hint:
+                raise RuntimeError(f"{e}.{hint}") from e
         raise
     if tab:
         REC.step(tab, name, True, control=control, css=args.get("css"), result=r,

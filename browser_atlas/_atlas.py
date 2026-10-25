@@ -65,6 +65,17 @@ def _bare(url: str) -> str:
     return f"{u.scheme}://{u.netloc}{u.path}"
 
 
+def page_matches(template: str, url: str) -> bool:
+    """Is `url` the page a map entry describes? Same host, same path, `{placeholders}` match one segment."""
+    import re
+    t, u = urlparse(template or ""), urlparse(url or "")
+    th, uh = (t.hostname or "").removeprefix("www."), (u.hostname or "").removeprefix("www.")
+    if not th or th != uh:
+        return False
+    pat = re.sub(r"\\\{[^}]*\\\}", "[^/]+", re.escape(t.path.rstrip("/")))
+    return re.fullmatch(pat, u.path.rstrip("/")) is not None
+
+
 def apply_ops(sites: dict, ops: list) -> dict:
     """Apply map fixes: {"kind": "rename", site, role, from, to} or {"kind": "new", site, role, name, url}."""
     for op in ops if isinstance(ops, list) else []:
@@ -73,7 +84,9 @@ def apply_ops(sites: dict, ops: list) -> dict:
             continue
         pages = e.setdefault("pages", {})
         if op["kind"] == "rename":
-            for pg in pages.values():
+            for key, pg in pages.items():
+                if op.get("page") and key != op["page"]:
+                    continue                            # a rename belongs to one page
                 for c in pg.get("controls", []):
                     if c.get("role") == op.get("role") and c.get("name") == op.get("from"):
                         c["name"], c["learned"] = op.get("to", c["name"]), True

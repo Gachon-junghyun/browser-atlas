@@ -462,7 +462,7 @@
     ],
     "traps": [
      "결과 목록은 최상위 DOM 이 아니라 iframe#searchIframe(pcmap.place.naver.com/place/list) 안이다. 그 src 로 직접 열면 같은 목록이 최상위로 나온다.",
-     "목록 연속 조회·상세 자동 열기에 캡차가 뜬 기록이 있다(module_browser/SITES.md). 이번엔 지도 1회+목록 1회로 조용했다.",
+     "목록 연속 조회·상세 자동 열기에 캡차가 뜬 기록이 있다(earlier field notes, docs/LESSONS.md). 이번엔 지도 1회+목록 1회로 조용했다.",
      "목록 중간에 광고 단추(호텔 상품권 등)가 섞인다."
     ]
    },
@@ -4857,5 +4857,90 @@
   },
   "verified": "2026-10-26",
   "source": "observed 2026-10-26 by a browsing agent; act inferred"
+ },
+ "naver_finance": {
+  "label": "네이버페이 증권",
+  "access": "open",
+  "hosts": [
+   "finance.naver.com",
+   "stock.naver.com",
+   "m.stock.naver.com"
+  ],
+  "go": {
+   "종목": "https://finance.naver.com/item/main.naver?code={티커6자리}",
+   "일별시세": "https://finance.naver.com/item/sise_day.naver?code={티커6자리}",
+   "시장_투자자별_일별": "https://stock.naver.com/api/domestic/market/trend/daily?tradeType=KRX&marketType=KOSPI&bizdate={YYYYMMDD}&startIdx=0&pageSize=130",
+   "외국인기관_종목순위": "https://stock.naver.com/api/domestic/market/trend/trendForeignOrg?investorType=FOREIGNER&tradeType=KRX&marketType=KOSPI&startIdx=0&pageSize=30&periodType=WEEK",
+   "종목_투자자별": "https://m.stock.naver.com/api/stock/{티커6자리}/trend?pageSize=60&bizdate={YYYYMMDD}",
+   "종목_요약(integration)": "https://m.stock.naver.com/api/stock/{티커6자리}/integration",
+   "거래대금_시총_순위": "https://stock.naver.com/api/domestic/market/stock/default?tradeType=KRX&marketType=KOSPI&orderType=priceTop&startIdx=0&pageSize=30",
+   "ETF목록(EUC-KR)": "https://finance.naver.com/api/sise/etfItemList.nhn"
+  },
+  "has": [
+   "국내주식 시세",
+   "일별 OHLCV",
+   "종목 뉴스",
+   "재무 요약",
+   "시장 투자자별 일별 순매수(투자자 코드 12개) · 외국인/기관 종목 순위 · 종목 투자자별 · 거래대금/시총 순위 · ETF 목록 — 2026-10-01 새 API(go)"
+  ],
+  "prefer": "api.finance.naver.com/siseJson.naver?symbol={티커}&requestType=1&startTime=YYYYMMDD&endTime=YYYYMMDD&timeframe=day — 키·로그인 불필요. 수급(투자자별·순위)은 go 의 stock.naver.com/api · m.stock.naver.com/api 새 API(2026-10-01). 🔴 siseJson·/api/stock/{code}/price·basic.closePrice 의 «종가»는 NXT 애프터마켓 포함 통합 마지막가다 — KRX 정규장 종가가 필요하면 yfinance .KS 나 integration.lastClosePrice(전일)로 대조해라",
+  "source": "entry URLs from a personal site map (2026-08~10); no button map yet"
+ },
+ "dart": {
+  "label": "DART 전자공시",
+  "access": "open",
+  "hosts": [
+   "dart.fss.or.kr",
+   "opendart.fss.or.kr"
+  ],
+  "go": {
+   "공시검색": "https://dart.fss.or.kr/dsab007/main.do",
+   "당일공시": "https://dart.fss.or.kr/dsac001/mainAll.do",
+   "기업개황": "https://dart.fss.or.kr/dsae001/main.do"
+  },
+  "has": [
+   "기업 공시 원문",
+   "사업보고서",
+   "재무제표",
+   "지분공시",
+   "주요사항보고"
+  ],
+  "prefer": "OpenDART API — https://opendart.fss.or.kr/api/list.json?crtfc_key=$DART_API_KEY (무료, 2만회/일). 🔴 공시 «원문 전문»은 .../api/document.xml?crtfc_key=…&rcept_no={rcpNo} — ZIP(안에 XML). 인코딩 utf-8/euc-kr 둘 다 시도 + 앞머리 xforms CSS 잘라내기. 프레임셋·iframe 우회 불필요. SITES.md ⑨ 참조",
+  "source": "entry URLs from a personal site map (2026-08~10); no button map yet"
+ },
+ "krx_press": {
+  "label": "KRX 보도자료",
+  "access": "open",
+  "hosts": [
+   "open.krx.co.kr"
+  ],
+  "go": {
+   "목록": "https://open.krx.co.kr/contents/OPN/05/05000000/OPN05000000.jsp"
+  },
+  "has": [
+   "거래소 제도 개편 보도자료 원문(hwp/pdf)",
+   "시장 운영 공지"
+  ],
+  "source": "entry URLs from a personal site map (2026-08~10); no button map yet"
+ },
+ "law_go_kr_article": {
+  "label": "국가법령정보센터 — 법 조문 한 개를 원문으로 (주소로 바로)",
+  "access": "open",
+  "hosts": [
+   "law.go.kr"
+  ],
+  "go": {
+   "조문": "https://www.law.go.kr/법령/{법이름}/{제N조}",
+   "DRF_eflaw_검색(MST찾기)": "https://www.law.go.kr/DRF/lawSearch.do?OC=test&target=eflaw&query={법령명}&type=XML",
+   "DRF_eflaw_본문": "https://www.law.go.kr/DRF/lawService.do?OC=test&target=eflaw&MST={MST}&type=XML"
+  },
+  "has": [
+   "조문 주소: www.law.go.kr/법령/<법 이름 띄어쓰기 없이>/제N조 — 예: /법령/상표법/제224조 (2026-09-28 실측)",
+   "🔴 본문은 iframe 안이다 — document.body 가 아니라 document.querySelector('iframe').contentDocument.body.innerText 로 읽는다(같은 출처라 읽힌다)",
+   "읽기 전 2초쯤 기다려야 iframe 이 찬다(until 로 readyState 만 보면 비어 있을 수 있다)",
+   "⚠️ fast run 에 넣을 steps.json 을 파이썬으로 만들면 PYTHONIOENCODING=utf-8 을 줘라 — 안 주면 cp949 로 써져 한글 URL 이 깨지고 UnicodeDecodeError",
+   "🔴 (2026-10-01) DRF API 로 법 «이름»으로 받은 현행본(lawService.do 의 target=law&LM=<법령명>)이 최신 개정을 빠뜨렸다 — 상법 법률 제21448호·조특법 제91조의26 이 없었다. lawSearch.do?target=eflaw 로 MST 를 찾아 lawService.do?target=eflaw&MST= 로 받아야 나왔다(SITES.md §국가법령정보센터 DRF)"
+  ],
+  "source": "entry URLs from a personal site map (2026-08~10); no button map yet"
  }
 }

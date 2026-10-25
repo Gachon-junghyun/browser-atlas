@@ -28,6 +28,7 @@ create table if not exists map_fixes (
   id         text primary key check (id ~ '^[0-9a-f]{32}$'),
   kind       text not null check (kind in ('rename', 'new')),
   site       text not null check (site ~ '^[a-z0-9_]{1,64}$'),
+  page       text check (char_length(page) <= 64),
   role       text not null check (role in ('button', 'link', 'textbox', 'searchbox', 'combobox', 'checkbox',
                                            'radio', 'tab', 'menuitem', 'option', 'switch', 'slider',
                                            'spinbutton', 'listbox')),
