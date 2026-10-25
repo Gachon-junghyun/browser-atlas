@@ -74,12 +74,11 @@ class EpisodeTest(unittest.TestCase):
             {"tool": "browser_read", "ok": True, "result": {"untrusted_page_content": "x"}}])
         kinds = {(p["kind"], p.get("from"), p.get("to"), p.get("name")) for p in _episodes.proposals()}
         self.assertIn(("rename", "Search", "Search now", None), kinds)
-        idx = [i for i, p in enumerate(_episodes.proposals()) if p["kind"] == "rename"][0]
-        _episodes.apply(idx)
-        with open(os.path.join(self.home, "sites.local.json"), encoding="utf-8") as f:
-            overlay = json.load(f)
-        names = [c["name"] for c in overlay["shop"]["pages"]["search"]["controls"]]
-        self.assertIn("Search now", names)
+        from browser_atlas import _atlas
+        names = [c["name"] for c in _atlas.load()["shop"]["pages"]["search"]["controls"]]
+        self.assertEqual(names, ["Search now"])                     # applied at once, no approval step
+        base = [c["name"] for c in _atlas.load_base()["shop"]["pages"]["search"]["controls"]]
+        self.assertEqual(base, ["Search"])                          # the repository map is untouched
 
     def test_killed_server_episode_is_recovered(self):
         rec = _episodes.Recorder(recover=False)

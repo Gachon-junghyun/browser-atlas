@@ -10,10 +10,10 @@ does not have to call anything:
   `blocked`; never reading any content is `fail`; ending on an error is `partial`; otherwise
   `success`. Errors and wasted steps lower the quality. A human or the agent can re-grade later.
 - **recall**: `browser_open` returns the best past routes for that site and goal.
-- **repair proposals**: a mapped control that is missing, and then succeeds under another name of
-  the same role, becomes a rename proposal; a control that worked but is not in the map becomes a
-  new-control proposal. Proposals wait for a human (`python -m browser_atlas proposals apply N`),
-  because the map steers every agent that reads it.
+- **map repair**: a mapped control that is missing, and then succeeds under another name of the
+  same role, becomes a rename; a control that worked but is not in the map becomes a new control.
+  Both go into the personal layer `sites.learned.json` and apply on the next call. They reach the
+  shared database only when the human asks for it (`_shared.upload`).
 
 Only search-field input is kept as keywords, never what was typed into other fields.
 """
@@ -22,6 +22,7 @@ from __future__ import annotations
 import json
 import re
 import time
+import uuid
 from urllib.parse import urlparse, urlunparse
 
 from . import _atlas, _memory
@@ -176,19 +177,17 @@ class Recorder:
             propose({"kind": "new", "site": site, "role": role, "name": name, "url": _bare(url)})
 
 
-# ── proposals (human-approved map changes) ──────────────────────────
-def _prop_path():
-    return home() / "map_proposals.json"
-
-
+# ── learned map fixes (personal layer, applied at once) ─────────────
 def proposals() -> list[dict]:
+    """Every map fix this machine learned, with how often it was seen and whether it was shared."""
     try:
-        return json.loads(_prop_path().read_text(encoding="utf-8"))
+        return json.loads(_atlas.learned_path().read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return []
 
 
 def propose(p: dict) -> None:
+    """Record a fix in the personal layer; `_atlas.load()` applies it from the next call on."""
     items = proposals()
     key = json.dumps({k: p[k] for k in sorted(p) if k != "url"}, ensure_ascii=False)
     for it in items:
@@ -197,34 +196,8 @@ def propose(p: dict) -> None:
             it["last"] = time.strftime("%Y-%m-%d")
             break
     else:
-        items.append({**p, "key": key, "seen": 1, "last": time.strftime("%Y-%m-%d")})
-    _prop_path().parent.mkdir(parents=True, exist_ok=True)
-    _prop_path().write_text(json.dumps(items, ensure_ascii=False, indent=1), encoding="utf-8")
-
-
-def apply(index: int) -> dict:
-    """Human-side: write proposal `index` into the local overlay map, and drop it from the queue."""
-    items = proposals()
-    p = items.pop(index)
-    path = _atlas.overlay_path()
-    overlay = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
-    base = _atlas.load()
-    entry = overlay.setdefault(p["site"], {})
-    pages = entry.setdefault("pages", json.loads(json.dumps(base.get(p["site"], {}).get("pages") or {})))
-    if p["kind"] == "rename":
-        for pg in pages.values():
-            for c in pg.get("controls", []):
-                if c.get("role") == p["role"] and c.get("name") == p["from"]:
-                    c["name"] = p["to"]
-                    c["verified"] = time.strftime("%Y-%m-%d")
-    else:
-        key = next((k for k, pg in pages.items() if _bare(pg.get("url", "")) == p["url"]), None)
-        if key is None:
-            key = "auto:" + (urlparse(p["url"]).path or "/")
-            pages[key] = {"url": p["url"], "controls": []}
-        pages[key]["controls"].append({"role": p["role"], "name": p["name"], "where": "", "act": "",
-                                       "does": "", "verified": time.strftime("%Y-%m-%d"), "learned": True})
+        items.append({**p, "id": uuid.uuid4().hex, "key": key, "seen": 1, "shared": False,
+                      "last": time.strftime("%Y-%m-%d")})
+    path = _atlas.learned_path()
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(overlay, ensure_ascii=False, indent=1), encoding="utf-8")
-    _prop_path().write_text(json.dumps(items, ensure_ascii=False, indent=1), encoding="utf-8")
-    return p
+    path.write_text(json.dumps(items, ensure_ascii=False, indent=1), encoding="utf-8")

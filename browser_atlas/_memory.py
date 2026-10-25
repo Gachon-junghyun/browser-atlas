@@ -67,6 +67,9 @@ def connect(path: Path | str | None = None) -> sqlite3.Connection:
     con = sqlite3.connect(str(path or db_path()))
     con.row_factory = sqlite3.Row
     con.executescript(_SCHEMA)
+    cols = {r["name"] for r in con.execute("pragma table_info(experience)")}
+    if "shared_at" not in cols:                       # added after the first release
+        con.execute("alter table experience add column shared_at real")
     return con
 
 
@@ -121,7 +124,8 @@ def record(goal: str, site: str | None, route: list, outcome: str, quality: floa
         raise ValueError(f"quality_source must be one of {sorted(SOURCE_WEIGHT)}")
     con = con or connect()
     rid = uuid.uuid4().hex
-    con.execute("insert into experience values (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+    con.execute("insert into experience (id, created, owner, goal, keywords, site, route, route_key, outcome,"
+                " quality, quality_source, seconds, notes) values (?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (rid, time.time(), owner, goal, json.dumps(keywords(goal), ensure_ascii=False), site,
                  json.dumps(route, ensure_ascii=False), _route_key(site, route), outcome,
                  quality, quality_source if quality is not None else None, seconds, notes))
@@ -182,10 +186,13 @@ def recall(goal: str, k: int = 5, explore: int = 1, shared: bool = False, site: 
         score = sim * a["quality"] * (0.5 + 0.5 * recency)
         bonus = sim * math.sqrt(2 * math.log(total_n + 1) / a["n"])       # UCB-style curiosity
         cur = best.get(r["route_key"])
+        sources = (cur["sources"] if cur else set()) | {"mine" if r["owner"] == owner else "shared"}
         if cur is None or sim > cur["similarity"]:
             best[r["route_key"]] = {"row": r, "similarity": round(sim, 3), "score": score,
                                     "curiosity": bonus, "quality": round(a["quality"], 3),
-                                    "attempts": a["n"]}
+                                    "attempts": a["n"], "sources": sources}
+        else:
+            cur["sources"] = sources
 
     ranked = sorted(best.values(), key=lambda c: -c["score"])
     picks, used_sites = [], {}
@@ -216,7 +223,8 @@ def _public(p: dict, owner: str) -> dict | None:
     out = {"id": r["id"], "goal": r["goal"] if mine else None, "site": r["site"], "route": route,
            "outcome": r["outcome"], "quality": p["quality"], "attempts": p["attempts"],
            "similarity": p["similarity"], "why": p["why"],
-           "age_days": round((time.time() - r["created"]) / 86400, 1), "mine": mine}
+           "age_days": round((time.time() - r["created"]) / 86400, 1), "mine": mine,
+           "sources": sorted(p.get("sources") or ({"mine"} if mine else {"shared"}))}
     if mine:
         out["notes"] = r["notes"]
     return out
@@ -281,18 +289,23 @@ def _vocabulary(sites: dict) -> set[str]:
     return words
 
 
-def shareable(owner: str = "me", con: sqlite3.Connection | None = None) -> list[dict]:
-    """Rows of `owner` reduced to what may be shared; rows that cannot be made safe are skipped."""
+def shareable(owner: str = "me", con: sqlite3.Connection | None = None, unshared_only: bool = False) -> list[dict]:
+    """Rows of `owner` reduced to what may be shared; rows that cannot be made safe are skipped.
+
+    Only sites in the repository map count as public: a site you added to your own overlay is
+    private even if you marked it `open` there.
+    """
     from urllib.parse import urlparse, urlunparse
     from . import _atlas
     con = con or connect()
-    sites = _atlas.load()
-    vocab = _vocabulary(sites)
+    public = _atlas.load_base()
+    vocab = _vocabulary(public)
     out = []
-    for r in con.execute("select * from experience where owner = ?", (owner,)).fetchall():
-        e = sites.get(r["site"] or "")
+    sql = "select * from experience where owner = ?" + (" and shared_at is null" if unshared_only else "")
+    for r in con.execute(sql, (owner,)).fetchall():
+        e = public.get(r["site"] or "")
         if not e or e.get("access") not in ("open", "api"):
-            continue                                   # logged-in sites are personal by nature
+            continue                                   # logged-in and private sites are personal by nature
         route = _sanitize(r["site"], json.loads(r["route"]))
         if route is None:
             continue
@@ -301,13 +314,51 @@ def shareable(owner: str = "me", con: sqlite3.Connection | None = None) -> list[
                 u = urlparse(step["url"])
                 step["url"] = urlunparse((u.scheme, u.netloc, u.path, "", "", ""))
         kws = [w for w in json.loads(r["keywords"]) if w in vocab]
-        row = {"site": r["site"], "keywords": kws, "route": route, "outcome": r["outcome"],
+        row = {"id": r["id"], "site": r["site"], "keywords": kws, "route": route, "outcome": r["outcome"],
                "quality": r["quality"], "quality_source": r["quality_source"],
                "seconds": r["seconds"], "day": time.strftime("%Y-%m-%d", time.gmtime(r["created"]))}
         if _has_pii(json.dumps([route, kws], ensure_ascii=False)):   # the free-form parts only
             continue
         out.append(row)
     return out
+
+
+def mark_shared(ids: list[str], con: sqlite3.Connection | None = None) -> None:
+    con = con or connect()
+    con.executemany("update experience set shared_at = ? where id = ?", [(time.time(), i) for i in ids])
+    con.commit()
+
+
+def add_community(rows: list[dict], con: sqlite3.Connection | None = None) -> int:
+    """Store rows downloaded from the shared database (owner 'community'); returns how many were new.
+
+    Shared rows carry no goal text, so their keywords stand in for it. `recall(shared=True)` still
+    passes them through `_sanitize`, so only routes the atlas vouches for reach an agent.
+    """
+    con = con or connect()
+    n = 0
+    for r in rows:
+        if con.execute("select 1 from experience where id = ?", (r["id"],)).fetchone():
+            continue
+        if r.get("outcome") not in OUTCOMES:
+            continue
+        kws = [str(k)[:40] for k in (r.get("keywords") or [])][:40]
+        route = r.get("route") if isinstance(r.get("route"), list) else []
+        try:
+            created = time.mktime(time.strptime(str(r.get("day")), "%Y-%m-%d"))
+        except ValueError:
+            created = time.time()
+        q = r.get("quality")
+        q = min(1.0, max(0.0, float(q))) if isinstance(q, (int, float)) else None
+        src = r.get("quality_source") if r.get("quality_source") in SOURCE_WEIGHT else "self"
+        con.execute("insert into experience (id, created, owner, goal, keywords, site, route, route_key, outcome,"
+                    " quality, quality_source, seconds, notes, shared_at) values (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    (r["id"], created, "community", " ".join(kws), json.dumps(kws, ensure_ascii=False), r.get("site"),
+                     json.dumps(route, ensure_ascii=False), _route_key(r.get("site"), route), r["outcome"],
+                     q, src if q is not None else None, r.get("seconds"), "", time.time()))
+        n += 1
+    con.commit()
+    return n
 
 
 def stats(con: sqlite3.Connection | None = None) -> dict:

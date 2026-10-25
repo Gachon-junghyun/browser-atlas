@@ -14,21 +14,78 @@ def map_path(path=None) -> Path:
     return Path(path or os.environ.get("BROWSER_ATLAS_MAP") or DEFAULT_MAP)
 
 
+def _home_file(name: str) -> Path:
+    from ._mouse import home
+    return home() / name
+
+
 def overlay_path() -> Path:
     """Your own additions (private sites, login recipes): never part of the shared map."""
-    from ._mouse import home
-    return home() / "sites.local.json"
+    return _home_file("sites.local.json")
+
+
+def learned_path() -> Path:
+    """Map fixes this machine learned from use (renamed and new controls), applied automatically."""
+    return _home_file("sites.learned.json")
+
+
+def community_path() -> Path:
+    """Map fixes downloaded from the shared database."""
+    return _home_file("sites.community.json")
+
+
+def _read(p: Path, default):
+    try:
+        return json.loads(p.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return default
+
+
+def load_base(path=None) -> dict:
+    """The reviewed map from the repository only, without any local layer."""
+    raw = json.loads(map_path(path).read_text(encoding="utf-8"))
+    return {k: v for k, v in raw.items() if not k.startswith("_")}
 
 
 def load(path=None) -> dict:
-    raw = json.loads(map_path(path).read_text(encoding="utf-8"))
-    sites = {k: v for k, v in raw.items() if not k.startswith("_")}
-    local = overlay_path()
-    if path is None and local.exists():
-        for k, v in json.loads(local.read_text(encoding="utf-8")).items():
-            if k.startswith("_") or not isinstance(v, dict):
-                continue
+    """Layers, later wins: repository map, your overlay, community fixes, your learned fixes."""
+    sites = json.loads(json.dumps(load_base(path)))
+    if path is not None:
+        return sites
+    for k, v in _read(overlay_path(), {}).items():
+        if not k.startswith("_") and isinstance(v, dict):
             sites[k] = {**sites.get(k, {}), **v}
+    apply_ops(sites, _read(community_path(), []))
+    apply_ops(sites, _read(learned_path(), []))
+    return sites
+
+
+def _bare(url: str) -> str:
+    u = urlparse(url or "")
+    return f"{u.scheme}://{u.netloc}{u.path}"
+
+
+def apply_ops(sites: dict, ops: list) -> dict:
+    """Apply map fixes: {"kind": "rename", site, role, from, to} or {"kind": "new", site, role, name, url}."""
+    for op in ops if isinstance(ops, list) else []:
+        e = sites.get(op.get("site", ""))
+        if not isinstance(e, dict) or op.get("kind") not in ("rename", "new"):
+            continue
+        pages = e.setdefault("pages", {})
+        if op["kind"] == "rename":
+            for pg in pages.values():
+                for c in pg.get("controls", []):
+                    if c.get("role") == op.get("role") and c.get("name") == op.get("from"):
+                        c["name"], c["learned"] = op.get("to", c["name"]), True
+            continue
+        key = next((k for k, pg in pages.items() if _bare(pg.get("url", "")) == _bare(op.get("url", ""))), None)
+        if key is None:
+            key = "auto:" + (urlparse(op.get("url", "")).path or "/")
+            pages[key] = {"url": op.get("url", ""), "controls": []}
+        ctrls = pages[key].setdefault("controls", [])
+        if not any(c.get("role") == op.get("role") and c.get("name") == op.get("name") for c in ctrls):
+            ctrls.append({"role": op.get("role"), "name": op.get("name"), "where": "", "act": "", "does": "",
+                          "learned": True})
     return sites
 
 

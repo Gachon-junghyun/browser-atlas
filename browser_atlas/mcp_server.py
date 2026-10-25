@@ -104,8 +104,21 @@ TOOLS += [
     {"name": "browser_close",
      "description": "Close a tab this server opened.",
      "inputSchema": {"type": "object", "properties": {"tab": _TAB, "port": _PORT}, "required": ["tab"]}},
-    {"name": "map_proposals",
-     "description": "Button-map fixes learned from use (renamed or new controls), waiting for a human to approve.",
+    {"name": "map_learned",
+     "description": "Button-map fixes this machine learned from use (renamed or new controls). Already applied "
+                    "locally; 'shared' says whether they went to the shared database.",
+     "inputSchema": {"type": "object", "properties": {}}},
+    {"name": "share_preview",
+     "description": "What would be uploaded to the shared database: sanitized experience rows and map fixes for "
+                    "public sites, not yet shared. Nothing is sent. Show this to the human before share_upload.",
+     "inputSchema": {"type": "object", "properties": {}}},
+    {"name": "share_upload",
+     "description": "Upload the share_preview content to the shared database. ONLY when the human has explicitly "
+                    "asked in this conversation to upload or share; never on your own initiative.",
+     "inputSchema": {"type": "object", "properties": {}}},
+    {"name": "share_sync",
+     "description": "Download the shared database (community experience and map fixes) now. It also runs "
+                    "automatically once a day.",
      "inputSchema": {"type": "object", "properties": {}}},
     {"name": "login_sites",
      "description": "Sites with a login recipe: mode (auto/manual) and whether the stored credentials exist. "
@@ -233,8 +246,33 @@ REC = _episodes.Recorder()
 atexit.register(REC.finish_all)
 
 
+def _daily_sync() -> None:
+    """Pull the shared database at most once a day, in the background; silent when not configured."""
+    import threading
+    import time
+    from ._mouse import home
+
+    def run():
+        from . import _shared
+        stamp = home() / "shared_last_sync"
+        try:
+            if time.time() - stamp.stat().st_mtime < 86400:
+                return
+        except OSError:
+            pass
+        try:
+            _shared.sync()
+            stamp.write_text(time.strftime("%Y-%m-%d %H:%M"), encoding="utf-8")
+        except Exception:
+            pass                                   # not configured or offline: local memory still works
+
+    threading.Thread(target=run, daemon=True).start()
+
+
 def _compact(p: dict) -> dict:
-    return {k: p[k] for k in ("route", "outcome", "quality", "attempts", "why", "age_days") if k in p}
+    out = {k: p[k] for k in ("route", "outcome", "quality", "attempts", "why", "age_days") if k in p}
+    out["from"] = p.get("sources") or (["mine"] if p.get("mine") else ["shared"])
+    return out
 
 
 def _tracked(name: str, args: dict):
@@ -243,7 +281,7 @@ def _tracked(name: str, args: dict):
         hit = _atlas.site_for(args["url"])
         site = hit[0] if hit else None
         query = args.get("goal") or (hit[1].get("label", "") if hit else "") or (urlparse(args["url"]).hostname or "")
-        past = _memory.recall(query, k=3, explore=1, site=site)
+        past = _memory.recall(query, k=3, explore=1, site=site, shared=True)
         r = _browser(name, args)
         REC.start(r["tab"], r.get("url") or args["url"], args.get("goal"))
         REC.step(r["tab"], name, True, url=r.get("url", ""))
@@ -284,8 +322,11 @@ def call(name: str, args: dict):
     if name == "login_sites":
         from . import _login
         return _login.summary()
-    if name == "map_proposals":
+    if name == "map_learned":
         return _episodes.proposals()
+    if name in ("share_preview", "share_upload", "share_sync"):
+        from . import _shared
+        return {"share_preview": _shared.preview, "share_upload": _shared.upload, "share_sync": _shared.sync}[name]()
     if name.startswith("browser_"):
         return _tracked(name, args)
     if name == "atlas_find":
@@ -301,7 +342,7 @@ def call(name: str, args: dict):
             return {"allowed": False, "reason": str(e)}
     if name == "memory_recall":
         return _memory.recall(args["goal"], k=int(args.get("k", 5)), explore=int(args.get("explore", 1)),
-                              site=args.get("site"))
+                              site=args.get("site"), shared=True)
     if name == "memory_record":
         return {"id": _memory.record(args["goal"], args.get("site"), args["route"], args["outcome"],
                                      args.get("quality"), args.get("quality_source", "self"),
@@ -344,6 +385,8 @@ def handle(msg: dict) -> dict | None:
 
 
 def serve(stdin=None, stdout=None) -> None:
+    if stdin is None:
+        _daily_sync()
     stdin = stdin or sys.stdin
     stdout = stdout or sys.stdout
     for line in stdin:

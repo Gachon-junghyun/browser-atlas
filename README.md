@@ -90,8 +90,25 @@ Bayesian route quality x recency, spread across sites, plus one rarely tried rou
 Failed routes fade, confirmed ones rise. `memory_rate` lets a human or a second source re-grade.
 
 Button-map repairs are learned too: a mapped control that is missing and then succeeds under another
-name becomes a rename proposal; a working control that is not mapped becomes a new-control proposal.
-`python -m browser_atlas proposals` lists them; `proposals apply N` writes one into your local map.
+name becomes a rename; a working control that is not mapped becomes a new control. They go into your
+personal layer (`~/.browser_atlas/sites.learned.json`) and apply from the next call; `learned` lists them.
+
+## Sharing: personal first, shared when you say so
+
+Your agent reads two things at once: your own, not-yet-shared memory and map fixes, and the shared
+database (pulled in the background once a day). Recalled routes say where they came from
+(`mine`, `shared`, or both, in which case their quality is pooled).
+
+Nothing leaves your machine until you ask. Tell Claude "upload it to the shared DB": it calls
+`share_preview` to show exactly what would go, then `share_upload`. What can go is reduced by code:
+no goal text, notes or queries; only sites in the repository map with `open`/`api` access (never
+your private overlay sites or logged-in sites); no strings shaped like e-mails, phone or account numbers.
+CLI: `python -m browser_atlas share` (preview), `share --yes` (upload), `share sync` (pull now).
+
+The shared database is Supabase: everyone reads with the public key, only listed maintainers write,
+and the tables themselves limit what a row can contain. See [server/schema.sql](server/schema.sql).
+Configure with `~/.browser_atlas/shared.json` (`url`, `anon_key`); maintainers also store
+`set-cred shared_email` and `set-cred shared_password`.
 
 Only search-field input is kept as keywords. Everything stays on your machine;
 `python -m browser_atlas memory shareable` prints the only fields that could ever be shared.

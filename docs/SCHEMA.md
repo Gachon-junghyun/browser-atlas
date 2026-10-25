@@ -87,5 +87,6 @@ injection for every user at once. Describing instead of commanding is not enough
    The map can add `irreversible: true` or an irreversible `act`; it cannot make a pay button safe.
 3. **A name in the map is only a pointer.** Before acting, the agent finds the control on the live page
    by role and name. A map entry cannot create a button that is not there.
-4. **One writer.** The map changes through reviewed pull requests; shared experience is written by the
-   maintainer only, until a review queue exists. Readers never write.
+4. **One writer.** The repository map changes through reviewed pull requests. The shared database is
+   written by maintainers only (row-level security) and limits the shape of every row; readers never write.
+   What each machine learns applies to that machine at once and is shared only when its owner asks.
