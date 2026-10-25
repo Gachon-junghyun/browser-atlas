@@ -1,0 +1,77 @@
+{
+  "_README": [
+    "One entry per site: where things are, what you may do there, and how to get in.",
+    "access: open (no login) | session (log in once by hand, then the agent works) |",
+    "        api (use the official API instead, see prefer) | blocked (do not automate, see why).",
+    "hosts: hostnames the entry covers (subdomains included). Pointer actions refuse to run on a blocked host.",
+    "Schema: docs/SCHEMA.md"
+  ],
+  "claude_ai": {
+    "label": "Claude.ai",
+    "access": "blocked",
+    "hosts": ["claude.ai"],
+    "why": "Consumer terms forbid automated access, and accounts driven by third-party harnesses were suspended in Feb-Apr 2026.",
+    "prefer": "Claude Code headless (claude -p) or the Anthropic API"
+  },
+  "perplexity": {
+    "label": "Perplexity",
+    "access": "blocked",
+    "hosts": ["perplexity.ai"],
+    "why": "Automating the consumer UI violates the terms; login is a magic link, so it cannot be automated anyway. Plain GETs return 403.",
+    "prefer": "Sonar API (returns citations)"
+  },
+  "tradingview": {
+    "label": "TradingView",
+    "access": "blocked",
+    "hosts": ["tradingview.com"],
+    "why": "The terms forbid not only scraping but building or using tools that enable it. The tool itself is in scope.",
+    "prefer": "an exchange or broker market-data API"
+  },
+  "teamblind": {
+    "label": "Blind (teamblind)",
+    "access": "blocked",
+    "hosts": ["teamblind.com"],
+    "why": "The account is tied to a work-email identity; a lock is the most expensive to recover. Login paths are JS modals, no reliable signal."
+  },
+  "baemin": {
+    "label": "배달의민족",
+    "access": "blocked",
+    "hosts": ["baemin.com"],
+    "why": "No consumer web login at all (app only)."
+  },
+  "toss_invest": {
+    "label": "토스증권",
+    "access": "blocked",
+    "hosts": ["tossinvest.com"],
+    "why": "QR-only login, and the session can send real orders. Money-moving actions are for humans.",
+    "prefer": "naver_finance for quotes"
+  },
+  "srail": {
+    "label": "SRT 예약 (etk.srail.kr)",
+    "access": "blocked",
+    "hosts": ["etk.srail.kr"],
+    "why": "Filling the search form by script and submitting once triggered an 'abnormal access, IP blocked' page with a membership-loss warning (2026-10-05). Even searching is done by a human in the app.",
+    "go": {"search form": "https://etk.srail.kr/hpg/hra/01/selectScheduleList.do?pageId=TK0101010000"}
+  },
+  "kakaotalk_client": {
+    "label": "카카오톡 클라이언트 (PC/모바일)",
+    "access": "blocked",
+    "hosts": [],
+    "why": "Kakao operating policy 3-2(23) bans unapproved programs calling the protocol; usage patterns alone can trigger restrictions. In March 2021 a wave of bans hit bot accounts and their owners' main accounts.",
+    "prefer": "Kakao Developers 'send to me' for personal alerts; Telegram (officially allows user-account automation) for bots"
+  },
+  "kling_ai": {
+    "label": "Kling AI",
+    "access": "blocked",
+    "hosts": ["kling.ai", "klingai.com"],
+    "why": "A sliding captcha iframe covers the sign-up submit button (2026-09-02). Captcha means stop for the day; do not try to solve it.",
+    "prefer": "the official API (pay per second)"
+  },
+  "jedec": {
+    "label": "JEDEC",
+    "access": "blocked",
+    "hosts": ["jedec.org"],
+    "why": "Member login wall; scripts get 403. Standards text is not reachable this way.",
+    "go": {"home": "https://www.jedec.org/"}
+  }
+}

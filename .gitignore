@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.venv/
+# mouse recordings and fitted styles are personal; they live in ~/.browser_atlas, never here
+rec_*.json
+model.json
+pointer_state.json
+*.local.*
