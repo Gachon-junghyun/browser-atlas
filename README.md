@@ -78,11 +78,22 @@ Atlas tools (`atlas_find`, `atlas_site`, `atlas_guard`), experience tools (`memo
 See [docs/SCHEMA.md](docs/SCHEMA.md#trust-model-shared-text-must-not-become-instructions) for why shared
 map text cannot steer an agent, and [docs/LESSONS.md](docs/LESSONS.md) for field notes from real sites.
 
-## Experience memory
+## Experience memory: a loop that runs even when the agent forgets it
 
-Every task can leave a row: goal, keywords, site, route, outcome, quality. `memory_recall` ranks past
-routes by similarity x Bayesian route quality x recency, spreads picks across sites and keeps one slot
-for a rarely tried route, so the agent keeps testing new ways. It stays on your machine;
+The MCP server records every browser call itself. One tab is one episode; when the tab is closed,
+sits idle for 15 minutes, or the server exits (or is killed and restarted), the episode is judged
+from signals and stored: captcha or rate limit means `blocked`, never reading content means `fail`,
+ending on an error means `partial`, otherwise `success`, with quality lowered by errors and wasted steps.
+
+`browser_open(url, goal=...)` returns `past_routes` for that site and goal: ranked by similarity x
+Bayesian route quality x recency, spread across sites, plus one rarely tried route to explore.
+Failed routes fade, confirmed ones rise. `memory_rate` lets a human or a second source re-grade.
+
+Button-map repairs are learned too: a mapped control that is missing and then succeeds under another
+name becomes a rename proposal; a working control that is not mapped becomes a new-control proposal.
+`python -m browser_atlas proposals` lists them; `proposals apply N` writes one into your local map.
+
+Only search-field input is kept as keywords. Everything stays on your machine;
 `python -m browser_atlas memory shareable` prints the only fields that could ever be shared.
 
 ## How the mouse learner works
