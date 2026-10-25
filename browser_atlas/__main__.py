@@ -5,6 +5,9 @@
   python -m browser_atlas guard  <URL>                  # is this URL allowed?
   python -m browser_atlas click  <CSS> --tab STR [--port N] [--seed N]
   python -m browser_atlas hover  <CSS> --tab STR [--port N]
+  python -m browser_atlas type <CSS> <TEXT> --tab STR [--port N] [--clear]
+  python -m browser_atlas controls --tab STR [--port N]
+  python -m browser_atlas check <site|--all> [--port N]
 
   python -m browser_atlas mouse record [--seconds 120]  # use your mouse normally; clicks are the labels
   python -m browser_atlas mouse fit                     # learn from every recording
@@ -18,7 +21,7 @@ import math
 import random
 import sys
 
-from . import _atlas, _cdp, _mouse
+from . import _atlas, _ax, _cdp, _check, _mouse
 from ._pointer import Pointer
 
 
@@ -98,14 +101,40 @@ def main(argv: list[str]) -> int:
         except _atlas.Blocked as e:
             print(f"BLOCKED: {e}")
             return 1
-    if cmd in ("click", "hover"):
+    if cmd == "check":
+        if len(rest) != 1:
+            print("usage: check <site|--all> [--port N]")
+            return 2
+        sites = _atlas.load()
+        keys = list(sites) if rest[0] == "--all" else rest
+        reports = [_check.check(key, port, sites=sites) for key in keys]
+        _dump(reports if rest[0] == "--all" else reports[0])
+        return int(any(not page["ok"] for report in reports for page in report["pages"].values()))
+    if cmd == "controls":
+        if not tab:
+            print("usage: controls --tab STR [--port N]")
+            return 2
+        with _cdp.CDP(port, tab) as c:
+            for node in _ax.snapshot(c):
+                print(f"{node['role']}\t{node['name']}")
+        return 0
+    if cmd in ("click", "hover", "type"):
+        clear = "--clear" in rest
+        if clear:
+            rest.remove("--clear")
+        if cmd == "type" and len(rest) != 2:
+            print("usage: type <CSS> <TEXT> --tab STR [--port N] [--clear]")
+            return 2
         if not rest or not tab:
             print("usage: click|hover <CSS> --tab STR   (--tab is required: never act on the first tab)")
             return 2
         seed = _opt(rest, "--seed")
         with _cdp.CDP(port, tab) as c:
             p = Pointer(c, seed=int(seed) if seed else None)
-            _dump(p.click(rest[0]) if cmd == "click" else p.move(rest[0]))
+            if cmd == "type":
+                _dump(p.type(rest[0], rest[1], clear=clear))
+            else:
+                _dump(p.click(rest[0]) if cmd == "click" else p.move(rest[0]))
         return 0
     if cmd == "mouse":
         sub, more = (rest[0], rest[1:]) if rest else ("stats", [])

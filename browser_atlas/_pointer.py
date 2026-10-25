@@ -18,7 +18,8 @@ import json
 import random
 import time
 
-from . import _atlas
+from . import _atlas, _ax
+from ._keys import TypingModel, key_events
 from ._mouse import Model, _interp, home
 
 _T = time.perf_counter
@@ -102,6 +103,47 @@ class Pointer:
     # -- how --
     def _guard(self) -> None:
         _atlas.guard(self.c.eval("location.href") or "")
+
+    def _control(self, role, name, exact=True) -> str:
+        self._guard()
+        nodes = _ax.snapshot(self.c)
+        node = _ax.find(self.c, role, name, exact=exact, nodes=nodes)
+        if node is None:
+            names = [n["name"] for n in nodes if n["role"] == role][:10]
+            raise RuntimeError(f"no control: role={role!r} name={name!r}; available: {names!r}")
+        return _ax.mark(self.c, node["backend"])
+
+    def click_control(self, role, name, exact=True) -> dict:
+        return self.click(self._control(role, name, exact))
+
+    def move_control(self, role, name, exact=True) -> dict:
+        return self.move(self._control(role, name, exact))
+
+    def type_control(self, role, name, text, exact=True, clear=False, model=None) -> dict:
+        return self.type(self._control(role, name, exact), text, clear=clear, model=model)
+
+    def type(self, css, text, clear=False, model=None) -> dict:
+        self._guard()
+        self.click(css)
+        if clear:
+            ctrl = {"key": "Control", "code": "ControlLeft", "windowsVirtualKeyCode": 17}
+            select = {"key": "a", "code": "KeyA", "windowsVirtualKeyCode": 65}
+            for kind, params, modifiers in (("keyDown", ctrl, 2), ("keyDown", select, 2),
+                                            ("keyUp", select, 2), ("keyUp", ctrl, 0)):
+                self.c.call("Input.dispatchKeyEvent", {"type": kind, **params, "modifiers": modifiers})
+            for method, params in key_events("Backspace"):
+                self.c.call(method, params)
+        plan = (model if model is not None else TypingModel()).plan(text, self.rng)
+        start = _T()
+        for due, method, params in plan:
+            time.sleep(max(0.0, due / 1000 - (_T() - start)))
+            self.c.call(method, params)
+        value = self.c.eval("(() => { const e = document.querySelector(" + json.dumps(css) +
+                            "); return e ? (e.matches('input, textarea') ? e.value : "
+                            "e.isContentEditable ? e.innerText : null) : null; })()")
+        if not isinstance(value, str) or not value.endswith(text):
+            raise RuntimeError(f"input did not stick: expected {text!r}, got {value!r}")
+        return {"value": value, "events": len(plan)}
 
     def _start(self, info: dict) -> tuple[float, float]:
         if self.pos is not None:

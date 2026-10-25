@@ -45,6 +45,16 @@ with CDP(9222, match="example.com") as c:
     print(p.click("#search-button"))
 ```
 
+## Button map
+
+Use accessible roles and names with `p.click_control("button", "Search")` or
+`p.type_control("textbox", "Company", "Example", clear=True)`.
+`python -m browser_atlas controls --tab example.com` lists the current controls;
+`python -m browser_atlas check <site>` (or `check --all`) checks mapped pages in fresh tabs.
+
+`p.type("#search", "한글 and Latin", clear=True)` types individual keys with variable timing,
+Shift handling and Hangul composition; the CLI also supports `type <CSS> <TEXT> --tab STR`.
+
 ## How the mouse learner works
 
 1. **Record**: poll the cursor and the left button (Windows, via `ctypes`). Keys are never recorded.
