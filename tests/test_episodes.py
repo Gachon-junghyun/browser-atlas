@@ -84,9 +84,21 @@ class EpisodeTest(unittest.TestCase):
         rec = _episodes.Recorder(recover=False)
         rec.start("t9", "https://shop.example.com/search", "recover me")
         rec.step("t9", "browser_read", True, result={"untrusted_page_content": "x"})
-        del rec                                         # no finish, no atexit: like a killed process
+        mine = _episodes._open_path()
+        mine.rename(_episodes._open_path(4_000_000))    # as if written by a process that no longer exists
+        del rec
         _episodes.Recorder()                            # next server start
         self.assertEqual(_memory.stats()["attempts"], 1)
+        self.assertFalse(_episodes._open_path(4_000_000).exists())
+
+    def test_live_neighbour_server_is_left_alone(self):
+        rec = _episodes.Recorder(recover=False)
+        rec.start("t8", "https://shop.example.com/search", "still running elsewhere")
+        rec.step("t8", "browser_read", True, result={"untrusted_page_content": "x"})
+        _episodes._open_path().rename(_episodes._open_path(os.getppid()))   # a running process
+        _episodes.Recorder()
+        self.assertEqual(_memory.stats()["attempts"], 0)
+        self.assertTrue(_episodes._open_path(os.getppid()).exists())
 
     def test_only_search_input_is_kept(self):
         _, ep = self.run_episode([

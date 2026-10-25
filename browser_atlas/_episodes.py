@@ -20,7 +20,9 @@ Only search-field input is kept as keywords, never what was typed into other fie
 from __future__ import annotations
 
 import json
+import os
 import re
+import sys
 import time
 import uuid
 from urllib.parse import urlparse, urlunparse
@@ -61,28 +63,63 @@ def judge(ep: dict) -> tuple[str, float]:
     return outcome, round(max(0.0, min(1.0, q)), 3)
 
 
-def _open_path():
-    return home() / "episodes_open.json"
+def _open_path(pid: int | None = None):
+    return home() / f"episodes_open.{pid or os.getpid()}.json"
+
+
+def _alive(pid: int) -> bool:
+    """Is a process running? (Windows: never use os.kill here, it terminates the process.)"""
+    if sys.platform == "win32":
+        import ctypes
+        k = ctypes.windll.kernel32
+        h = k.OpenProcess(0x1000, False, pid)            # PROCESS_QUERY_LIMITED_INFORMATION
+        if not h:
+            return False
+        code = ctypes.c_ulong()
+        k.GetExitCodeProcess(h, ctypes.byref(code))
+        k.CloseHandle(h)
+        return code.value == 259                        # STILL_ACTIVE
+    try:
+        os.kill(pid, 0)
+        return True
+    except OSError:
+        return False
 
 
 class Recorder:
-    """Open episodes are mirrored to disk after every change: a server that is killed (no atexit)
-    leaves them there, and the next server finishes them as 'recovered'."""
+    """Open episodes are mirrored to disk after every change, one file per server process.
+    Several servers can share a home (one per Claude session); a server that was killed leaves
+    its file behind, and the next server to start finishes those episodes as 'recovered'.
+    Files of servers that are still running are left alone."""
 
     def __init__(self, idle: float = IDLE_SECONDS, recover: bool = True):
         self.idle = idle
         self.open: dict[str, dict] = {}
         if recover:
+            self._recover()
+
+    def _recover(self) -> None:
+        for f in home().glob("episodes_open.*.json"):
             try:
-                self.open = json.loads(_open_path().read_text(encoding="utf-8"))
+                pid = int(f.name.split(".")[1])
+            except ValueError:
+                continue
+            if pid == os.getpid() or _alive(pid):
+                continue
+            try:
+                self.open = json.loads(f.read_text(encoding="utf-8"))
+                f.unlink()
             except (OSError, ValueError):
-                self.open = {}
+                continue
             self.finish_all("recovered")
 
     def _save(self) -> None:
         try:
             _open_path().parent.mkdir(parents=True, exist_ok=True)
-            _open_path().write_text(json.dumps(self.open, ensure_ascii=False), encoding="utf-8")
+            if self.open:
+                _open_path().write_text(json.dumps(self.open, ensure_ascii=False), encoding="utf-8")
+            elif _open_path().exists():
+                _open_path().unlink()
         except OSError:
             pass
 
