@@ -2691,7 +2691,8 @@
   "go": {
    "문제검색": "https://solved.ac/search?query={검색어}",
    "유저": "https://solved.ac/profile/{핸들}",
-   "태그별문제": "https://solved.ac/problems/tags/{태그}"
+   "태그별문제": "https://solved.ac/problems/tags/{태그}",
+   "문제 상세 API": "https://solved.ac/api/v3/problem/show?problemId={번호}"
   },
   "has": [
    "문제 난이도/태그",
@@ -2699,7 +2700,7 @@
    "랭킹"
   ],
   "can": [],
-  "prefer": "https://solved.ac/api/v3/user/show?handle={핸들} — 대부분 인증 불필요",
+  "prefer": "문제 하나: https://solved.ac/api/v3/problem/show?problemId={번호} (티어는 level, 2026-10-26 확인) · 사용자: https://solved.ac/api/v3/user/show?handle={핸들} — 대부분 인증 불필요",
   "pages": {
    "search": {
     "url": "https://solved.ac/search?query={query}",
@@ -2764,6 +2765,7 @@
      }
     ],
     "traps": [
+     "2026-10-26: /search?query=1000 이 «잘못된 요청입니다 (400)» 화면을 냈다. 문제 번호로 찾을 땐 문제 상세 API 가 빠르다.",
      "주소에 query 를 넣어 열어도 결과 표가 바로 나오지 않는다. 검색칸 아래에 «문제 고급 검색» 도움말(연산자 표)만 보인다.",
      "검색칸에는 접근성 이름도 placeholder 도 없다. 오른쪽 화살표도 버튼이 아니다.",
      "목록이 필요하면 태그 목록(tag_list) 쪽이 낫다."

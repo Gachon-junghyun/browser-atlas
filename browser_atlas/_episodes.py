@@ -172,7 +172,8 @@ class Recorder:
         if tool in ("browser_click", "browser_type"):
             ep["route"].append({"control": list(control)} if control else {"css": css})
             if control:
-                self._propose_from_success(ep, control, url)
+                same = result.get("same_name_controls", 1) if isinstance(result, dict) else 1
+                self._propose_from_success(ep, control, url, same or 1)
             if tool == "browser_type" and isinstance(result, dict) and result.get("search"):
                 ep["searches"].append(str(result.get("value", "")).strip()[:80])
         if url and _bare(url) != self.current_url(tab) and tool in ("browser_click", "browser_type",
@@ -191,13 +192,17 @@ class Recorder:
         site_label = (_atlas.load().get(ep["site"] or "", {}) or {}).get("label", "")
         goal = " ".join(x for x in (ep["goal"] or site_label, ep["host"] if not ep["goal"] else "",
                                      *ep["searches"]) if x)
-        notes = json.dumps({"auto": True, "reason": reason, "agent_said": said, "steps": len(ep["steps"]),
+        auto, _ = judge(ep)
+        notes = json.dumps({"auto": True, "server": os.getpid(), "reason": reason, "agent_said": said,
+                            "auto_outcome": auto, "steps": len(ep["steps"]),
                             "errors": [s["error"] for s in ep["steps"] if s["error"]][:5],
                             "searches": ep["searches"][:5]}, ensure_ascii=False)
         rid = _memory.record(goal, ep["site"], ep["route"], outcome,
                              quality, "self", round(ep["last"] - ep["started"], 1), notes)
-        return {"id": rid, "outcome": outcome, "quality": quality, "steps": len(ep["steps"]),
-                "route": ep["route"]}
+        out = {"id": rid, "outcome": outcome, "quality": quality, "steps": len(ep["steps"]), "route": ep["route"]}
+        if said and auto != outcome:
+            out["auto_outcome"] = auto                  # the signals disagreed with what you said
+        return out
 
     def sweep(self) -> list[dict]:
         """Finish episodes idle for too long."""
@@ -210,7 +215,7 @@ class Recorder:
             self.finish(t, reason)
 
     # -- map repair --
-    def _propose_from_success(self, ep: dict, control: list, url: str) -> None:
+    def _propose_from_success(self, ep: dict, control: list, url: str, same: int = 1) -> None:
         role, name = control[0], control[1]
         site = ep["site"]
         if not site:
@@ -219,10 +224,18 @@ class Recorder:
             if miss["role"] == role and name in miss["nearest"] and miss["name"] != name:
                 propose({"kind": "rename", "site": site, "role": role, "from": miss["name"], "to": name,
                          "url": miss["url"]})
-        mapped = {(c.get("role"), c.get("name")) for pg in (_atlas.load().get(site, {}).get("pages") or {}).values()
-                  for c in pg.get("controls", [])}
-        if (role, name) not in mapped:
-            propose({"kind": "new", "site": site, "role": role, "name": name, "url": _bare(url)})
+        controls = [c for pg in (_atlas.load().get(site, {}).get("pages") or {}).values()
+                    for c in pg.get("controls", [])]
+        if (role, name) in {(c.get("role"), c.get("name")) for c in controls}:
+            return
+        # Content is not a control: a search result titled "Tree" or "카카오톡 KakaoTalk" is a row of the
+        # page, not part of its interface. Skip roles the map already holds as templates ("<title>"),
+        # names that repeat on the page, and long link texts (observed: maps swelling with result names).
+        if any(c.get("dynamic") and c.get("role") == role for c in controls):
+            return
+        if same >= 3 or (role == "link" and len(name) > 30) or re.search(r"\d{2,}", name):
+            return
+        propose({"kind": "new", "site": site, "role": role, "name": name, "url": _bare(url)})
 
 
 # ── learned map fixes (personal layer, applied at once) ─────────────

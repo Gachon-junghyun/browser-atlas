@@ -32,8 +32,11 @@ class SharedTest(unittest.TestCase):
                                                  {"control": ["button", "Search"]}], "success", 0.9, notes="mine")
         _memory.record("학교 포털 성적 확인", "myschool", [{"url": "https://portal.school.example/"}], "success", 0.9)
         _memory.record("bank balance", "bank", [{"url": "https://bank.example.com/"}], "success", 0.9)
-        _episodes.propose({"kind": "new", "site": "shop", "role": "link", "name": "Next page",
-                           "url": "https://shop.example.com/search?page=2"})
+        for _ in range(2):                      # a new control is shared only after two sightings
+            _episodes.propose({"kind": "new", "site": "shop", "role": "link", "name": "Next page",
+                               "url": "https://shop.example.com/search?page=2"})
+        _episodes.propose({"kind": "new", "site": "shop", "role": "link", "name": "Once",
+                           "url": "https://shop.example.com/search"})
         _episodes.propose({"kind": "new", "site": "myschool", "role": "link", "name": "성적",
                            "url": "https://portal.school.example/grades"})
 

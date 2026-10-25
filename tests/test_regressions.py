@@ -64,5 +64,54 @@ class Wave1(unittest.TestCase):
         self.assertLessEqual(len(json.dumps(r["untrusted_page_content"])), 400)
 
 
+class Wave2(unittest.TestCase):
+    def setUp(self):
+        home = tempfile.mkdtemp()
+        os.environ["BROWSER_ATLAS_HOME"] = home
+        m = {"poly": {"label": "Poly", "access": "open", "hosts": ["poly.example"], "pages": {"search": {
+            "url": "https://poly.example/search", "controls": [
+                {"role": "link", "name": "<model name>", "dynamic": True, "where": "", "act": "", "does": ""},
+                {"role": "button", "name": "search", "where": "", "act": "", "does": ""}]}}}}
+        p = os.path.join(home, "m.json")
+        with open(p, "w", encoding="utf-8") as f:
+            json.dump(m, f)
+        os.environ["BROWSER_ATLAS_MAP"] = p
+
+    def tearDown(self):
+        os.environ.pop("BROWSER_ATLAS_MAP", None)
+
+    def run_clicks(self, clicks):
+        rec = _episodes.Recorder(recover=False)
+        rec.start("t", "https://poly.example/search", "find a tree")
+        for role, name, same in clicks:
+            rec.step("t", "browser_click", True, control=[role, name], result={"same_name_controls": same},
+                     url="https://poly.example/search")
+        rec.step("t", "browser_read", True, result={"untrusted_page_content": "x"})
+        rec.finish("t")
+
+    def test_result_names_are_not_learned_as_controls(self):
+        self.run_clicks([("link", "Tree", 1),                    # role held as a template in the map
+                         ("button", "Sort", 20),                 # repeats on the page
+                         ("button", "Page 2025", 1)])            # carries a number
+        self.assertEqual(_episodes.proposals(), [])
+        self.run_clicks([("button", "Filters", 1)])               # a real piece of interface
+        self.assertEqual([p["name"] for p in _episodes.proposals()], ["Filters"])
+
+    def test_read_find_merges_overlapping_windows(self):
+        from browser_atlas import mcp_server as m
+
+        class C:
+            def eval(self, js, timeout=30):
+                return "u" if js == "location.href" else ("a" * 400 + "Stardew Valley Stardew Valley" + "b" * 400)
+
+        r = m._read(C(), {"mode": "text", "find": "stardew"})
+        self.assertEqual(len(r["untrusted_page_content"]), 1)
+
+    def test_atlas_site_by_host_and_hint(self):
+        from browser_atlas import mcp_server as m
+        self.assertEqual(m._site("poly.example")["site"], "poly")
+        self.assertIn("did_you_mean", m._site("polly"))
+
+
 if __name__ == "__main__":
     unittest.main()

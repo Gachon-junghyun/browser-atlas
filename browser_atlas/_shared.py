@@ -75,6 +75,8 @@ def _public_ops() -> list[dict]:
     for p in _episodes.proposals():
         if p.get("shared") or p.get("site") not in public:
             continue
+        if p.get("kind") == "new" and p.get("seen", 1) < 2:     # one sighting may be page content
+            continue
         if public[p["site"]].get("access") not in ("open", "api"):
             continue
         op = {k: p.get(k) for k in ("id", "kind", "site", "role", "name", "from", "to", "url", "seen")}
