@@ -185,6 +185,8 @@ class Recorder:
         self._save()
         if ep is None or not ep["steps"]:
             return None
+        if said is None and all(s["tool"] == "browser_open" for s in ep["steps"]):
+            return None                                 # opened and left untouched: not an attempt
         outcome, quality = judge(ep, said)
         site_label = (_atlas.load().get(ep["site"] or "", {}) or {}).get("label", "")
         goal = " ".join(x for x in (ep["goal"] or site_label, ep["host"] if not ep["goal"] else "",
