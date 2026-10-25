@@ -85,6 +85,24 @@ def main(argv: list[str]) -> int:
     tab = _opt(argv, "--tab")
     cmd, rest = argv[0], argv[1:]
 
+    if cmd == "mcp":
+        from . import mcp_server
+        sys.stdin.reconfigure(encoding="utf-8")
+        mcp_server.serve()
+        return 0
+    if cmd == "memory":
+        from . import _memory
+        sub = rest[0] if rest else "stats"
+        if sub == "stats":
+            _dump(_memory.stats())
+        elif sub == "recall" and len(rest) > 1:
+            _dump(_memory.recall(" ".join(rest[1:])))
+        elif sub == "shareable":
+            _dump(_memory.shareable())       # exactly what would leave this machine; nothing is sent
+        else:
+            print("usage: memory stats | recall <GOAL> | shareable")
+            return 2
+        return 0
     if cmd == "launch":
         _dump(_cdp.launch(port))
         return 0
