@@ -8,6 +8,9 @@
   python -m browser_atlas type <CSS> <TEXT> --tab STR [--port N] [--clear]
   python -m browser_atlas controls --tab STR [--port N]
   python -m browser_atlas check <site|--all> [--port N]
+  python -m browser_atlas allow "<control name>"        # human only: one irreversible action, 10 min
+  python -m browser_atlas mcp                           # MCP server on stdio
+  python -m browser_atlas memory stats|recall <GOAL>|shareable
 
   python -m browser_atlas mouse record [--seconds 120]  # use your mouse normally; clicks are the labels
   python -m browser_atlas mouse fit                     # learn from every recording
@@ -85,6 +88,15 @@ def main(argv: list[str]) -> int:
     tab = _opt(argv, "--tab")
     cmd, rest = argv[0], argv[1:]
 
+    if cmd == "allow":
+        # human-only: permit one irreversible action on a control with this name, for 10 minutes
+        if not rest:
+            print('usage: allow "<control name>" | allow Enter')
+            return 2
+        from . import _safety
+        item = _safety.allow(" ".join(rest))
+        print(f"allowed once: {item['name']!r} (expires in {_safety.TOKEN_TTL // 60} min)")
+        return 0
     if cmd == "mcp":
         from . import mcp_server
         sys.stdin.reconfigure(encoding="utf-8")

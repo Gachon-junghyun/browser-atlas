@@ -55,6 +55,36 @@ Use accessible roles and names with `p.click_control("button", "Search")` or
 `p.type("#search", "한글 and Latin", clear=True)` types individual keys with variable timing,
 Shift handling and Hangul composition; the CLI also supports `type <CSS> <TEXT> --tab STR`.
 
+## MCP server
+
+```bash
+claude mcp add browser-atlas -- python -m browser_atlas mcp
+```
+
+Atlas tools (`atlas_find`, `atlas_site`, `atlas_guard`), experience tools (`memory_recall` before a task,
+`memory_record` after it, `memory_rate`, `memory_stats`) and browser tools (`browser_open`, `browser_read`,
+`browser_click`, `browser_type`, `browser_screenshot`, `browser_tabs`, `browser_close`, `browser_launch`).
+
+## Safety, in code
+
+- `blocked` sites are refused, including after a redirect.
+- Pay / submit / send / delete-like controls and Enter outside search fields stop with "ask the human".
+  The human allows exactly one such action from a terminal: `python -m browser_atlas allow "결제하기"`.
+  No MCP tool can grant that.
+- Ports in `BROWSER_ATLAS_DENY_PORTS` (profiles that belong to someone else) are refused.
+- Page text comes back labelled `untrusted_page_content`.
+- Do not attach the server to an unattended agent that is supposed to have no way to act on the web.
+
+See [docs/SCHEMA.md](docs/SCHEMA.md#trust-model-shared-text-must-not-become-instructions) for why shared
+map text cannot steer an agent, and [docs/LESSONS.md](docs/LESSONS.md) for field notes from real sites.
+
+## Experience memory
+
+Every task can leave a row: goal, keywords, site, route, outcome, quality. `memory_recall` ranks past
+routes by similarity x Bayesian route quality x recency, spreads picks across sites and keeps one slot
+for a rarely tried route, so the agent keeps testing new ways. It stays on your machine;
+`python -m browser_atlas memory shareable` prints the only fields that could ever be shared.
+
 ## How the mouse learner works
 
 1. **Record**: poll the cursor and the left button (Windows, via `ctypes`). Keys are never recorded.

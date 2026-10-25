@@ -11,6 +11,9 @@
   point along a path planned by `Model.plan`, as real `mouseMoved` events on its timeline,
   then a hover pause, press, hold, release.
 - **Never** on a site the atlas marks `access: blocked`: every action checks the URL first.
+- **Stops** before anything irreversible (pay, submit, send, delete...): `_safety` judges the
+  live control by its own name and role, and only a human's one-time `allow` lets it through.
+  Pressing Enter is allowed only in search fields, for the same reason.
 """
 from __future__ import annotations
 
@@ -18,7 +21,7 @@ import json
 import random
 import time
 
-from . import _atlas, _ax
+from . import _atlas, _ax, _safety
 from ._keys import TypingModel, key_events
 from ._mouse import Model, _interp, home
 
@@ -36,8 +39,20 @@ _TARGET_JS = r"""
     const x = r.left + r.width * fx, y = r.top + r.height * fy;
     if (x < 0 || y < 0 || x > innerWidth || y > innerHeight) continue;
     const t = document.elementFromPoint(x, y);
-    if (t && (t === e || e.contains(t)))
-      return {x, y, w: r.width, h: r.height, vw: innerWidth, vh: innerHeight};
+    if (t && (t === e || e.contains(t))) {
+      const clean = v => (v || '').replace(/\s+/g, ' ').trim();
+      const name = clean(e.getAttribute('aria-label')) || (e.labels && e.labels[0] && clean(e.labels[0].innerText))
+        || clean(e.innerText).slice(0, 80) || clean(e.getAttribute('title') || e.getAttribute('alt')
+        || e.getAttribute('placeholder') || (e.tagName === 'INPUT' ? e.value : ''));
+      const tag = e.tagName, type = (e.getAttribute('type') || '').toLowerCase();
+      const role = e.getAttribute('role') || (tag === 'A' ? 'link' : tag === 'BUTTON' ? 'button'
+        : tag === 'INPUT' && ['submit', 'button', 'image', 'reset'].includes(type) ? 'button'
+        : tag === 'INPUT' || tag === 'TEXTAREA' || e.isContentEditable ? 'textbox' : 'generic');
+      const search = type === 'search' || e.getAttribute('role') === 'searchbox'
+        || !!e.closest('[role=search]') || /search|query|keyword|^q$/i.test((e.name || '') + ' ' + (e.id || ''))
+        || /search|검색/i.test(((e.form && e.form.getAttribute('action')) || ''));
+      return {x, y, w: r.width, h: r.height, vw: innerWidth, vh: innerHeight, name, role, search};
+    }
     if (t && !by) by = (t.tagName + '.' + (typeof t.className === 'string' ? t.className : '')
                         + '#' + (t.id || '')).slice(0, 80);
   }
@@ -102,7 +117,22 @@ class Pointer:
 
     # -- how --
     def _guard(self) -> None:
-        _atlas.guard(self.c.eval("location.href") or "")
+        port = getattr(self.c, "port", None)
+        if port is not None and not _safety.port_allowed(port):
+            raise _safety.NeedsHuman(f"port {port} is in BROWSER_ATLAS_DENY_PORTS (someone else's profile)")
+        self._url = self.c.eval("location.href") or ""
+        _atlas.guard(self._url)
+
+    def _mapped(self, name: str) -> dict | None:
+        """The map's entry for a control with this name on this site, if any (it can only tighten)."""
+        hit = _atlas.site_for(getattr(self, "_url", ""))
+        if not hit:
+            return None
+        for page in (hit[1].get("pages") or {}).values():
+            for c in page.get("controls", []):
+                if " ".join(c.get("name", "").split()) == " ".join(name.split()):
+                    return c
+        return None
 
     def _control(self, role, name, exact=True) -> str:
         self._guard()
@@ -124,6 +154,10 @@ class Pointer:
 
     def type(self, css, text, clear=False, model=None) -> dict:
         self._guard()
+        if "\n" in text or "\r" in text:
+            field = self.target(css)
+            if not field.get("search"):
+                _safety.require_enter(field.get("name") or css)
         self.click(css)
         if clear:
             ctrl = {"key": "Control", "code": "ControlLeft", "windowsVirtualKeyCode": 17}
@@ -192,6 +226,7 @@ class Pointer:
     def click(self, css: str, button: str = "left") -> dict:
         self._guard()
         info = self.target(css)
+        _safety.require(info.get("name", ""), info.get("role", ""), self._mapped(info.get("name", "")))
         start = self._start(info)
         end = (info["x"], info["y"])
         r = self._move(start, end, min(info["w"], info["h"]))
