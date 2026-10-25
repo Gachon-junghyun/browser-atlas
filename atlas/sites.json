@@ -1,77 +1,4859 @@
 {
-  "_README": [
-    "One entry per site: where things are, what you may do there, and how to get in.",
-    "access: open (no login) | session (log in once by hand, then the agent works) |",
-    "        api (use the official API instead, see prefer) | blocked (do not automate, see why).",
-    "hosts: hostnames the entry covers (subdomains included). Pointer actions refuse to run on a blocked host.",
-    "Schema: docs/SCHEMA.md"
+ "_README": [
+  "One entry per site: where things are, what you may do there, and how to get in.",
+  "access: open (no login) | session (log in once by hand, then the agent works) |",
+  "        api (use the official API instead, see prefer) | blocked (do not automate, see why).",
+  "hosts: hostnames the entry covers (subdomains included). Pointer actions refuse to run on a blocked host.",
+  "Schema: docs/SCHEMA.md"
+ ],
+ "claude_ai": {
+  "label": "Claude.ai",
+  "access": "blocked",
+  "hosts": [
+   "claude.ai"
   ],
-  "claude_ai": {
-    "label": "Claude.ai",
-    "access": "blocked",
-    "hosts": ["claude.ai"],
-    "why": "Consumer terms forbid automated access, and accounts driven by third-party harnesses were suspended in Feb-Apr 2026.",
-    "prefer": "Claude Code headless (claude -p) or the Anthropic API"
-  },
-  "perplexity": {
-    "label": "Perplexity",
-    "access": "blocked",
-    "hosts": ["perplexity.ai"],
-    "why": "Automating the consumer UI violates the terms; login is a magic link, so it cannot be automated anyway. Plain GETs return 403.",
-    "prefer": "Sonar API (returns citations)"
-  },
-  "tradingview": {
-    "label": "TradingView",
-    "access": "blocked",
-    "hosts": ["tradingview.com"],
-    "why": "The terms forbid not only scraping but building or using tools that enable it. The tool itself is in scope.",
-    "prefer": "an exchange or broker market-data API"
-  },
-  "teamblind": {
-    "label": "Blind (teamblind)",
-    "access": "blocked",
-    "hosts": ["teamblind.com"],
-    "why": "The account is tied to a work-email identity; a lock is the most expensive to recover. Login paths are JS modals, no reliable signal."
-  },
-  "baemin": {
-    "label": "배달의민족",
-    "access": "blocked",
-    "hosts": ["baemin.com"],
-    "why": "No consumer web login at all (app only)."
-  },
-  "toss_invest": {
-    "label": "토스증권",
-    "access": "blocked",
-    "hosts": ["tossinvest.com"],
-    "why": "QR-only login, and the session can send real orders. Money-moving actions are for humans.",
-    "prefer": "naver_finance for quotes"
-  },
-  "srail": {
-    "label": "SRT 예약 (etk.srail.kr)",
-    "access": "blocked",
-    "hosts": ["etk.srail.kr"],
-    "why": "Filling the search form by script and submitting once triggered an 'abnormal access, IP blocked' page with a membership-loss warning (2026-10-05). Even searching is done by a human in the app.",
-    "go": {"search form": "https://etk.srail.kr/hpg/hra/01/selectScheduleList.do?pageId=TK0101010000"}
-  },
-  "kakaotalk_client": {
-    "label": "카카오톡 클라이언트 (PC/모바일)",
-    "access": "blocked",
-    "hosts": [],
-    "why": "Kakao operating policy 3-2(23) bans unapproved programs calling the protocol; usage patterns alone can trigger restrictions. In March 2021 a wave of bans hit bot accounts and their owners' main accounts.",
-    "prefer": "Kakao Developers 'send to me' for personal alerts; Telegram (officially allows user-account automation) for bots"
-  },
-  "kling_ai": {
-    "label": "Kling AI",
-    "access": "blocked",
-    "hosts": ["kling.ai", "klingai.com"],
-    "why": "A sliding captcha iframe covers the sign-up submit button (2026-09-02). Captcha means stop for the day; do not try to solve it.",
-    "prefer": "the official API (pay per second)"
-  },
-  "jedec": {
-    "label": "JEDEC",
-    "access": "blocked",
-    "hosts": ["jedec.org"],
-    "why": "Member login wall; scripts get 403. Standards text is not reachable this way.",
-    "go": {"home": "https://www.jedec.org/"}
+  "why": "Consumer terms forbid automated access, and accounts driven by third-party harnesses were suspended in Feb-Apr 2026.",
+  "prefer": "Claude Code headless (claude -p) or the Anthropic API"
+ },
+ "perplexity": {
+  "label": "Perplexity",
+  "access": "blocked",
+  "hosts": [
+   "perplexity.ai"
+  ],
+  "why": "Automating the consumer UI violates the terms; login is a magic link, so it cannot be automated anyway. Plain GETs return 403.",
+  "prefer": "Sonar API (returns citations)"
+ },
+ "tradingview": {
+  "label": "TradingView",
+  "access": "blocked",
+  "hosts": [
+   "tradingview.com"
+  ],
+  "why": "The terms forbid not only scraping but building or using tools that enable it. The tool itself is in scope.",
+  "prefer": "an exchange or broker market-data API"
+ },
+ "teamblind": {
+  "label": "Blind (teamblind)",
+  "access": "blocked",
+  "hosts": [
+   "teamblind.com"
+  ],
+  "why": "The account is tied to a work-email identity; a lock is the most expensive to recover. Login paths are JS modals, no reliable signal."
+ },
+ "baemin": {
+  "label": "배달의민족",
+  "access": "blocked",
+  "hosts": [
+   "baemin.com"
+  ],
+  "why": "No consumer web login at all (app only)."
+ },
+ "toss_invest": {
+  "label": "토스증권",
+  "access": "blocked",
+  "hosts": [
+   "tossinvest.com"
+  ],
+  "why": "QR-only login, and the session can send real orders. Money-moving actions are for humans.",
+  "prefer": "naver_finance for quotes"
+ },
+ "srail": {
+  "label": "SRT 예약 (etk.srail.kr)",
+  "access": "blocked",
+  "hosts": [
+   "etk.srail.kr"
+  ],
+  "why": "Filling the search form by script and submitting once triggered an 'abnormal access, IP blocked' page with a membership-loss warning (2026-10-05). Even searching is done by a human in the app.",
+  "go": {
+   "search form": "https://etk.srail.kr/hpg/hra/01/selectScheduleList.do?pageId=TK0101010000"
   }
+ },
+ "kakaotalk_client": {
+  "label": "카카오톡 클라이언트 (PC/모바일)",
+  "access": "blocked",
+  "hosts": [],
+  "why": "Kakao operating policy 3-2(23) bans unapproved programs calling the protocol; usage patterns alone can trigger restrictions. In March 2021 a wave of bans hit bot accounts and their owners' main accounts.",
+  "prefer": "Kakao Developers 'send to me' for personal alerts; Telegram (officially allows user-account automation) for bots"
+ },
+ "kling_ai": {
+  "label": "Kling AI",
+  "access": "blocked",
+  "hosts": [
+   "kling.ai",
+   "klingai.com"
+  ],
+  "why": "A sliding captcha iframe covers the sign-up submit button (2026-09-02). Captcha means stop for the day; do not try to solve it.",
+  "prefer": "the official API (pay per second)"
+ },
+ "jedec": {
+  "label": "JEDEC",
+  "access": "blocked",
+  "hosts": [
+   "jedec.org"
+  ],
+  "why": "Member login wall; scripts get 403. Standards text is not reachable this way.",
+  "go": {
+   "home": "https://www.jedec.org/"
+  }
+ },
+ "kakao_map": {
+  "label": "카카오맵 (장소 검색)",
+  "access": "open",
+  "hosts": [
+   "map.kakao.com",
+   "place.map.kakao.com"
+  ],
+  "go": {
+   "장소검색": "https://map.kakao.com/?q={검색어}",
+   "장소상세": "https://place.map.kakao.com/{장소ID}"
+  },
+  "has": [
+   "장소 검색(상호·업종·주소·전화·영업시간·홈페이지)",
+   "별점/리뷰 수",
+   "길찾기",
+   "로드뷰"
+  ],
+  "pages": {
+   "search": {
+    "url": "https://map.kakao.com/?q={검색어}",
+    "ready": "document.querySelectorAll('li.PlaceItem').length>0",
+    "controls": [
+     {
+      "role": "textbox",
+      "name": "지도 검색",
+      "where": "왼쪽 패널 맨 위 검색칸",
+      "does": "장소·주소·버스 검색어 입력",
+      "css": "input[name=q]",
+      "act": "search",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "검색",
+      "where": "검색칸 오른쪽 돋보기",
+      "does": "검색 실행, 아래에 결과 목록",
+      "act": "search",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "길찾기",
+      "where": "왼쪽 패널 위쪽 탭 줄(검색 옆)",
+      "does": "출발·도착 입력 패널로 바뀐다",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "장소",
+      "where": "검색칸 아래 분류 탭(전체·장소·주소·버스·정류장)",
+      "does": "결과를 장소만으로 거른다",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "주소",
+      "where": "분류 탭의 세 번째",
+      "does": "주소 결과만 본다",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "정확도순",
+      "where": "결과 목록 위 오른쪽",
+      "does": "정확도 순 정렬",
+      "act": "sort",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "인기도순",
+      "where": "정확도순 오른쪽",
+      "does": "인기도 순 정렬",
+      "act": "sort",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "상세보기",
+      "where": "결과 한 건마다 주소 줄 아래",
+      "does": "장소 상세를 새 창으로(place.map.kakao.com/{id})",
+      "then": "detail",
+      "css": "li.PlaceItem a.moreview",
+      "act": "open_detail",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "홈페이지",
+      "where": "결과 한 건의 상세보기 오른쪽(있을 때만)",
+      "does": "업체 공식 홈페이지로 간다",
+      "act": "paginate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "장소 더보기",
+      "where": "결과 목록 맨 아래",
+      "does": "다음 결과를 더 불러온다",
+      "css": "[id='info.search.place.more']",
+      "act": "paginate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "이 지역 재검색",
+      "where": "지도 아래 가운데",
+      "does": "지금 보이는 지도 범위로 다시 검색",
+      "act": "search",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "확대",
+      "where": "지도 오른쪽 아래 +",
+      "does": "지도 확대",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "URL복사",
+      "where": "지도 오른쪽 세로 도구 줄",
+      "does": "지금 화면 주소를 복사",
+      "act": "navigate",
+      "act_inferred": true
+     }
+    ],
+    "traps": [
+     "결과는 iframe 이 아니라 최상위 DOM 이다(li.PlaceItem 한 건).",
+     "결과는 지도 중심 기준으로 편향된다. 검색어에 지역명을 넣어라.",
+     "id 에 점이 들어 있어(#info.search.place.more) css 에서 이스케이프가 필요하다."
+    ]
+   },
+   "detail": {
+    "url": "https://place.map.kakao.com/{장소ID}",
+    "ready": "document.body.innerText.length>500",
+    "controls": [
+     {
+      "role": "link",
+      "name": "후기 381 개",
+      "where": "장소 이름 아래 별점 오른쪽(숫자는 장소마다 다르다)",
+      "does": "후기 목록으로 내려간다",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "로드뷰",
+      "where": "별점 줄 아래 단추 줄 첫째",
+      "does": "로드뷰를 연다",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "출발",
+      "where": "단추 줄 오른쪽",
+      "does": "이 장소를 길찾기 출발지로",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "도착",
+      "where": "출발 오른쪽",
+      "does": "이 장소를 길찾기 도착지로",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "tab",
+      "name": "홈",
+      "where": "사진 아래 탭 줄 첫째",
+      "does": "기본 정보(주소·전화·영업시간)",
+      "act": "tab",
+      "act_inferred": true
+     },
+     {
+      "role": "tab",
+      "name": "사진",
+      "where": "탭 줄 둘째",
+      "does": "사진 모음",
+      "act": "tab",
+      "act_inferred": true
+     },
+     {
+      "role": "tab",
+      "name": "후기",
+      "where": "탭 줄 셋째",
+      "does": "별점·후기 목록",
+      "act": "tab",
+      "act_inferred": true
+     },
+     {
+      "role": "tab",
+      "name": "블로그",
+      "where": "탭 줄 넷째",
+      "does": "블로그 글 목록",
+      "act": "tab",
+      "act_inferred": true
+     },
+     {
+      "role": "radio",
+      "name": "월",
+      "where": "홈 탭 중간의 요일 고르기(월~일)",
+      "does": "요일별 정보를 바꿔 보인다",
+      "css": "#inpRadio-0",
+      "act": "filter",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "후기 더보기",
+      "where": "후기 세 건 아래",
+      "does": "후기를 더 불러온다",
+      "act": "expand",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "로그인",
+      "where": "오른쪽 위",
+      "does": "카카오 로그인(이 지도에선 쓰지 않는다)",
+      "irreversible": true,
+      "act": "submit",
+      "act_inferred": true
+     }
+    ],
+    "traps": [
+     "이름의 숫자(후기 N 개)는 장소마다 다르다. 이름 앞부분으로 찾아라."
+    ]
+   }
+  },
+  "verified": "2026-10-26",
+  "source": "observed 2026-10-26 by a browsing agent; act inferred"
+ },
+ "naver_map": {
+  "label": "네이버 지도",
+  "access": "open",
+  "hosts": [
+   "map.naver.com",
+   "pcmap.place.naver.com"
+  ],
+  "go": {
+   "지도": "https://map.naver.com/",
+   "장소검색": "https://map.naver.com/p/search/{검색어}",
+   "길찾기": "https://map.naver.com/p/directions/-/-/-/car"
+  },
+  "has": [
+   "장소 검색(영업시간·전화·주소)",
+   "길찾기(자동차·대중교통·도보·자전거)",
+   "방문자 리뷰",
+   "지하철/버스 노선",
+   "거리뷰"
+  ],
+  "pages": {
+   "search": {
+    "url": "https://map.naver.com/p/search/{검색어}",
+    "ready": "!!document.querySelector('#searchIframe')",
+    "controls": [
+     {
+      "role": "combobox",
+      "name": "서울역",
+      "where": "왼쪽 위 검색칸(이름은 지금 넣은 검색어가 된다)",
+      "does": "장소·주소 검색어 입력, 자동완성이 열린다",
+      "act": "filter",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "검색",
+      "where": "검색칸 왼쪽 돋보기",
+      "does": "검색 실행",
+      "act": "search",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "삭제",
+      "where": "검색칸 오른쪽 끝",
+      "does": "검색어 지우기",
+      "act": "search",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "길찾기",
+      "where": "맨 왼쪽 세로 메뉴 둘째",
+      "does": "길찾기 패널로 바뀐다",
+      "then": "directions",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "출발",
+      "where": "결과 목록 한 건마다 주소 아래(목록은 iframe#searchIframe 안)",
+      "does": "이 장소를 출발지로 길찾기",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "도착",
+      "where": "출발 오른쪽",
+      "does": "이 장소를 도착지로 길찾기",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "서울 용산구 동자동 상세주소 열기",
+      "where": "결과 한 건의 주소 줄(이름은 그 장소 주소)",
+      "does": "지번·도로명 주소를 펼친다",
+      "act": "open_detail",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "다음페이지",
+      "where": "결과 목록 맨 아래 쪽 번호(1~5) 오른쪽",
+      "does": "다음 쪽 결과",
+      "act": "paginate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "2",
+      "where": "결과 목록 맨 아래 쪽 번호 줄",
+      "does": "2쪽으로",
+      "act": "paginate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "거리뷰",
+      "where": "지도 오른쪽 세로 도구 줄",
+      "does": "거리뷰 모드",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "확대",
+      "where": "지도 오른쪽 아래",
+      "does": "지도 확대",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "예약",
+      "where": "네이버 예약이 붙은 결과 한 건의 출발·도착 오른쪽",
+      "does": "네이버 예약으로 넘어간다",
+      "irreversible": true,
+      "act": "submit",
+      "act_inferred": true
+     }
+    ],
+    "traps": [
+     "결과 목록은 최상위 DOM 이 아니라 iframe#searchIframe(pcmap.place.naver.com/place/list) 안이다. 그 src 로 직접 열면 같은 목록이 최상위로 나온다.",
+     "목록 연속 조회·상세 자동 열기에 캡차가 뜬 기록이 있다(module_browser/SITES.md). 이번엔 지도 1회+목록 1회로 조용했다.",
+     "목록 중간에 광고 단추(호텔 상품권 등)가 섞인다."
+    ]
+   },
+   "directions": {
+    "url": "https://map.naver.com/p/directions/-/-/-/car",
+    "ready": "document.querySelectorAll('input').length>=2",
+    "controls": [
+     {
+      "role": "tab",
+      "name": "대중교통",
+      "where": "길찾기 패널 맨 위 탭 줄 첫째",
+      "does": "대중교통 경로로 바꾼다",
+      "act": "tab",
+      "act_inferred": true
+     },
+     {
+      "role": "tab",
+      "name": "자동차",
+      "where": "탭 줄 둘째",
+      "does": "자동차 경로",
+      "act": "tab",
+      "act_inferred": true
+     },
+     {
+      "role": "tab",
+      "name": "도보",
+      "where": "탭 줄 셋째",
+      "does": "도보 경로",
+      "act": "tab",
+      "act_inferred": true
+     },
+     {
+      "role": "tab",
+      "name": "자전거",
+      "where": "탭 줄 넷째",
+      "does": "자전거 경로",
+      "act": "tab",
+      "act_inferred": true
+     },
+     {
+      "role": "combobox",
+      "name": "출발지 입력",
+      "where": "탭 아래 첫 입력칸",
+      "does": "출발지 검색어, 자동완성에서 골라야 칸이 찬다",
+      "act": "filter",
+      "act_inferred": true
+     },
+     {
+      "role": "combobox",
+      "name": "도착지 입력",
+      "where": "출발지 칸 바로 아래",
+      "does": "도착지 검색어",
+      "act": "filter",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "출발지/도착지 전환",
+      "where": "두 입력칸 오른쪽 화살표",
+      "does": "출발·도착을 맞바꾼다",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "경유지",
+      "where": "입력칸 아래 단추 줄 가운데",
+      "does": "경유지 칸을 더한다",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "다시입력",
+      "where": "입력칸 아래 단추 줄 왼쪽",
+      "does": "두 칸을 비운다",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "길찾기",
+      "where": "입력칸 아래 단추 줄 오른쪽 끝",
+      "does": "경로 검색 실행",
+      "act": "search",
+      "act_inferred": true
+     }
+    ],
+    "traps": [
+     "입력칸 id 가 실행마다 바뀐다(#input_search_r_6_ 같은 자동 id). 이름(출발지 입력·도착지 입력)으로 찾아라.",
+     "뒤로 밀린 탭에선 Runtime.evaluate 가 30초 응답 없이 멈췄다. 탭을 앞으로 올리거나(json/activate) 다른 탭을 닫으면 바로 답한다."
+    ]
+   }
+  },
+  "verified": "2026-10-26",
+  "source": "observed 2026-10-26 by a browsing agent; act inferred"
+ },
+ "daangn_web": {
+  "label": "당근 웹 — 동네업체 검색(단골 수·후기·소개문)",
+  "access": "open",
+  "hosts": [
+   "www.daangn.com"
+  ],
+  "go": {
+   "동네업체 검색": "https://www.daangn.com/kr/search/local-profile/?q={검색어}",
+   "업체 상세": "https://www.daangn.com/kr/local-profile/{업체슬러그}/"
+  },
+  "has": [
+   "동네업체 목록(업종·동네·단골 수·후기 수·소개문·대표 후기)",
+   "업체 상세(주소·사진·사업자 서류 표시)"
+  ],
+  "pages": {
+   "search": {
+    "url": "https://www.daangn.com/kr/search/local-profile/?q={검색어}",
+    "ready": "document.body.innerText.length>500",
+    "controls": [
+     {
+      "role": "searchbox",
+      "name": "검색어를 입력하세요",
+      "where": "맨 위 가운데 검색칸",
+      "does": "검색어 입력",
+      "css": "input[name=q]",
+      "act": "search",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "검색",
+      "where": "검색칸 오른쪽 끝",
+      "does": "검색 실행",
+      "act": "search",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "검색어 지우기",
+      "where": "검색칸 안 오른쪽",
+      "does": "검색어를 비운다",
+      "act": "search",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "전체",
+      "where": "검색칸 아래 분류 탭 줄 첫째",
+      "does": "모든 분야 결과",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "동네업체",
+      "where": "분류 탭 줄 셋째",
+      "does": "동네업체 결과만(이 화면)",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "중고거래",
+      "where": "분류 탭 줄 둘째",
+      "does": "중고거래 결과로 바꾼다",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "부동산",
+      "where": "분류 탭 줄 뒤쪽",
+      "does": "부동산 결과로 바꾼다",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "카페우드진 판교테크노밸리점 카페 삼평동 4.2 후기 2",
+      "where": "결과 목록의 카드 한 장(이름은 업체마다 다르다: 상호·업종·동네·단골·별점·후기 수)",
+      "does": "업체 상세로 간다",
+      "then": "detail",
+      "css": "a[href*='/kr/local-profile/']",
+      "act": "open_detail",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "업체 목록 시트",
+      "where": "화면 맨 아래 띠",
+      "does": "목록 시트를 올리고 내린다(좁은 창)",
+      "act": "navigate",
+      "act_inferred": true
+     }
+    ],
+    "traps": [
+     "웹에서는 지역을 바꿀 수 없다. 기본 동네(성남 삼평동)로 되돌아간다.",
+     "카드 링크 이름이 카드 글자 전체라 길다. 앞부분 상호로 찾아라.",
+     "목록에 쪽 넘김 단추가 없다(첫 화면 10건까지 확인)."
+    ]
+   },
+   "detail": {
+    "url": "https://www.daangn.com/kr/local-profile/{업체슬러그}/",
+    "ready": "document.body.innerText.length>300",
+    "controls": [
+     {
+      "role": "button",
+      "name": "후기 2",
+      "where": "업체 이름 아래 별점 옆(숫자는 업체마다)",
+      "does": "후기 부분으로 내려간다",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "경기 성남시 분당구 삼평동",
+      "where": "후기 수 아래 동네 줄",
+      "does": "그 동네 업체 목록",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "카페",
+      "where": "동네 이름 오른쪽 업종",
+      "does": "같은 업종 목록",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "카페우드진 판교테크노밸리점 picture 0 크게 보기",
+      "where": "업체 이름 아래 사진 줄 첫 장",
+      "does": "사진을 크게 본다",
+      "act": "open_detail",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "경기도 성남시 분당구 대왕판교로 660 (삼평동)",
+      "where": "사진 아래 주소 줄(이름은 업체 주소)",
+      "does": "주소를 펼치거나 복사한다",
+      "act": "expand",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "사업자등록증 및 기타 서류",
+      "where": "주소 아래 정보 칸",
+      "does": "서류 확인 여부를 펼친다",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "더보기",
+      "where": "소개·소식 칸 오른쪽",
+      "does": "내용을 더 펼친다",
+      "act": "expand",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "당근 앱에서 보기",
+      "where": "화면 아래 고정 띠",
+      "does": "앱 설치·열기로 넘긴다(웹에서 더 못 한다)",
+      "act": "open_detail",
+      "act_inferred": true
+     }
+    ],
+    "traps": [
+     "채팅·단골 맺기는 웹에 없고 앱으로 넘긴다."
+    ]
+   }
+  },
+  "verified": "2026-10-26",
+  "source": "observed 2026-10-26 by a browsing agent; act inferred"
+ },
+ "joongna": {
+  "label": "중고나라 (중고 시세 — 오토바이·스쿠터 등)",
+  "access": "open",
+  "hosts": [
+   "web.joongna.com"
+  ],
+  "go": {
+   "검색": "https://web.joongna.com/search/{검색어}",
+   "상품": "https://web.joongna.com/product/{상품번호}"
+  },
+  "has": [
+   "검색어별 평균·최고·최저가 요약",
+   "매물 목록(가격·올린 시각)",
+   "매물 상세(카테고리 경로·거래 동네)"
+  ],
+  "can": [
+   "★ 구매하기(안전결제)",
+   "★ 채팅하기",
+   "★ 판매하기"
+  ],
+  "pages": {
+   "search": {
+    "url": "https://web.joongna.com/search/{검색어}",
+    "ready": "document.querySelectorAll('a[href*=\"/product/\"]').length>3",
+    "controls": [
+     {
+      "role": "searchbox",
+      "name": "어떤 상품을 찾으시나요? 카페 상품, 앱 상품 모두 검색",
+      "where": "맨 위 로고 오른쪽 검색칸",
+      "does": "검색어 입력",
+      "css": "input[name=desktop-header-search]",
+      "act": "search",
+      "act_inferred": true
+     },
+     {
+      "role": "textbox",
+      "name": "최소 가격",
+      "where": "필터 칸의 가격 줄 왼쪽",
+      "does": "가격 하한 입력",
+      "act": "input",
+      "act_inferred": true
+     },
+     {
+      "role": "textbox",
+      "name": "최대 가격",
+      "where": "최소 가격 오른쪽",
+      "does": "가격 상한 입력",
+      "act": "input",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "적용",
+      "where": "가격 칸 오른쪽",
+      "does": "가격 범위로 거른다",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "checkbox",
+      "name": "판매완료 상품 제외",
+      "where": "가격 줄 아래 체크 줄 셋째",
+      "does": "팔린 매물을 뺀다",
+      "css": "#excludeSoldOutProductYn",
+      "act": "filter",
+      "act_inferred": true
+     },
+     {
+      "role": "checkbox",
+      "name": "무료배송",
+      "where": "체크 줄 첫째",
+      "does": "무료배송 매물만",
+      "css": "#parcelFeeYn",
+      "act": "filter",
+      "act_inferred": true
+     },
+     {
+      "role": "checkbox",
+      "name": "인증셀러 상품",
+      "where": "체크 줄 둘째",
+      "does": "인증 판매자 매물만",
+      "css": "#certifiedSellerProductYn",
+      "act": "filter",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "초기화",
+      "where": "필터 칸 오른쪽 아래",
+      "does": "필터를 비운다",
+      "act": "filter",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "최신순",
+      "where": "«검색 상품 가격 요약» 아래 정렬 줄",
+      "does": "최근 올린 순 정렬",
+      "act": "sort",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "낮은가격순",
+      "where": "정렬 줄 셋째",
+      "does": "싼 순 정렬",
+      "act": "sort",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "높은가격순",
+      "where": "정렬 줄 넷째",
+      "does": "비싼 순 정렬",
+      "act": "sort",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "2026 비아지오 V6 접이식 전기자전거 블랙 1,200,000 원 1 4분 전",
+      "where": "매물 격자의 카드 한 장(이름은 제목·가격·올린 시각)",
+      "does": "매물 상세로 간다",
+      "then": "detail",
+      "css": "a[href^='/product/']",
+      "act": "open_detail",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "시세조회",
+      "where": "맨 위 메뉴 줄",
+      "does": "시세 조회 화면",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "키워드 알림 받기",
+      "where": "정렬 줄 위 오른쪽",
+      "does": "이 검색어 알림을 건다(로그인 필요)",
+      "irreversible": true,
+      "act": "submit",
+      "act_inferred": true
+     }
+    ],
+    "traps": [
+     "«검색 상품 가격 요약»(평균·가장 높은·가장 낮은 가격)은 단추가 아니라 정렬 줄 위의 글자다. 부속·소품이 섞여 평균이 낮게 나온다(자전거 검색에 2,900원 펌프).",
+     "쪽 번호가 없다. 내려가며 더 붙는 목록이다.",
+     "결과 사이에 외부 광고 링크(옥션·판촉물 등)가 끼어 있다.",
+     "판매하기 링크 주소도 /product/ 로 시작한다(/product/form). 상세 링크는 /product/{숫자}."
+    ]
+   },
+   "detail": {
+    "url": "https://web.joongna.com/product/{상품번호}",
+    "ready": "document.body.innerText.includes('원')",
+    "controls": [
+     {
+      "role": "button",
+      "name": "다음 슬라이드",
+      "where": "왼쪽 큰 사진 오른쪽 가장자리",
+      "does": "다음 사진",
+      "act": "paginate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "자전거",
+      "where": "오른쪽 위 카테고리 경로(홈 > 스포츠 > 자전거 > 전기자전거)",
+      "does": "그 카테고리 목록",
+      "act": "filter",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "여흥동",
+      "where": "가격 아래 거래 정보의 동네(이름은 매물마다)",
+      "does": "거래 희망 지역을 보인다",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "16건",
+      "where": "사진 아래 판매자 줄의 건수(숫자는 매물마다)",
+      "does": "판매자의 다른 매물",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "구매하기",
+      "where": "오른쪽 정보 칸 아래 큰 단추",
+      "does": "안전결제 구매로 넘어간다",
+      "irreversible": true,
+      "act": "pay",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "채팅하기",
+      "where": "맨 위 오른쪽(판매하기 왼쪽)",
+      "does": "채팅 창(로그인 필요)",
+      "irreversible": true,
+      "act": "submit",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "신고해 주세요.",
+      "where": "상세 아래 안내 문장",
+      "does": "매물 신고",
+      "irreversible": true,
+      "act": "submit",
+      "act_inferred": true
+     }
+    ],
+    "traps": [
+     "창 폭 929px 에선 구매하기가 오른쪽 칸 아래에 있어 한 번 내려야 보인다."
+    ]
+   }
+  },
+  "verified": "2026-10-26",
+  "source": "observed 2026-10-26 by a browsing agent; act inferred"
+ },
+ "kyobobook": {
+  "label": "교보문고 (온라인 서점·교보굿즈)",
+  "access": "open",
+  "hosts": [
+   "kyobobook.co.kr",
+   "search.kyobobook.co.kr",
+   "product.kyobobook.co.kr",
+   "store.kyobobook.co.kr",
+   "event.kyobobook.co.kr"
+  ],
+  "go": {
+   "통합검색": "https://search.kyobobook.co.kr/search?keyword={검색어}&gbCode=TOT&target=total",
+   "상품": "https://product.kyobobook.co.kr/detail/{상품ID}",
+   "점포정보": "https://store.kyobobook.co.kr/store-info/{점포코드}"
+  },
+  "has": [
+   "책·교보굿즈 검색",
+   "정가/할인가·배송일",
+   "리뷰 평점과 본문",
+   "매장 재고·위치"
+  ],
+  "can": [
+   "★ 장바구니",
+   "★ 주문하기",
+   "★ 바로드림"
+  ],
+  "pages": {
+   "search": {
+    "url": "https://search.kyobobook.co.kr/search?keyword={검색어}&gbCode=TOT&target=total",
+    "ready": "document.querySelectorAll('a[href*=\"/detail/\"]').length>0",
+    "controls": [
+     {
+      "role": "searchbox",
+      "name": "통합검색어 입력",
+      "where": "맨 위 로고 오른쪽 검색칸",
+      "does": "검색어 입력",
+      "css": "#searchKeyword",
+      "act": "search",
+      "act_inferred": true
+     },
+     {
+      "role": "combobox",
+      "name": "통합검색 eBook sam 핫트랙스",
+      "where": "검색칸 왼쪽 범위 고르기",
+      "does": "검색 범위(통합·eBook·sam·핫트랙스)",
+      "css": "#gbCode",
+      "act": "filter",
+      "act_inferred": true
+     },
+     {
+      "role": "searchbox",
+      "name": "결과 내 재검색 키워드 입력",
+      "where": "왼쪽 필터 칸 맨 위",
+      "does": "지금 결과 안에서 다시 찾는다",
+      "css": "#rekeyword",
+      "act": "search",
+      "act_inferred": true
+     },
+     {
+      "role": "checkbox",
+      "name": "품절제외",
+      "where": "왼쪽 필터 «상태» 아래",
+      "does": "품절 상품을 뺀다",
+      "css": "#exclOos",
+      "act": "filter",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "국내도서 (72)",
+      "where": "왼쪽 필터의 분야 목록(괄호 숫자는 검색어마다)",
+      "does": "국내도서만 본다",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "radio",
+      "name": "~1만원",
+      "where": "왼쪽 필터 «가격» 아래 첫째",
+      "does": "가격대로 거른다",
+      "css": "#filterPrice_01",
+      "act": "filter",
+      "act_inferred": true
+     },
+     {
+      "role": "radio",
+      "name": "1년 이내",
+      "where": "왼쪽 필터 «발행일» 아래",
+      "does": "최근 1년 발행만",
+      "css": "#filterRlseDate_1Y",
+      "act": "filter",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "eBook",
+      "where": "결과 위 큰 탭 줄(통합검색·eBook·sam·핫트랙스)",
+      "does": "eBook 결과로 바꾼다",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "판매량순",
+      "where": "결과 위 정렬 줄 둘째",
+      "does": "판매량 순 정렬",
+      "act": "sort",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "최신순",
+      "where": "정렬 줄 셋째",
+      "does": "최신 순 정렬",
+      "act": "sort",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "낮은가격순",
+      "where": "정렬 줄 뒤쪽",
+      "does": "싼 순 정렬",
+      "act": "sort",
+      "act_inferred": true
+     },
+     {
+      "role": "combobox",
+      "name": "20개씩 보기 40개씩 보기 60개씩 보기",
+      "where": "정렬 줄 오른쪽 끝",
+      "does": "한 쪽에 보일 개수",
+      "css": "#lenList",
+      "act": "filter",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "[국내도서] 블렌더로 애니 그림체 캐릭터를 만들어보자!: 모델링편",
+      "where": "결과 한 건의 제목(표지 오른쪽)",
+      "does": "상품 상세로 간다",
+      "then": "detail",
+      "css": "a[href*='/detail/']",
+      "act": "open_detail",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "2",
+      "where": "결과 목록 맨 아래 쪽 번호 줄",
+      "does": "2쪽으로",
+      "act": "paginate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "장바구니",
+      "where": "결과 한 건의 오른쪽 단추 묶음 위",
+      "does": "장바구니에 담는다",
+      "irreversible": true,
+      "act": "submit",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "주문하기",
+      "where": "결과 한 건의 오른쪽 단추 묶음 아래",
+      "does": "바로 주문으로 넘어간다",
+      "irreversible": true,
+      "act": "pay",
+      "act_inferred": true
+     }
+    ],
+    "traps": [
+     "체크·라디오 필터가 1x1 로 숨은 input 이다. 눈에 보이는 이름 글자(label)를 눌러라.",
+     "목록 상품 링크는 a[href*='/detail/'] 로만 잡힌다."
+    ]
+   },
+   "detail": {
+    "url": "https://product.kyobobook.co.kr/detail/{상품ID}",
+    "ready": "document.body.innerText.includes('배송비')",
+    "controls": [
+     {
+      "role": "link",
+      "name": "컴퓨터/IT",
+      "where": "제목 위 분류 경로(Home > 국내도서 > …)",
+      "does": "그 분류 목록",
+      "act": "filter",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "외국도서 40,420원",
+      "where": "제목 오른쪽 다른 판형 칸(있을 때만)",
+      "does": "같은 책의 다른 판으로",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "리뷰 섹션으로 이동",
+      "where": "저자·출판사 아래 별점 칸",
+      "does": "리뷰로 내려간다",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "미리보기",
+      "where": "표지 아래 단추 줄",
+      "does": "본문 미리보기",
+      "act": "open_detail",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "매장 재고 · 위치",
+      "where": "오른쪽 가격·배송 칸 아래",
+      "does": "매장별 재고와 위치를 연다",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "도서정보 탭",
+      "where": "가격 칸 아래 큰 탭 줄 첫째",
+      "does": "목차·소개",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "리뷰 탭",
+      "where": "큰 탭 줄 둘째",
+      "does": "리뷰 목록",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "교환/반품/품절 탭",
+      "where": "큰 탭 줄 셋째",
+      "does": "교환·반품 안내",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "알림신청",
+      "where": "별점 칸 아래",
+      "does": "신간 알림(로그인 필요)",
+      "irreversible": true,
+      "act": "apply",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "공유하기",
+      "where": "제목 줄 오른쪽 끝",
+      "does": "공유 창",
+      "act": "navigate",
+      "act_inferred": true
+     }
+    ],
+    "traps": [
+     "상세 본문에 «정가»라는 낱말이 없다(할인율·할인가·원가만 숫자로). ready 를 정가로 걸면 30초 타임아웃난다. «배송비»로 걸어라."
+    ]
+   }
+  },
+  "verified": "2026-10-26",
+  "source": "observed 2026-10-26 by a browsing agent; act inferred"
+ },
+ "kobus": {
+  "label": "고속버스통합예매 (KOBUS)",
+  "access": "open",
+  "hosts": [
+   "www.kobus.co.kr"
+  ],
+  "go": {
+   "시간표 조회": "https://www.kobus.co.kr/oprninf/alcninqr/oprnAlcnPage.do",
+   "예매": "https://www.kobus.co.kr/mrs/rotinf.do"
+  },
+  "has": [
+   "고속버스 시간표·잔여석·요금(로그인 없이, 시간표 조회 화면)",
+   "소요시간·거리",
+   "도착시간 안내"
+  ],
+  "can": [
+   "★ 예매(조회 단계부터 취소수수료 동의 confirm)",
+   "★ 결제"
+  ],
+  "pages": {
+   "timetable": {
+    "url": "https://www.kobus.co.kr/oprninf/alcninqr/oprnAlcnPage.do",
+    "ready": "!!document.getElementById('readDeprInfoList')",
+    "controls": [
+     {
+      "role": "link",
+      "name": "출발지 선택",
+      "where": "조회 칸 왼쪽 첫 상자",
+      "does": "터미널 고르기 창을 연다",
+      "css": "#readDeprInfoList",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "textbox",
+      "name": "터미널/지역 이름을 검색하세요",
+      "where": "터미널 고르기 창 맨 위",
+      "does": "터미널 이름으로 거른다",
+      "css": "#terminalSearch",
+      "act": "search",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "서울경부",
+      "where": "출발지 창의 터미널 목록(이름은 터미널마다)",
+      "does": "그 터미널을 출발지로",
+      "css": "button[onclick^=\"fnDeprChc('010'\"]",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "도착지 선택",
+      "where": "출발지 상자 오른쪽",
+      "does": "도착 터미널 창을 연다(출발지를 먼저 골라야 목록이 찬다)",
+      "css": "#readArvlInfoList",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "세종터미널",
+      "where": "도착지 창의 터미널 목록",
+      "does": "그 터미널을 도착지로",
+      "css": "button[onclick^=\"fnArvlChc('352'\"]",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "선택완료",
+      "where": "터미널 고르기 창 아래",
+      "does": "고른 터미널을 확정하고 창을 닫는다",
+      "css": "#cfmBtn",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "오늘",
+      "where": "가는날 칸 오른쪽",
+      "does": "오늘 날짜로",
+      "css": "#deprThddChc",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "내일",
+      "where": "오늘 오른쪽",
+      "does": "내일 날짜로",
+      "css": "#deprNxdChc",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "가는날 선택 달력",
+      "where": "가는날 칸 오른쪽 끝",
+      "does": "달력에서 날짜를 고른다",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "전체등급",
+      "where": "출발지·도착지 아래 등급 칸",
+      "does": "우등·프리미엄 등 등급으로 거른다",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "조회하기",
+      "where": "조회 칸 오른쪽 큰 단추",
+      "does": "시간표·잔여석 표를 아래에 띄운다(동의 창 없음)",
+      "css": "button[onclick='fnAlcnSrch();']",
+      "then": "timetable",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "7 시 시간대 배차 확인",
+      "where": "결과 표 왼쪽 세로 시간대 줄(1시~23시, 두 시간 간격)",
+      "does": "그 시간대 배차로 표를 옮긴다",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "고속버스 예매",
+      "where": "오른쪽 떠 있는 빠른 메뉴 첫째",
+      "does": "예매 화면으로(조회 단계에 취소수수료 동의 confirm)",
+      "irreversible": true,
+      "act": "submit",
+      "act_inferred": true
+     }
+    ],
+    "traps": [
+     "출발지·도착지 상자는 fast click 으로 처음엔 안 열린다. eval 로 요소 .click() 이 확실하다.",
+     "«선택완료»(#cfmBtn)는 같은 id 가 둘이다. 보이는 것(offsetWidth>0)만 눌러라.",
+     "결과 표는 «출발시각 고속사 등급 어른요금 초등생요금 중고생요금 잔여석 / 총 좌석» 탭 구분 글자로 innerText 에 그대로 온다.",
+     "fast eval 들은 같은 전역을 쓴다. 스텝마다 const 같은 이름을 다시 쓰면 SyntaxError 로 죽는다. (()=>{…})() 로 감싸라."
+    ]
+   }
+  },
+  "verified": "2026-10-26",
+  "source": "observed 2026-10-26 by a browsing agent; act inferred"
+ },
+ "starfield": {
+  "label": "스타필드 (신세계프라퍼티 쇼핑몰 공식) — 입점 매장·층·영업시간",
+  "access": "open",
+  "hosts": [
+   "www.starfield.co.kr"
+  ],
+  "go": {
+   "메인": "https://www.starfield.co.kr/{점포}/main.do",
+   "카테고리안내(전체매장)": "https://www.starfield.co.kr/{점포}/tenant/categoryInfo.do",
+   "층별안내": "https://www.starfield.co.kr/{점포}/tenant/floorInfo.do"
+  },
+  "has": [
+   "점포별 전체 매장 목록(카테고리·층·영업시간·전화)",
+   "층별 안내",
+   "신규 오픈 매장",
+   "이벤트·혜택"
+  ],
+  "pages": {
+   "category": {
+    "url": "https://www.starfield.co.kr/{점포}/tenant/categoryInfo.do",
+    "ready": "document.body.innerText.length>800",
+    "controls": [
+     {
+      "role": "button",
+      "name": "전체",
+      "where": "왼쪽 세로 카테고리 줄 맨 위",
+      "does": "모든 매장(가나다·영문 순)",
+      "css": "#all",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "레스토랑&카페",
+      "where": "왼쪽 카테고리 줄 셋째",
+      "does": "식음 매장만",
+      "css": "#CT201608182015333474",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "패션의류",
+      "where": "왼쪽 카테고리 줄 다섯째",
+      "does": "패션의류 매장만",
+      "css": "#CT201608182015333481",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "엔터테인먼트",
+      "where": "왼쪽 카테고리 줄 아래쪽",
+      "does": "놀거리 시설만",
+      "css": "#CT201608182015333479",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "서비스",
+      "where": "왼쪽 카테고리 줄 맨 아래",
+      "does": "서비스 시설만",
+      "css": "#CT201608182015333477",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "Apple 1F 10:00-22:00",
+      "where": "오른쪽 두 줄 매장 카드 한 장(이름은 매장명·층·영업시간)",
+      "does": "매장 상세 층을 연다",
+      "css": "a[id^='tntBack_initial_']",
+      "act": "open_detail",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "더보기",
+      "where": "매장 카드 목록 맨 아래 가운데",
+      "does": "다음 매장들을 덧붙인다",
+      "act": "paginate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "검색",
+      "where": "맨 위 오른쪽 돋보기",
+      "does": "몰 안 검색 칸을 연다",
+      "css": "#topSearchWrapBack",
+      "act": "search",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "레스토랑&카페",
+      "where": "맨 위 주메뉴 줄",
+      "does": "식음 소개 화면",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "팝업닫기",
+      "where": "처음 열 때 화면 가운데 뜨는 알림 창",
+      "does": "알림 창을 닫는다",
+      "act": "navigate",
+      "act_inferred": true
+     }
+    ],
+    "traps": [
+     "카테고리 단추 id 는 점포마다 다르다. 하남은 CT2016081820153334xx(레스토랑&카페=CT201608182015333474)로, site_map 의 CT201811… 값(다른 점포)과 다르다. 이름으로 찾아라.",
+     "더보기를 누르면 innerText 에 같은 목록이 통째로 다시 붙는다. 앞쪽 한 벌만 읽어라."
+    ]
+   },
+   "floor": {
+    "url": "https://www.starfield.co.kr/{점포}/tenant/floorInfo.do",
+    "ready": "document.body.innerText.length>800",
+    "controls": [
+     {
+      "role": "button",
+      "name": "1F",
+      "where": "카테고리 탭 줄 위 층 단추 줄(4F·3F·2F·1F·B1·B2)",
+      "does": "그 층 매장으로 바꾼다",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "B1",
+      "where": "층 단추 줄 아래쪽",
+      "does": "지하 1층 매장",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "tab",
+      "name": "전체(106)",
+      "where": "층 단추 아래 카테고리 탭 줄 첫째(괄호 숫자는 그 층 매장 수)",
+      "does": "그 층 전체 매장",
+      "act": "tab",
+      "act_inferred": true
+     },
+     {
+      "role": "tab",
+      "name": "레스토랑&카페(20)",
+      "where": "카테고리 탭 줄 셋째",
+      "does": "그 층 식음 매장만",
+      "act": "tab",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "1F 지도 보기",
+      "where": "카테고리 탭 줄 오른쪽 끝",
+      "does": "그 층 평면 지도를 연다",
+      "css": "#mapViewBtn",
+      "act": "open_detail",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "공차 031-8072-8286",
+      "where": "탭 아래 매장 카드 한 장(이름은 매장명·전화)",
+      "does": "매장 상세 층",
+      "css": "a[id^='tntBack_floor_']",
+      "act": "open_detail",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "그라미치 오픈 10.15(목)",
+      "where": "맨 위 «신규 오픈» 넘김 띠의 카드(이름은 매장·오픈일)",
+      "does": "새로 연 매장 상세",
+      "css": "a[id^='tntBack_newOpen_']",
+      "act": "open_detail",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "Next slide",
+      "where": "신규 오픈 띠 오른쪽 위",
+      "does": "다음 신규 매장",
+      "act": "paginate",
+      "act_inferred": true
+     }
+    ],
+    "traps": [
+     "층 단추 이름(4F 등)과 탭 숫자는 점포마다 다르다."
+    ]
+   }
+  },
+  "verified": "2026-10-26",
+  "source": "observed 2026-10-26 by a browsing agent; act inferred"
+ },
+ "coex_events": {
+  "label": "코엑스 행사 일정 — 전시·박람회 기간·홀·입장료",
+  "access": "open",
+  "hosts": [
+   "www.coex.co.kr"
+  ],
+  "go": {
+   "목록(기간)": "https://www.coex.co.kr/event/full-schedules/?var_page={쪽}&search_start_date=YYYY.MM.DD&search_end_date=YYYY.MM.DD&list_type=LIST",
+   "상세": "https://www.coex.co.kr/exhibitions/{행사 슬러그}/"
+  },
+  "has": [
+   "기간 지정 행사 목록(구분·행사명·기간)",
+   "행사 상세(관람 시간·장소·입장료·주최·홈페이지)"
+  ],
+  "pages": {
+   "list": {
+    "url": "https://www.coex.co.kr/event/full-schedules/?var_page={쪽}&search_start_date=YYYY.MM.DD&search_end_date=YYYY.MM.DD&list_type=LIST",
+    "ready": "document.body.innerText.includes('다음글')",
+    "controls": [
+     {
+      "role": "link",
+      "name": "리스트형",
+      "where": "제목 아래 보기 방식 단추 왼쪽",
+      "does": "카드 목록으로 본다(list_type=LIST)",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "캘린더형",
+      "where": "리스트형 오른쪽",
+      "does": "달력으로 본다",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "textbox",
+      "name": "2026.10.26",
+      "where": "목록 위 기간 칸 왼쪽(이름은 지금 시작일)",
+      "does": "시작일",
+      "css": "#search_start_date",
+      "act": "input",
+      "act_inferred": true
+     },
+     {
+      "role": "textbox",
+      "name": "2026.11.26",
+      "where": "기간 칸 오른쪽(이름은 지금 종료일)",
+      "does": "종료일",
+      "css": "#search_end_date",
+      "act": "input",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "Exhibition 바이오플러스-인터펙스 코리아 2026 (BIX2026) 202",
+      "where": "목록의 카드 한 장(이름은 구분·행사명·기간, 한 줄 셋)",
+      "does": "행사 상세로 간다",
+      "then": "detail",
+      "css": "a[href*='/exhibitions/']",
+      "act": "open_detail",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "2",
+      "where": "카드 목록 아래 쪽 번호 줄(이전글 1 2 3 다음글)",
+      "does": "2쪽으로(var_page=2)",
+      "act": "paginate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "다음글",
+      "where": "쪽 번호 줄 오른쪽 끝",
+      "does": "다음 쪽",
+      "act": "paginate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "이전글",
+      "where": "쪽 번호 줄 왼쪽 끝",
+      "does": "앞 쪽",
+      "act": "paginate",
+      "act_inferred": true
+     },
+     {
+      "role": "searchbox",
+      "name": "Search",
+      "where": "검색창열기(맨 위 오른쪽 돋보기)를 누르면 뜨는 큰 칸",
+      "does": "사이트 검색어 입력",
+      "css": "#search_keyword",
+      "act": "search",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "행사 찾기",
+      "where": "화면 아래 고정 띠",
+      "does": "행사 찾기 칸을 연다",
+      "act": "navigate",
+      "act_inferred": true
+     }
+    ],
+    "traps": [
+     "search_end_date 를 2026.11.30 으로 줬는데 칸에는 2026.11.26 이 찍혔다. 목록이 정말 그 기간인지 칸 값으로 다시 확인하라.",
+     "한 쪽 12건이다. 쪽 번호 줄을 보고 쪽마다 돌아라.",
+     "숨은 관심 등록 층에 이름·휴대폰 칸이 DOM 에 있다(#interest_user_name). 개인정보 입력칸이니 건드리지 마라."
+    ]
+   },
+   "detail": {
+    "url": "https://www.coex.co.kr/exhibitions/{행사 슬러그}/",
+    "ready": "document.body.innerText.includes('관람')",
+    "controls": [
+     {
+      "role": "link",
+      "name": "홈페이지 바로가기",
+      "where": "행사 정보 표 아래 왼쪽 큰 단추",
+      "does": "주최 측 공식 사이트로",
+      "act": "paginate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "구글캘린더",
+      "where": "제목 줄 오른쪽 끝",
+      "does": "구글 캘린더에 일정 넣기 창",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "공유하기",
+      "where": "구글캘린더 왼쪽",
+      "does": "카카오톡 등 공유 층을 연다",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "주차정보",
+      "where": "행사 정보 표 오른쪽 아래",
+      "does": "주차 안내",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "목록보기",
+      "where": "상세 본문 맨 아래 가운데",
+      "does": "행사 목록으로 돌아간다",
+      "then": "list",
+      "act": "open_detail",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "바이오플러스-인터펙스 코리아 2026 (BIX2026)",
+      "where": "맨 위 경로 줄(HOME > 행사 > 행사명)",
+      "does": "지금 행사 상세",
+      "act": "open_detail",
+      "act_inferred": true
+     }
+    ],
+    "traps": [
+     "상세 innerText 가 900자 남짓이다. ready 를 길이로 걸지 말고 includes('관람')로."
+    ]
+   }
+  },
+  "verified": "2026-10-26",
+  "source": "observed 2026-10-26 by a browsing agent; act inferred"
+ },
+ "ohou_store": {
+  "label": "오늘의집 쇼핑 — 가구·업소용 테이블 판매 규격(옵션 사이즈)",
+  "access": "open",
+  "hosts": [
+   "ohou.se",
+   "store.ohou.se"
+  ],
+  "go": {
+   "상품검색": "https://ohou.se/productions/feed?query={검색어}",
+   "상품상세": "https://store.ohou.se/goods/{id}"
+  },
+  "has": [
+   "상품 검색 결과(이름·가격·평점)",
+   "검색 필터(사용 인원·상판 사이즈·높이 등)",
+   "상품 상세의 사이즈 옵션 목록",
+   "리뷰·판매자 문의"
+  ],
+  "can": [
+   "★ 장바구니",
+   "★ 바로구매",
+   "★ 패키지 담기",
+   "★ 스크랩"
+  ],
+  "pages": {
+   "search": {
+    "url": "https://ohou.se/productions/feed?query={검색어}",
+    "ready": "document.querySelectorAll('a[href*=\"/goods/\"]').length>3",
+    "controls": [
+     {
+      "role": "link",
+      "name": "쇼핑",
+      "where": "검색 결과 위 분류 탭 줄(통합·쇼핑·이미지·콘텐츠…) 둘째",
+      "does": "상품 결과만 본다(이 화면)",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "통합",
+      "where": "분류 탭 줄 첫째",
+      "does": "집들이·커뮤니티 글까지 섞인 결과",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "식탁 테이블",
+      "where": "분류 탭 아래 연관 검색어 줄(이름은 검색어마다)",
+      "does": "그 낱말로 다시 검색",
+      "act": "search",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "사용 인원",
+      "where": "상품 목록 위 필터 단추 줄",
+      "does": "인원으로 거르는 층을 연다",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "상판 사이즈",
+      "where": "필터 단추 줄 가운데",
+      "does": "상판 크기로 거른다",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "높이",
+      "where": "상판 사이즈 오른쪽",
+      "does": "높이로 거른다",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "가격",
+      "where": "필터 단추 줄 오른쪽 끝 부근",
+      "does": "가격대로 거른다",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "배송",
+      "where": "가격 오른쪽",
+      "does": "배송 조건으로 거른다",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "추천순",
+      "where": "필터 줄 아래 오른쪽",
+      "does": "정렬 방식을 바꾸는 층을 연다",
+      "act": "sort",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "우드레이 블랑 좌식 접이식 상 거실테이블 (보호캡 증정) 특별인증가 75% 14,",
+      "where": "상품 격자의 카드 한 장(이름은 브랜드·상품명·할인·가격)",
+      "does": "상품 상세로 간다",
+      "then": "detail",
+      "css": "a[href*='/goods/']",
+      "act": "open_detail",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "스크랩",
+      "where": "카드 사진 오른쪽 아래",
+      "does": "상품을 스크랩(로그인 필요)",
+      "irreversible": true,
+      "act": "submit",
+      "act_inferred": true
+     }
+    ],
+    "traps": [
+     "결과 링크는 a[href*='/goods/'] 다(/productions/ 아님).",
+     "«AD» 표시 카드가 맨 앞에 섞인다. 광고 카드는 이름 앞에 «AD» 가 붙는다.",
+     "필터 단추 줄이 창보다 넓다(1800px 너머까지). 오른쪽 필터는 가로로 밀어야 보인다.",
+     "맨 위 «PC 최상단 배너»와 닫기 단추가 처음 열 때 덮는다."
+    ]
+   },
+   "detail": {
+    "url": "https://store.ohou.se/goods/{id}",
+    "ready": "document.body.innerText.includes('원')",
+    "controls": [
+     {
+      "role": "button",
+      "name": "테이블·식탁·책상",
+      "where": "맨 위 카테고리 경로(가구 > 테이블·식탁·책상 > …)",
+      "does": "그 분류 목록",
+      "act": "filter",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "상품 이미지 2",
+      "where": "큰 사진 아래 작은 사진 줄",
+      "does": "그 사진을 크게",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "리뷰 21173개 보기 (평점 4.8점)",
+      "where": "상품명 아래 별점 줄(숫자는 상품마다)",
+      "does": "리뷰로 내려간다",
+      "act": "open_detail",
+      "act_inferred": true
+     },
+     {
+      "role": "combobox",
+      "name": "사이즈",
+      "where": "오른쪽 구매 칸의 옵션 고르기",
+      "does": "사이즈 옵션 목록(치수는 여기서 읽힌다)",
+      "act": "filter",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "상품정보",
+      "where": "구매 칸 아래 큰 탭 줄 첫째",
+      "does": "상품 정보·정보고시",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "리뷰 21,173",
+      "where": "큰 탭 줄 둘째",
+      "does": "리뷰 목록",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "문의 2,279",
+      "where": "큰 탭 줄 셋째",
+      "does": "판매자 문의·답변(치수 문의가 여기 있다)",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "배송/환불",
+      "where": "큰 탭 줄 넷째",
+      "does": "배송·환불 안내",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "장바구니",
+      "where": "구매 칸 맨 아래 가운데",
+      "does": "장바구니에 담는다",
+      "irreversible": true,
+      "act": "submit",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "바로구매",
+      "where": "구매 칸 맨 아래 오른쪽",
+      "does": "결제로 넘어간다",
+      "irreversible": true,
+      "act": "pay",
+      "act_inferred": true
+     }
+    ],
+    "traps": [
+     "정보고시 «크기» 칸은 대개 «상세페이지 참조»다. 치수는 사이즈 옵션과 문의 답변에서 읽어라."
+    ]
+   }
+  },
+  "verified": "2026-10-26",
+  "source": "observed 2026-10-26 by a browsing agent; act inferred"
+ },
+ "budongsan": {
+  "label": "부동산 시세/실거래 (아실·직방)",
+  "access": "open",
+  "hosts": [
+   "asil.kr",
+   "apis.zigbang.com"
+  ],
+  "go": {
+   "아실_지도": "https://asil.kr/asil/index.jsp",
+   "지역_연도별실거래": "https://asil.kr/app/analysis_area.jsp?os=pc&area={시도코드}",
+   "규제대책원문": "https://asil.kr/app/sub/countermeasure.jsp?os=pc",
+   "단지검색_직방": "https://apis.zigbang.com/v2/search?q={단지명}",
+   "단지상세_직방": "https://apis.zigbang.com/apt/danjis/{단지id}"
+  },
+  "has": [
+   "시·도/시·구·군별 아파트 매매 연도별 통계(최고·최저·평균가·거래량)",
+   "지도 위 단지 지표(평당가·전세가율·갭 등)",
+   "단지별 월별 시세(직방 API)"
+  ],
+  "prefer": "단지 시세는 직방 오픈 API(apis.zigbang.com, 키 불필요). /v2/search 로 단지 id, /apt/danjis/{id} 의 danjiPriceChart.",
+  "pages": {
+   "area": {
+    "url": "https://asil.kr/app/analysis_area.jsp?os=pc&area={시도코드}",
+    "ready": "document.body.innerText.includes('매매 년도별 통계')",
+    "controls": [
+     {
+      "role": "combobox",
+      "name": "서울 경기 부산 대구 인천 대전 울산 세종 전남광주 강원 충북 충남 전북 경북 경",
+      "where": "화면 맨 위 왼쪽 첫 고르기(지금 시·도)",
+      "does": "시·도를 바꾼다(16개)",
+      "act": "filter",
+      "act_inferred": true
+     },
+     {
+      "role": "combobox",
+      "name": "시/구/군 강남구 강동구 강북구 강서구 관악구 광진구 구로구 금천구 노원구 도봉구",
+      "where": "시·도 고르기 오른쪽",
+      "does": "시·구·군으로 좁힌다",
+      "act": "filter",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "전체년도 (거래건수)",
+      "where": "두 고르기 아래 «거래년도» 칸",
+      "does": "거래 연도 범위를 고른다",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "그래프",
+      "where": "«보기방식» 칸",
+      "does": "표와 그래프 보기를 바꾼다",
+      "act": "open_detail",
+      "act_inferred": true
+     }
+    ],
+    "traps": [
+     "표(거래년월·최고가·최저가·평균가·거래량)는 단추가 아니라 innerText 탭 구분 글자로 온다. 금액 단위는 «만».",
+     "컨트롤이 넷뿐이라 이 화면 하나로는 기준(5개)에 못 미친다. 지도 화면과 같이 본다.",
+     "월별 드릴다운은 실거래 목록으로 빠져 월별 시세는 안 나온다. 월별은 직방 API."
+    ]
+   },
+   "map": {
+    "url": "https://asil.kr/asil/index.jsp",
+    "ready": "document.body.innerText.length>300",
+    "controls": [
+     {
+      "role": "link",
+      "name": "가격분석",
+      "where": "맨 위 주메뉴 줄 넷째",
+      "does": "가격 분석 화면",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "순위분석",
+      "where": "주메뉴 줄 셋째",
+      "does": "단지 순위 화면",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "입주물량",
+      "where": "주메뉴 줄 여섯째",
+      "does": "입주 물량 화면",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "평당가격",
+      "where": "지도 위 지표 단추 줄",
+      "does": "지도 단지 표시를 평당가로 바꾼다",
+      "css": "#py_price_title",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "매매실거래가",
+      "where": "지표 단추 줄 넷째",
+      "does": "지도 표시를 매매 실거래가로",
+      "css": "#price_title",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "전세가율",
+      "where": "지표 단추 줄 뒤쪽",
+      "does": "지도 표시를 전세가율로",
+      "css": "#j_rate_title",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "평형",
+      "where": "지표 단추 줄 첫째",
+      "does": "평형으로 거른다",
+      "css": "#m2_title",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "초기화",
+      "where": "지표 단추 줄 오른쪽 끝",
+      "does": "고른 조건을 비운다",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "가격",
+      "where": "지도 왼쪽 세로 단추 줄(공급·인구·가격·심리·거래·비교·정책·학군·랭킹)",
+      "does": "가격 지표 층을 연다",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "정책",
+      "where": "세로 단추 줄 일곱째",
+      "does": "정책·규제 층",
+      "act": "navigate",
+      "act_inferred": true
+     }
+    ],
+    "traps": [
+     "단지명 검색창이 DOM 에 안 잡혀 입력이 안 된다. 단지 찾기는 직방 /v2/search 로 우회.",
+     "지표 단추 줄이 창 폭보다 넓다(1500px 너머까지)."
+    ]
+   }
+  },
+  "verified": "2026-10-26",
+  "source": "observed 2026-10-26 by a browsing agent; act inferred"
+ },
+ "watchapedia": {
+  "label": "왓챠피디아 (영화 리뷰·평점)",
+  "access": "open",
+  "hosts": [
+   "pedia.watcha.com"
+  ],
+  "go": {
+   "검색": "https://pedia.watcha.com/ko/search?query={검색어}",
+   "작품": "https://pedia.watcha.com/ko/contents/{작품ID}"
+  },
+  "has": [
+   "영화/시리즈/책/웹툰 검색",
+   "평균 별점·평가 수",
+   "감상 가능한 곳(구독·대여·소장)",
+   "출연/제작",
+   "코멘트"
+  ],
+  "can": [
+   "★ 보고싶어요·코멘트·별점 남기기(로그인)"
+  ],
+  "pages": {
+   "search": {
+    "url": "https://pedia.watcha.com/ko/search?query={검색어}",
+    "ready": "document.querySelectorAll('a[href*=\"/contents/\"]').length>0",
+    "controls": [
+     {
+      "role": "combobox",
+      "name": "콘텐츠, 인물, 컬렉션, 유저, 매거진 검색",
+      "where": "맨 위 메뉴 줄 오른쪽 검색칸",
+      "does": "검색어 입력",
+      "css": "#desktop-search-field",
+      "act": "filter",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "콘텐츠",
+      "where": "검색 결과 위 탭 줄 첫째",
+      "does": "작품 결과(이 화면)",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "컬렉션",
+      "where": "탭 줄 둘째",
+      "does": "사용자 컬렉션 결과",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "매거진",
+      "where": "탭 줄 셋째",
+      "does": "매거진 글 결과",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "기생충 2019 · 한국 영화",
+      "where": "맨 위 가로 포스터 줄의 한 장(이름은 제목·연도·나라·종류)",
+      "does": "작품 상세로 간다",
+      "then": "detail",
+      "css": "a[href*='/contents/']",
+      "act": "open_detail",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "더보기",
+      "where": "영화·시리즈·책·웹툰 묶음마다 오른쪽 위",
+      "does": "그 종류 결과를 더 본다",
+      "act": "expand",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "영화",
+      "where": "맨 위 메뉴 줄(홈·영화·시리즈·책·웹툰)",
+      "does": "영화 홈",
+      "act": "navigate",
+      "act_inferred": true
+     }
+    ],
+    "traps": [
+     "/ko-KR/ 주소는 /ko/ 로 넘어간다.",
+     "결과 위 «⟨호프⟩ 1천 캐시백» 같은 광고 띠의 /contents/ 링크는 watcha.com(구독 서비스)으로 간다. pedia.watcha.com 링크만 골라라.",
+     "같은 제목 작품이 여럿이다. 연도·나라로 특정하라."
+    ]
+   },
+   "detail": {
+    "url": "https://pedia.watcha.com/ko/contents/{작품ID}",
+    "ready": "document.body.innerText.includes('평균')",
+    "controls": [
+     {
+      "role": "button",
+      "name": "보고싶어요",
+      "where": "포스터 오른쪽 별점 아래 단추 줄 첫째",
+      "does": "보고싶어요 표시(로그인 필요)",
+      "irreversible": true,
+      "act": "submit",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "코멘트",
+      "where": "단추 줄 둘째",
+      "does": "코멘트 쓰기 창(로그인 필요)",
+      "irreversible": true,
+      "act": "submit",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "구독4",
+      "where": "«감상 가능한 곳» 칸의 첫 탭(숫자는 작품마다)",
+      "does": "구독으로 볼 수 있는 곳 목록",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "대여3",
+      "where": "감상 가능한 곳 둘째 탭",
+      "does": "대여할 수 있는 곳",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "소장3",
+      "where": "감상 가능한 곳 셋째 탭",
+      "does": "소장 구매할 수 있는 곳",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "넷플릭스 감상하기",
+      "where": "감상 가능한 곳 탭 아래 목록(이름은 플랫폼마다)",
+      "does": "그 플랫폼 작품 화면으로 나간다",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "봉준호 감독",
+      "where": "«출연/제작» 칸의 사람 카드(이름은 사람·역할)",
+      "does": "인물 화면으로",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "더보기",
+      "where": "«코멘트 25000+» 제목 오른쪽",
+      "does": "코멘트 전체 목록",
+      "act": "expand",
+      "act_inferred": true
+     }
+    ],
+    "traps": [
+     "처음엔 위쪽 단추 몇 개만 그려진다. 한 번 내려야 감상 가능한 곳·출연·코멘트가 DOM 에 붙는다.",
+     "평균 별점은 «평균 4.3(133.9만명)» 처럼 innerText 글자로 온다."
+    ]
+   }
+  },
+  "verified": "2026-10-26",
+  "source": "observed 2026-10-26 by a browsing agent; act inferred"
+ },
+ "namuwiki": {
+  "label": "나무위키",
+  "access": "open",
+  "hosts": [
+   "namu.wiki"
+  ],
+  "go": {
+   "문서": "https://namu.wiki/w/{문서제목}",
+   "검색": "https://namu.wiki/Search?q={검색어}"
+  },
+  "has": [
+   "국내 한정 주제의 전체 판도",
+   "서비스/앱 연혁",
+   "사건사고 연표",
+   "커뮤니티 용어"
+  ],
+  "can": [
+   "★ 편집·편집 요청·토론(로그인)"
+  ],
+  "pages": {
+   "doc": {
+    "url": "https://namu.wiki/w/{문서제목}",
+    "ready": "document.body.innerText.length>3000",
+    "controls": [
+     {
+      "role": "searchbox",
+      "name": "여기에서 검색",
+      "where": "맨 위 메뉴 줄 아래 긴 검색칸",
+      "does": "문서 제목 검색어 입력(자동완성)",
+      "act": "search",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "검색",
+      "where": "검색칸 오른쪽 돋보기",
+      "does": "검색 결과 목록으로 간다",
+      "then": "search",
+      "act": "search",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "이동",
+      "where": "검색 돋보기 오른쪽 화살표",
+      "does": "검색어와 같은 제목 문서로 바로 간다",
+      "act": "search",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "아무 문서로 이동",
+      "where": "검색칸 왼쪽 주사위",
+      "does": "임의 문서로 간다",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "역사",
+      "where": "문서 제목 오른쪽 단추 줄(별·토론·역사·더 보기)",
+      "does": "고친 이력(판) 목록",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "토론",
+      "where": "역사 왼쪽",
+      "does": "문서 토론 목록",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "더 보기",
+      "where": "단추 줄 오른쪽 끝",
+      "does": "역링크·편집 등 메뉴를 연다",
+      "act": "open_detail",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "1",
+      "where": "본문 위 목차의 절 번호(1, 2, 2.1 …)",
+      "does": "그 절로 건너뛴다(#s-1)",
+      "css": "a[href^='#s-']",
+      "act": "paginate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "서울(동음이의어)",
+      "where": "제목 아래 분류 줄 밑 안내 상자(문서마다 다르다)",
+      "does": "동음이의어 문서로",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "[편집]",
+      "where": "절 제목마다 오른쪽",
+      "does": "편집 화면(로그인 또는 편집 요청)",
+      "irreversible": true,
+      "act": "submit",
+      "act_inferred": true
+     }
+    ],
+    "traps": [
+     "각주 뒤에 광고 글자가 본문처럼 섞인다. 잘라라.",
+     "제목 옆 숫자 링크(434 등)는 별 표시 수다(/member/star/). 누르면 로그인으로 간다."
+    ]
+   },
+   "search": {
+    "url": "https://namu.wiki/Search?q={검색어}",
+    "ready": "document.body.innerText.length>500",
+    "controls": [
+     {
+      "role": "combobox",
+      "name": "전체 문서 틀 분류 파일 사용자 특수기능 나무위키 토론 투표 템플릿 시스템 특정판",
+      "where": "결과 위 첫 고르기",
+      "does": "이름공간(문서·틀·분류 …)으로 거른다",
+      "css": "select[name=namespace]",
+      "act": "filter",
+      "act_inferred": true
+     },
+     {
+      "role": "combobox",
+      "name": "제목/내용 제목 내용 원문",
+      "where": "이름공간 고르기 오른쪽",
+      "does": "제목만·내용만·원문 중 어디서 찾을지",
+      "css": "select[name=target]",
+      "act": "filter",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "검색",
+      "where": "두 고르기 오른쪽",
+      "does": "조건을 바꿔 다시 검색",
+      "act": "search",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "Blender",
+      "where": "결과 목록의 문서 제목(이름은 문서마다)",
+      "does": "그 문서로 간다",
+      "then": "doc",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "Blender/특징",
+      "where": "결과 목록 아래쪽 하위 문서 제목",
+      "does": "하위 문서로 간다",
+      "act": "navigate",
+      "act_inferred": true
+     }
+    ],
+    "traps": [
+     "«사용자:» 로 시작하는 결과는 개인 사용자 문서다. 거르려면 이름공간을 «문서»로."
+    ]
+   }
+  },
+  "verified": "2026-10-26",
+  "source": "observed 2026-10-26 by a browsing agent; act inferred"
+ },
+ "hacker_news_read": {
+  "label": "Hacker News (읽기)",
+  "access": "open",
+  "hosts": [
+   "news.ycombinator.com",
+   "hn.algolia.com"
+  ],
+  "go": {
+   "프론트": "https://news.ycombinator.com/",
+   "신규": "https://news.ycombinator.com/newest",
+   "검색": "https://hn.algolia.com/?q={검색어}"
+  },
+  "has": [
+   "기술 뉴스",
+   "토론 스레드",
+   "Show/Ask HN"
+  ],
+  "can": [],
+  "prefer": "https://hacker-news.firebaseio.com/v0/topstories.json — 무료·무키·무제한",
+  "pages": {
+   "front": {
+    "url": "https://news.ycombinator.com/",
+    "ready": "!!document.querySelector('#hnmain')",
+    "controls": [
+     {
+      "role": "link",
+      "name": "new",
+      "where": "맨 위 주황 띠, 로고 바로 오른쪽 첫 메뉴",
+      "does": "최신 글 목록으로 간다",
+      "then": "https://news.ycombinator.com/newest",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "past",
+      "where": "맨 위 주황 띠, new 오른쪽",
+      "does": "지난 날짜의 1면 목록",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "comments",
+      "where": "맨 위 주황 띠, past 오른쪽",
+      "does": "최신 댓글 흐름",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "ask",
+      "where": "맨 위 주황 띠 가운데",
+      "does": "Ask HN 글 목록",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "show",
+      "where": "맨 위 주황 띠, ask 오른쪽",
+      "does": "Show HN 글 목록",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "jobs",
+      "where": "맨 위 주황 띠, show 오른쪽",
+      "does": "채용 글 목록",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "submit",
+      "where": "맨 위 주황 띠 메뉴의 마지막",
+      "does": "글 올리기 화면(로그인 필요)",
+      "irreversible": true,
+      "act": "submit",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "login",
+      "where": "맨 위 주황 띠 오른쪽 끝",
+      "does": "로그인 화면",
+      "act": "login",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "<글 제목>",
+      "where": "목록 각 줄의 굵은 제목(번호 오른쪽)",
+      "does": "원문 사이트로 나간다",
+      "act": "open_detail",
+      "act_inferred": true,
+      "dynamic": true
+     },
+     {
+      "role": "link",
+      "name": "<N> comments",
+      "where": "각 글 제목 아랫줄 맨 끝(댓글이 없으면 discuss)",
+      "does": "토론 스레드(item?id=)를 연다",
+      "act": "navigate",
+      "act_inferred": true,
+      "dynamic": true
+     },
+     {
+      "role": "link",
+      "name": "More",
+      "where": "목록 30줄 맨 아래",
+      "does": "다음 30개(?p=2)",
+      "css": "a.morelink",
+      "act": "paginate",
+      "act_inferred": true
+     },
+     {
+      "role": "textbox",
+      "name": "",
+      "where": "페이지 맨 아래 꼬리말의 «Search:» 글자 오른쪽 칸",
+      "does": "검색어를 넣고 엔터 — hn.algolia.com 검색으로 간다",
+      "css": "input[name=q]",
+      "then": "search",
+      "act": "search",
+      "act_inferred": true,
+      "unnamed": true
+     }
+    ],
+    "traps": [
+     "한 쪽이 딱 30줄이다. 더 보려면 맨 아래 More(?p=2)를 눌러야 한다.",
+     "제목 왼쪽의 추천 화살표(a[id^=up_])는 접근성 이름이 비어 있고 로그인해야 작동한다. 누르지 마라.",
+     "꼬리말 검색칸에는 접근성 이름이 없다(옆의 «Search:» 는 그냥 글자다). name=q 로 잡아라."
+    ]
+   },
+   "search": {
+    "url": "https://hn.algolia.com/?q={query}",
+    "ready": "document.querySelectorAll('article').length>3",
+    "controls": [
+     {
+      "role": "searchbox",
+      "name": "Search stories by title, url or author",
+      "where": "맨 위 가운데 큰 검색칸",
+      "does": "입력하는 대로 결과가 바뀐다",
+      "act": "search",
+      "act_inferred": true
+     },
+     {
+      "role": "combobox",
+      "name": "Stories",
+      "where": "검색칸 아래 첫 번째 고르개",
+      "does": "검색 대상 종류를 고른다(기본 Stories)",
+      "act": "filter",
+      "act_inferred": true
+     },
+     {
+      "role": "combobox",
+      "name": "Popularity",
+      "where": "검색칸 아래 두 번째 고르개(«by» 오른쪽)",
+      "does": "정렬 기준(기본 인기순)",
+      "act": "sort",
+      "act_inferred": true
+     },
+     {
+      "role": "combobox",
+      "name": "All time",
+      "where": "검색칸 아래 세 번째 고르개(«for» 오른쪽)",
+      "does": "기간을 고른다",
+      "act": "filter",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "<글 제목>",
+      "where": "결과 각 덩어리의 첫 줄 굵은 제목",
+      "does": "HN 토론 스레드로 간다",
+      "act": "navigate",
+      "act_inferred": true,
+      "dynamic": true
+     },
+     {
+      "role": "link",
+      "name": "<N> comments",
+      "where": "결과 각 덩어리의 둘째 줄 끝",
+      "does": "HN 토론 스레드로 간다",
+      "act": "navigate",
+      "act_inferred": true,
+      "dynamic": true
+     },
+     {
+      "role": "button",
+      "name": "2",
+      "where": "결과 목록 맨 아래 쪽 번호 줄",
+      "does": "다음 쪽 결과(쪽 번호 1~6 과 이름 없는 다음 화살표)",
+      "act": "paginate",
+      "act_inferred": true
+     }
+    ],
+    "traps": [
+     "검색 결과 첫 줄에 총 건수(예: 4,546 results)가 나온다. 쪽 번호 버튼은 맨 아래에 있다.",
+     "고르개 셋은 진짜 select 가 아니라 직접 만든 컨트롤이다. select 로 값을 넣으려 하지 마라."
+    ]
+   }
+  },
+  "verified": "2026-10-26",
+  "source": "observed 2026-10-26 by a browsing agent; act inferred"
+ },
+ "solved_ac_read": {
+  "label": "solved.ac (읽기)",
+  "access": "open",
+  "hosts": [
+   "solved.ac"
+  ],
+  "go": {
+   "문제검색": "https://solved.ac/search?query={검색어}",
+   "유저": "https://solved.ac/profile/{핸들}",
+   "태그별문제": "https://solved.ac/problems/tags/{태그}"
+  },
+  "has": [
+   "문제 난이도/태그",
+   "유저 티어",
+   "랭킹"
+  ],
+  "can": [],
+  "prefer": "https://solved.ac/api/v3/user/show?handle={핸들} — 대부분 인증 불필요",
+  "pages": {
+   "search": {
+    "url": "https://solved.ac/search?query={query}",
+    "ready": "document.body.innerText.length>500",
+    "controls": [
+     {
+      "role": "link",
+      "name": "문제",
+      "where": "맨 위 로고 오른쪽 첫 메뉴",
+      "does": "문제 둘러보기(레벨·태그·CLASS)",
+      "act": "open_detail",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "랭킹",
+      "where": "맨 위 메뉴의 세 번째",
+      "does": "랭킹 화면",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "로그인",
+      "where": "맨 위 오른쪽 끝",
+      "does": "로그인 화면",
+      "act": "login",
+      "act_inferred": true
+     },
+     {
+      "role": "textbox",
+      "name": "",
+      "where": "광고 띠 아래 돋보기가 붙은 큰 검색칸",
+      "does": "검색어 입력, 입력하는 동안 아래로 문제·사용자·태그 제안이 뜬다",
+      "act": "search",
+      "act_inferred": true,
+      "unnamed": true
+     },
+     {
+      "role": "button",
+      "name": "문제",
+      "where": "검색칸 아래 탭 줄의 첫 번째",
+      "does": "문제 고급 검색 도움말을 보여 준다",
+      "act": "search",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "사용자",
+      "where": "검색칸 아래 탭 줄의 두 번째",
+      "does": "사용자 검색 쪽으로 바꾼다",
+      "act": "paginate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "태그",
+      "where": "검색칸 아래 탭 줄의 세 번째",
+      "does": "태그 검색 쪽으로 바꾼다",
+      "act": "paginate",
+      "act_inferred": true
+     }
+    ],
+    "traps": [
+     "주소에 query 를 넣어 열어도 결과 표가 바로 나오지 않는다. 검색칸 아래에 «문제 고급 검색» 도움말(연산자 표)만 보인다.",
+     "검색칸에는 접근성 이름도 placeholder 도 없다. 오른쪽 화살표도 버튼이 아니다.",
+     "목록이 필요하면 태그 목록(tag_list) 쪽이 낫다."
+    ]
+   },
+   "tag_list": {
+    "url": "https://solved.ac/problems/tags/{tag}",
+    "ready": "document.querySelectorAll('tbody tr').length>5",
+    "controls": [
+     {
+      "role": "link",
+      "name": "레벨",
+      "where": "맨 위 메뉴 아래 둘째 줄의 첫 탭",
+      "does": "레벨별 문제 둘러보기",
+      "act": "open_detail",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "CLASS",
+      "where": "둘째 줄 탭의 세 번째",
+      "does": "CLASS 별 문제",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "태그",
+      "where": "둘째 줄 탭의 네 번째",
+      "does": "태그 목록",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "ID",
+      "where": "«정렬» 글자 오른쪽 정렬 줄의 첫 번째",
+      "does": "문제 번호순 정렬",
+      "act": "sort",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "레벨",
+      "where": "정렬 줄의 두 번째",
+      "does": "난이도순 정렬",
+      "act": "sort",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "푼 사람 수",
+      "where": "정렬 줄의 네 번째",
+      "does": "푼 사람 수순 정렬",
+      "act": "sort",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "랜덤",
+      "where": "정렬 줄의 마지막",
+      "does": "무작위 정렬",
+      "act": "sort",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "<문제 번호>",
+      "where": "표 각 줄의 맨 왼쪽 숫자",
+      "does": "문제 상세로 간다",
+      "act": "open_detail",
+      "act_inferred": true,
+      "dynamic": true
+     },
+     {
+      "role": "link",
+      "name": "<문제 제목>",
+      "where": "표 각 줄의 제목 칸",
+      "does": "문제 상세로 간다",
+      "act": "open_detail",
+      "act_inferred": true,
+      "dynamic": true
+     },
+     {
+      "role": "link",
+      "name": "2",
+      "where": "표 맨 아래 쪽 번호 줄",
+      "does": "다음 쪽(?page=2)",
+      "act": "paginate",
+      "act_inferred": true
+     }
+    ],
+    "traps": [
+     "한 쪽이 딱 50줄이다. 쪽 번호 줄을 꼭 보라(dp 태그는 103쪽).",
+     "정렬 링크의 href 는 page=%221%22 처럼 따옴표가 섞여 있다. 직접 주소를 만들 땐 page=1&sort=level&direction=asc 꼴로 써라.",
+     "BOJ 채점이 멈춰 있어 푼 사람 수가 안 움직인다(site_map 메모)."
+    ]
+   }
+  },
+  "verified": "2026-10-26",
+  "source": "observed 2026-10-26 by a browsing agent; act inferred"
+ },
+ "google_play": {
+  "label": "Google Play 스토어 (앱·게임 조사)",
+  "access": "open",
+  "hosts": [
+   "play.google.com"
+  ],
+  "go": {
+   "검색": "https://play.google.com/store/search?q=<검색어>&c=apps&hl=ko",
+   "상세": "https://play.google.com/store/apps/details?id=<패키지명>&hl=ko"
+  },
+  "has": [
+   "앱 검색 순위",
+   "평점·리뷰 수·다운로드 구간",
+   "리뷰 원문",
+   "스크린샷 원본",
+   "업데이트 날짜",
+   "인앱/광고 표시"
+  ],
+  "can": [
+   "설치",
+   "위시리스트"
+  ],
+  "pages": {
+   "search": {
+    "url": "https://play.google.com/store/search?q={query}&c=apps&hl=ko",
+    "ready": "!!document.querySelector('a[href*=\"details?id=\"]')",
+    "controls": [
+     {
+      "role": "textbox",
+      "name": "Google Play 검색",
+      "where": "맨 위 가운데 검색칸",
+      "does": "검색어 입력",
+      "act": "search",
+      "act_inferred": true
+     },
+     {
+      "role": "combobox",
+      "name": "search clear",
+      "where": "검색칸을 감싼 막대(왼쪽 돋보기, 오른쪽 지우기)",
+      "does": "검색 실행·지우기",
+      "act": "filter",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "앱/게임",
+      "where": "검색칸 아래 왼쪽 첫 칩",
+      "does": "앱·게임 결과만",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "도서",
+      "where": "앱/게임 칩 오른쪽",
+      "does": "도서 결과로 바꾼다",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "<앱 이름> <개발사> <평점> star",
+      "where": "결과 카드 한 장 전체(세로로 이어진다)",
+      "does": "앱 상세로 간다",
+      "then": "detail",
+      "act": "open_detail",
+      "act_inferred": true,
+      "dynamic": true
+     },
+     {
+      "role": "button",
+      "name": "<앱 이름> 재생",
+      "where": "동영상이 있는 카드 그림 가운데의 재생 단추",
+      "does": "소개 영상 재생",
+      "act": "navigate",
+      "act_inferred": true,
+      "dynamic": true
+     }
+    ],
+    "traps": [
+     "카드 링크의 이름에 평점·가격까지 한 줄로 붙어 온다. 패키지명은 a.href 의 details?id= 뒤에서 꺼내라."
+    ]
+   },
+   "detail": {
+    "url": "https://play.google.com/store/apps/details?id={package}&hl=ko",
+    "ready": "document.body.innerText.length>1500",
+    "controls": [
+     {
+      "role": "tab",
+      "name": "게임",
+      "where": "맨 위 로고 오른쪽 탭 줄의 첫 번째",
+      "does": "게임 홈",
+      "act": "tab",
+      "act_inferred": true
+     },
+     {
+      "role": "tab",
+      "name": "앱",
+      "where": "맨 위 탭 줄의 두 번째",
+      "does": "앱 홈",
+      "act": "tab",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "검색",
+      "where": "맨 위 오른쪽 돋보기",
+      "does": "검색칸을 연다",
+      "act": "search",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "<개발사 이름>",
+      "where": "앱 이름 바로 아래 초록 글자",
+      "does": "개발사의 다른 앱",
+      "act": "navigate",
+      "act_inferred": true,
+      "dynamic": true
+     },
+     {
+      "role": "button",
+      "name": "설치",
+      "where": "평점·다운로드 줄 아래 초록 단추",
+      "does": "기기에 설치(로그인 필요)",
+      "irreversible": true,
+      "act": "submit",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "위시리스트에 추가",
+      "where": "설치 단추 오른쪽 두 번째 아이콘",
+      "does": "위시리스트에 담는다(로그인 필요)",
+      "irreversible": true,
+      "act": "submit",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "앱 정보 자세히 알아보기",
+      "where": "«앱 정보» 제목 오른쪽 화살표",
+      "does": "설명 전문·업데이트 날짜 창을 연다",
+      "act": "open_detail",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "데이터 보안 자세히 알아보기",
+      "where": "«데이터 보안» 제목 오른쪽 화살표",
+      "does": "데이터 수집 항목 화면",
+      "act": "open_detail",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "평점 및 리뷰 자세히 알아보기",
+      "where": "«평점 및 리뷰» 제목 오른쪽 화살표",
+      "does": "리뷰 전체 창을 연다",
+      "act": "open_detail",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "전화",
+      "where": "평점 및 리뷰 제목 아래 기기 칩의 첫 번째",
+      "does": "휴대전화 리뷰만",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "태블릿",
+      "where": "기기 칩의 두 번째",
+      "does": "태블릿 리뷰만",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "리뷰 모두 보기",
+      "where": "리뷰 3건 아래",
+      "does": "리뷰 전체 창을 연다",
+      "act": "open_detail",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "예",
+      "where": "각 리뷰 밑 «도움이 되었나요?» 오른쪽",
+      "does": "리뷰에 도움 표시(로그인 필요)",
+      "irreversible": true,
+      "act": "submit",
+      "act_inferred": true
+     }
+    ],
+    "traps": [
+     "처음 innerText 에는 설명·리뷰가 없다. 끝까지 두 번 스크롤해야 리뷰가 붙는다(SITES.md ⑭).",
+     "제목 옆 화살표 버튼은 새 쪽이 아니라 창(대화상자)을 연다."
+    ]
+   }
+  },
+  "verified": "2026-10-26",
+  "source": "observed 2026-10-26 by a browsing agent; act inferred"
+ },
+ "steam_store": {
+  "label": "Steam 상점 (게임 조사)",
+  "access": "open",
+  "hosts": [
+   "store.steampowered.com",
+   "steamcommunity.com"
+  ],
+  "go": {
+   "검색": "https://store.steampowered.com/search/?term=<검색어>&l=koreana",
+   "상세": "https://store.steampowered.com/app/<appid>/?l=koreana",
+   "리뷰": "https://steamcommunity.com/app/<appid>/reviews/?browsefilter=toprated&l=koreana"
+  },
+  "has": [
+   "게임 검색·가격",
+   "평가 등급·개수",
+   "태그",
+   "한국어 지원 여부",
+   "스크린샷 원본",
+   "한국어 리뷰 원문"
+  ],
+  "can": [
+   "구매",
+   "찜 목록"
+  ],
+  "pages": {
+   "search": {
+    "url": "https://store.steampowered.com/search/?term={query}&l=koreana",
+    "ready": "!!document.querySelector('#search_resultsRows a')",
+    "controls": [
+     {
+      "role": "combobox",
+      "name": "상점 검색",
+      "where": "맨 위 파란 메뉴 막대 오른쪽 검색칸",
+      "does": "상점 전체 검색(제안 목록이 뜬다)",
+      "css": "input[name=term]",
+      "act": "filter",
+      "act_inferred": true
+     },
+     {
+      "role": "textbox",
+      "name": "<검색어>",
+      "where": "본문 왼쪽 위, 따옴표로 감싼 검색어 제목 아래 검색칸",
+      "does": "이 결과 화면 안에서 검색어를 바꾼다",
+      "css": "#term",
+      "act": "search",
+      "act_inferred": true,
+      "dynamic": true
+     },
+     {
+      "role": "button",
+      "name": "검색",
+      "where": "본문 검색칸 바로 오른쪽 파란 단추",
+      "does": "바꾼 검색어로 다시 찾는다",
+      "act": "search",
+      "act_inferred": true
+     },
+     {
+      "role": "combobox",
+      "name": "연관성",
+      "where": "«정렬 기준» 글자 오른쪽",
+      "does": "정렬(연관성·출시일·이름·가격·평가)",
+      "css": "#sort_by_trigger",
+      "act": "sort",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "<게임 이름> <출시일> <가격>",
+      "where": "결과 목록 한 줄 전체",
+      "does": "게임 상세로 간다",
+      "then": "app",
+      "act": "open_detail",
+      "act_inferred": true,
+      "dynamic": true
+     },
+     {
+      "role": "button",
+      "name": "가격대",
+      "where": "오른쪽 거름 칸의 첫 묶음 제목",
+      "does": "가격 막대를 접고 편다",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "할인 및 이벤트",
+      "where": "오른쪽 거름 칸, 가격 막대 아래",
+      "does": "할인 중인 것만",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "무료 플레이 게임 숨기기",
+      "where": "할인 및 이벤트 바로 아래",
+      "does": "무료 게임을 뺀다",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "한국어",
+      "where": "오른쪽 거름 칸 «언어» 묶음의 첫 줄",
+      "does": "한국어 지원 게임만",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "고급 검색",
+      "where": "맨 위 검색칸 아래",
+      "does": "고급 검색 화면",
+      "act": "search",
+      "act_inferred": true
+     }
+    ],
+    "traps": [
+     "결과 위에 «환경 설정에 따라 N개의 타이틀이 제외되었습니다» 가 뜬다. 로그인 없는 프로필에서도 일부가 빠진다 — 건수를 셀 때 이 줄을 같이 적어라.",
+     "결과는 스크롤하면 이어 붙는다(#search_results_loading). 숨은 쪽 번호(.search_pagination)도 있다.",
+     "appid 는 짐작하지 말고 결과 a.href 의 /app/<숫자>/ 에서 꺼내라(SITES.md ⑭)."
+    ]
+   },
+   "app": {
+    "url": "https://store.steampowered.com/app/{appid}/?l=koreana",
+    "ready": "document.body.innerText.length>2000",
+    "controls": [
+     {
+      "role": "link",
+      "name": "커뮤니티 허브",
+      "where": "게임 이름 줄 오른쪽 끝",
+      "does": "그 게임의 커뮤니티(리뷰·토론)",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "최근 평가: <등급> (<개수>)",
+      "where": "오른쪽 소개 칸, 짧은 설명 아래",
+      "does": "평가 영역으로 내려간다",
+      "act": "navigate",
+      "act_inferred": true,
+      "dynamic": true
+     },
+     {
+      "role": "link",
+      "name": "한국어 평가: <등급> (<개수>)",
+      "where": "최근 평가 바로 아래",
+      "does": "한국어 평가 영역으로 내려간다",
+      "act": "navigate",
+      "act_inferred": true,
+      "dynamic": true
+     },
+     {
+      "role": "link",
+      "name": "<개발사>",
+      "where": "출시일 아래 «개발자» 줄",
+      "does": "개발사 페이지",
+      "act": "paginate",
+      "act_inferred": true,
+      "dynamic": true
+     },
+     {
+      "role": "link",
+      "name": "<태그>",
+      "where": "오른쪽 소개 칸 맨 아래 태그 줄",
+      "does": "그 태그 검색",
+      "act": "search",
+      "act_inferred": true,
+      "dynamic": true
+     },
+     {
+      "role": "button",
+      "name": "+",
+      "where": "태그 줄 끝",
+      "does": "태그 전체 보기",
+      "act": "open_detail",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "무료",
+      "where": "본문 «… 플레이» 상자 오른쪽 단추(유료 게임은 장바구니 단추)",
+      "does": "설치·구매로 이어진다",
+      "irreversible": true,
+      "act": "pay",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "업데이트 기록 보기",
+      "where": "오른쪽 세로 칸 링크 목록",
+      "does": "패치 노트",
+      "act": "open_detail",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "토론장 보기",
+      "where": "오른쪽 세로 칸, 관련 뉴스 보기 아래",
+      "does": "커뮤니티 토론장",
+      "act": "open_detail",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "공유하기",
+      "where": "태그 줄 아래 오른쪽",
+      "does": "공유 창",
+      "act": "navigate",
+      "act_inferred": true
+     }
+    ],
+    "traps": [
+     "로그인 없이 열면 맨 위에 «로그인하지 않았습니다!» 띠가 끼어 좌표가 아래로 밀린다.",
+     "스크린샷은 .highlight_screenshot_link 가 아니라 document.images 의 ss_ 로 꺼내라(SITES.md ⑭)."
+    ]
+   }
+  },
+  "verified": "2026-10-26",
+  "source": "observed 2026-10-26 by a browsing agent; act inferred"
+ },
+ "archdaily": {
+  "label": "ArchDaily — 건축·인테리어 프로젝트 사례(사진·도면·설계 설명)",
+  "access": "open",
+  "hosts": [
+   "archdaily.com"
+  ],
+  "go": {
+   "검색": "https://www.archdaily.com/search/projects?q={검색어}",
+   "프로젝트": "https://www.archdaily.com/{id}/{slug}"
+  },
+  "has": [
+   "프로젝트 검색(분야·국가)",
+   "프로젝트별 사진 갤러리·평면도",
+   "설계 설명"
+  ],
+  "can": [],
+  "pages": {
+   "search": {
+    "url": "https://www.archdaily.com/search/projects?q={query}",
+    "ready": "document.body.innerText.includes('Results for')",
+    "controls": [
+     {
+      "role": "button",
+      "name": "Open menu",
+      "where": "맨 위 왼쪽 끝 세 줄 아이콘",
+      "does": "메뉴와 숨은 검색칸(Find on ArchDaily)을 연다",
+      "act": "search",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "Projects",
+      "where": "«N Results for» 제목 아래 탭 줄의 두 번째",
+      "does": "프로젝트만",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "Products & BIM",
+      "where": "탭 줄의 세 번째",
+      "does": "제품·BIM 결과",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "Articles",
+      "where": "탭 줄의 다섯 번째",
+      "does": "기사 결과",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "Categories",
+      "where": "탭 줄 아래 거름 단추 줄의 첫 번째",
+      "does": "건물 용도로 거른다",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "Country/Region",
+      "where": "거름 단추 줄의 두 번째",
+      "does": "나라로 거른다",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "Architects",
+      "where": "거름 단추 줄의 세 번째",
+      "does": "설계사로 거른다",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "Year",
+      "where": "거름 단추 줄 가운데",
+      "does": "연도로 거른다",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "Materials",
+      "where": "Year 오른쪽",
+      "does": "재료로 거른다",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "Area",
+      "where": "Materials 오른쪽",
+      "does": "면적으로 거른다",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "<용도> <프로젝트명> / <설계사>",
+      "where": "사진 카드 아래 대문자 용도+제목 글",
+      "does": "프로젝트 상세로 간다",
+      "then": "project",
+      "act": "open_detail",
+      "act_inferred": true,
+      "dynamic": true
+     }
+    ],
+    "traps": [
+     "검색칸(name=q, «Find on ArchDaily»)은 화면에 폭 0 으로 숨어 있다. 검색어는 주소의 q= 로 넣어라.",
+     "사진 한 장 한 장도 같은 프로젝트로 가는 링크다(이름이 «… - Exterior Photography, …»). 제목 링크와 중복되니 상세 주소(archdaily.com/숫자/)로 중복을 지워라.",
+     "쪽 번호 줄을 찾지 못했다 — 스크롤로 더 붙는지 확인 못 함."
+    ]
+   },
+   "project": {
+    "url": "https://www.archdaily.com/{id}/{slug}",
+    "ready": "document.body.innerText.includes('Architects')",
+    "controls": [
+     {
+      "role": "link",
+      "name": "<프로젝트명> - Image 1 of <N>",
+      "where": "제목 아래 큰 대표 사진",
+      "does": "사진 갤러리를 연다",
+      "act": "navigate",
+      "act_inferred": true,
+      "dynamic": true
+     },
+     {
+      "role": "link",
+      "name": "+ <N>",
+      "where": "대표 사진 아래 썸네일 줄의 마지막 칸",
+      "does": "나머지 사진 갤러리",
+      "act": "navigate",
+      "act_inferred": true,
+      "dynamic": true
+     },
+     {
+      "role": "link",
+      "name": "<설계사>",
+      "where": "«Architects:» 줄",
+      "does": "설계사의 다른 작업",
+      "act": "navigate",
+      "act_inferred": true,
+      "dynamic": true
+     },
+     {
+      "role": "link",
+      "name": "<면적>",
+      "where": "«Area:» 줄의 숫자",
+      "does": "비슷한 면적 프로젝트 목록",
+      "act": "navigate",
+      "act_inferred": true,
+      "dynamic": true
+     },
+     {
+      "role": "link",
+      "name": "<연도>",
+      "where": "«Year:» 줄",
+      "does": "같은 해 프로젝트 목록",
+      "act": "navigate",
+      "act_inferred": true,
+      "dynamic": true
+     },
+     {
+      "role": "link",
+      "name": "<사진가>",
+      "where": "«Photographs:» 줄",
+      "does": "사진가의 다른 작업",
+      "act": "navigate",
+      "act_inferred": true,
+      "dynamic": true
+     },
+     {
+      "role": "link",
+      "name": "More from <설계사> »",
+      "where": "오른쪽 세로 칸 중간",
+      "does": "같은 설계사 프로젝트 더 보기",
+      "act": "expand",
+      "act_inferred": true,
+      "dynamic": true
+     },
+     {
+      "role": "button",
+      "name": "I ACCEPT",
+      "where": "처음 열 때 화면 아래 쿠키 띠 오른쪽",
+      "does": "쿠키 동의(띠가 화면을 가린다)",
+      "css": "#gdpr-consent",
+      "act": "navigate",
+      "act_inferred": true
+     }
+    ],
+    "traps": [
+     "쿠키 띠가 아래를 가린다. 클릭이 씹히면 이 띠부터 의심하라.",
+     "설명 글은 둘째 문단부터 지연 로딩된다(SITES.md). 크롬으로 스크롤하고 읽어라."
+    ]
+   }
+  },
+  "verified": "2026-10-26",
+  "source": "observed 2026-10-26 by a browsing agent; act inferred"
+ },
+ "unsplash_search": {
+  "label": "Unsplash 검색 (무료 사진 — 실사 레퍼런스 후보 모으기)",
+  "access": "open",
+  "hosts": [
+   "unsplash.com"
+  ],
+  "go": {
+   "검색": "https://unsplash.com/napi/search/photos?query=seoul%20storefront&per_page=30",
+   "검색화면": "https://unsplash.com/s/photos/{검색어}"
+  },
+  "has": [
+   "검색: unsplash.com/napi/search/photos?query=<낱말>&per_page=30 가 키 없이 JSON (alt_description·작가·날짜·urls.small/regular) (2026-09-26 실측)",
+   "🔴 개별 사진 napi/photos/<id> 는 401, 사진 페이지 unsplash.com/photos/<id> 는 봇 확인 화면(Making sure you're not a bot) — 뚫지 말고 검색 JSON 의 필드만 써라. 위치(location)는 검색 JSON 에 안 온다",
+   "premium/plus=true 는 유료(Unsplash+) — 빼라",
+   "한국 낱말은 동네 이름(seongsu·euljiro·yeonnam-dong)보다 'korea shop sign'·'seoul storefront'·'hanok cafe' 가 가게 전면이 많이 걸린다"
+  ],
+  "can": [],
+  "pages": {
+   "search": {
+    "url": "https://unsplash.com/s/photos/{query}",
+    "ready": "!!document.querySelector('input[name=searchKeyword]')",
+    "controls": [
+     {
+      "role": "searchbox",
+      "name": "Unsplash 검색",
+      "where": "맨 위 줄 아래 긴 검색칸",
+      "does": "검색어 입력",
+      "css": "input[name=searchKeyword]",
+      "act": "search",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "Unsplash 검색",
+      "where": "검색칸 왼쪽 끝 돋보기",
+      "does": "검색 실행",
+      "act": "search",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "시각적 검색",
+      "where": "검색칸 오른쪽 끝 아이콘",
+      "does": "그림으로 비슷한 사진 찾기",
+      "act": "search",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "사진 <N>",
+      "where": "검색칸 아래 탭 줄의 첫 번째",
+      "does": "사진 결과(건수 표시)",
+      "act": "navigate",
+      "act_inferred": true,
+      "dynamic": true
+     },
+     {
+      "role": "link",
+      "name": "일러스트 <N>",
+      "where": "탭 줄의 두 번째",
+      "does": "일러스트 결과",
+      "act": "navigate",
+      "act_inferred": true,
+      "dynamic": true
+     },
+     {
+      "role": "button",
+      "name": "필터",
+      "where": "탭 줄 오른쪽 끝",
+      "does": "방향·색·라이선스 거름 창",
+      "act": "filter",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "<관련 낱말>",
+      "where": "탭 아래 가로로 이어진 관련 검색어 칩 줄",
+      "does": "그 낱말로 다시 검색",
+      "act": "search",
+      "act_inferred": true,
+      "dynamic": true
+     },
+     {
+      "role": "link",
+      "name": "<사진 설명>",
+      "where": "사진 격자 각 장 아래의 설명 글",
+      "does": "사진 페이지로 간다(봇 확인 벽)",
+      "act": "paginate",
+      "act_inferred": true,
+      "dynamic": true
+     }
+    ],
+    "traps": [
+     "주소 /s/photos/ 는 /ko/s/사진/ 으로 바뀐다(한국어 화면).",
+     "사진 페이지(unsplash.com/photos/<id>)는 봇 확인 화면이 뜬다고 site_map 에 적혀 있다 — 이번엔 열지 않았다. 목록은 napi 검색 JSON 으로.",
+     "검색 화면 첫 로드 때 Runtime.evaluate 가 한 번 30초 멈췄다. 다시 붙으면 정상이었다.",
+     "격자 맨 아래 «더 로드» 와 iStock 광고 줄이 섞여 있다. iStock 은 유료다."
+    ]
+   }
+  },
+  "verified": "2026-10-26",
+  "source": "observed 2026-10-26 by a browsing agent; act inferred"
+ },
+ "kenney": {
+  "label": "Kenney (CC0 게임 에셋)",
+  "access": "open",
+  "hosts": [
+   "kenney.nl"
+  ],
+  "go": {
+   "3D전체": "https://kenney.nl/assets/category:3D?sort=update",
+   "City시리즈": "https://kenney.nl/assets/series:City?sort=update",
+   "상업건물킷": "https://kenney.nl/assets/city-kit-commercial",
+   "전체번들": "https://kenney.nl/data/itch/kenney-game-assets"
+  },
+  "has": [
+   "3D 킷 (City/Modular/Fantasy Town/Factory 등)",
+   "2D·UI·오디오·텍스처",
+   "전부 CC0 — 출처표기 불필요·상업이용 가능",
+   "🔴 다운로드 .zip 링크는 HTML 에 없다(JS 뒤). 브라우저로 열어 \"Continue without donating...\" 앵커의 href 를 읽어라. Nature Kit = 10MB / 모델 329종(나무 61·바위 118) FBX+GLB+OBJ, CC0 — 저폴리 숲에 적합"
+  ],
+  "can": [
+   "기부(Donate)"
+  ],
+  "pages": {
+   "list": {
+    "url": "https://kenney.nl/assets/category:3D?sort=update",
+    "ready": "document.querySelectorAll('a[href*=\"/assets/\"]').length>10",
+    "controls": [
+     {
+      "role": "searchbox",
+      "name": "Search",
+      "where": "본문 위쪽 가운데 검색칸",
+      "does": "에셋 이름 검색(부실하다)",
+      "css": "input[name=search]",
+      "act": "search",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "2D",
+      "where": "검색칸 아래 분류 칩 줄의 첫 번째",
+      "does": "2D 에셋만",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "3D",
+      "where": "분류 칩 줄의 두 번째",
+      "does": "3D 에셋만",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "Audio",
+      "where": "분류 칩 줄의 네 번째",
+      "does": "오디오 에셋만",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "combobox",
+      "name": "Release date Latest update Quantity Name",
+      "where": "목록 위 오른쪽 «Sort by» 고르개",
+      "does": "정렬(출시일·최근 갱신·개수·이름)",
+      "css": "select[name=sort]",
+      "act": "sort",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "<킷 이름>",
+      "where": "그림 카드 아래 굵은 제목",
+      "does": "킷 상세로 간다",
+      "then": "detail",
+      "act": "open_detail",
+      "act_inferred": true,
+      "dynamic": true
+     },
+     {
+      "role": "link",
+      "name": "<시리즈 이름>",
+      "where": "카드 제목 아래 «3D•City» 의 시리즈 글자",
+      "does": "같은 시리즈 목록",
+      "act": "navigate",
+      "act_inferred": true,
+      "dynamic": true
+     },
+     {
+      "role": "link",
+      "name": "2",
+      "where": "카드 격자 아래 쪽 번호 줄",
+      "does": "다음 쪽(3D 는 4쪽까지)",
+      "act": "paginate",
+      "act_inferred": true
+     }
+    ],
+    "traps": [
+     "한 쪽에 카드 16장이다. 쪽 번호(1~4)를 보라.",
+     "?q= 검색보다 category:3D / series:City 경로가 정확하다(site_map 메모)."
+    ]
+   },
+   "detail": {
+    "url": "https://kenney.nl/assets/{slug}",
+    "ready": "document.body.innerText.includes('License')",
+    "controls": [
+     {
+      "role": "link",
+      "name": "<태그>",
+      "where": "킷 이름 아래 «Tags» 줄",
+      "does": "같은 태그 목록",
+      "act": "navigate",
+      "act_inferred": true,
+      "dynamic": true
+     },
+     {
+      "role": "link",
+      "name": "Creative Commons CC0",
+      "where": "«License» 줄",
+      "does": "라이선스 설명",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "Download",
+      "where": "정보 표 아래 첫 번째 큰 단추",
+      "does": "내려받기 창(기부 권유)을 연다 — href 는 #inline-download",
+      "act": "download",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "Continue without donating...",
+      "where": "Download 를 누르면 뜨는 창 안",
+      "does": "기부 없이 .zip 을 받는다(평소엔 숨어 있다)",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "Get All-in-1 bundle",
+      "where": "Download 바로 아래 단추",
+      "does": "itch.io 유료 전체 번들로 간다",
+      "irreversible": true,
+      "act": "submit",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "<관련 킷>",
+      "where": "아래 «Updates» 다음의 관련 킷 카드 제목",
+      "does": "다른 킷 상세",
+      "act": "open_detail",
+      "act_inferred": true,
+      "dynamic": true
+     }
+    ],
+    "traps": [
+     "실파일 주소는 숨은 «Continue without donating...» 앵커의 href 에 있다(kenney.nl/media/pages/assets/…zip). 창을 안 열어도 DOM 에서 읽힌다.",
+     "Donate 링크는 결제로 이어진다. 누르지 마라."
+    ]
+   }
+  },
+  "verified": "2026-10-26",
+  "source": "observed 2026-10-26 by a browsing agent; act inferred"
+ },
+ "quaternius": {
+  "label": "Quaternius (CC0 로우폴리 팩)",
+  "access": "open",
+  "hosts": [
+   "quaternius.com"
+  ],
+  "go": {
+   "전체": "https://quaternius.com/",
+   "다운타운시티메가킷": "https://quaternius.com/packs/downtowncitymegakit.html",
+   "얼티밋빌딩팩": "https://quaternius.com/packs/ultimatetexturedbuildings.html",
+   "빌딩팩": "https://quaternius.com/packs/buildings.html"
+  },
+  "has": [
+   "모듈형 도시·건물 팩",
+   "캐릭터·애니메이션 라이브러리",
+   "전부 CC0 — 상업이용 가능"
+  ],
+  "can": [
+   "Patreon 후원"
+  ],
+  "pages": {
+   "home": {
+    "url": "https://quaternius.com/",
+    "ready": "document.querySelectorAll('div.pack').length>10",
+    "controls": [
+     {
+      "role": "button",
+      "name": "Assets",
+      "where": "맨 위 메뉴 첫 번째",
+      "does": "팩 목록(지금 화면)",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "License",
+      "where": "맨 위 오른쪽",
+      "does": "라이선스 설명",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "textbox",
+      "name": "Search...",
+      "where": "큰 배너 아래 긴 검색칸",
+      "does": "팩 이름으로 거른다",
+      "css": "#search",
+      "act": "search",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "All",
+      "where": "검색칸 아래 분류 단추 줄의 첫 번째",
+      "does": "전체 팩",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "Characters",
+      "where": "분류 줄의 두 번째",
+      "does": "캐릭터 팩만",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "Nature",
+      "where": "분류 줄의 세 번째",
+      "does": "자연 팩만",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "Buildings",
+      "where": "분류 줄 가운데",
+      "does": "건물 팩만",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "Vehicles",
+      "where": "분류 줄 마지막",
+      "does": "탈것 팩만",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "<팩 이름>",
+      "where": "그림 카드(div.pack) 한 장",
+      "does": "팩 상세로 간다",
+      "then": "pack",
+      "act": "open_detail",
+      "act_inferred": true,
+      "dynamic": true
+     }
+    ],
+    "traps": [
+     "팩 카드는 84장이 한 쪽에 다 있다. 카드 안 a 는 접근성 트리 수집에 잘 안 잡혀서 div.pack a 의 href 로 꺼내라."
+    ]
+   },
+   "pack": {
+    "url": "https://quaternius.com/packs/{slug}.html",
+    "ready": "document.body.innerText.includes('License')",
+    "controls": [
+     {
+      "role": "link",
+      "name": "CC0",
+      "where": "위쪽 아이콘 줄의 «License» 아래",
+      "does": "라이선스 설명",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "Download",
+      "where": "본문 아래 오른쪽 큰 단추(id button1)",
+      "does": "내려받기 창을 연다 — href 는 #inline",
+      "css": "#button1",
+      "act": "download",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "Download here",
+      "where": "Download 를 누르면 뜨는 창 안",
+      "does": "무료판 파일을 받는다(평소엔 숨어 있다)",
+      "act": "download",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "Download on Itch.io",
+      "where": "같은 창 안 두 번째",
+      "does": "itch.io 미러로 간다",
+      "act": "download",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "",
+      "where": "본문 위 Patreon 배너 그림",
+      "does": "Patreon 소스판(유료 후원)으로 간다",
+      "css": "a[href*=patreon]",
+      "irreversible": true,
+      "act": "submit",
+      "act_inferred": true,
+      "unnamed": true
+     }
+    ],
+    "traps": [
+     "모델 수·포맷·라이선스는 맨 위 아이콘 글자에 있다(Models 315, FBX/Blend/glTF, CC0). text 한 번이면 된다.",
+     "Download 링크로는 실파일 주소가 안 나온다. 창 안 단추는 처음엔 폭 0 이다."
+    ]
+   }
+  },
+  "verified": "2026-10-26",
+  "source": "observed 2026-10-26 by a browsing agent; act inferred"
+ },
+ "poly_pizza": {
+  "label": "Poly Pizza (로우폴리 모델 아카이브)",
+  "access": "open",
+  "hosts": [
+   "poly.pizza"
+  ],
+  "go": {
+   "검색": "https://poly.pizza/search/{키워드}",
+   "모델": "https://poly.pizza/m/{id}",
+   "API": "https://poly.pizza/api"
+  },
+  "has": [
+   "구 Google Poly 아카이브 + Kenney·Quaternius 미러",
+   "로우폴리 건물·소품·간판",
+   "CC0 또는 CC-BY (모델별로 다름)"
+  ],
+  "can": [
+   "좋아요",
+   "목록에 담기",
+   "댓글"
+  ],
+  "pages": {
+   "search": {
+    "url": "https://poly.pizza/search/{query}",
+    "ready": "document.querySelectorAll('a[href^=\"/m/\"]').length>5",
+    "controls": [
+     {
+      "role": "textbox",
+      "name": "search",
+      "where": "맨 위 로고 오른쪽 검색칸",
+      "does": "검색어 입력",
+      "act": "search",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "Filters",
+      "where": "«N results for» 줄 오른쪽",
+      "does": "거름 칸을 연다",
+      "act": "filter",
+      "act_inferred": true
+     },
+     {
+      "role": "textbox",
+      "name": "Category",
+      "where": "거름 칸 첫 줄",
+      "does": "분류로 거른다",
+      "css": "input[name=Category]",
+      "act": "input",
+      "act_inferred": true
+     },
+     {
+      "role": "textbox",
+      "name": "Licence",
+      "where": "거름 칸 둘째 줄",
+      "does": "라이선스(CC0·CC-BY)로 거른다",
+      "css": "input[name=Licence]",
+      "act": "input",
+      "act_inferred": true
+     },
+     {
+      "role": "checkbox",
+      "name": "on",
+      "where": "거름 칸 셋째 줄 스위치",
+      "does": "애니메이션 있는 모델만",
+      "css": "input[name=animated]",
+      "act": "filter",
+      "act_inferred": true
+     },
+     {
+      "role": "textbox",
+      "name": "Sort",
+      "where": "거름 칸 오른쪽 아래",
+      "does": "정렬",
+      "css": "input[name=Sort]",
+      "act": "input",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "<모델 이름>",
+      "where": "결과 카드 그림",
+      "does": "모델 상세로 간다",
+      "then": "model",
+      "act": "open_detail",
+      "act_inferred": true,
+      "dynamic": true
+     },
+     {
+      "role": "link",
+      "name": "<작가 이름>",
+      "where": "카드 아래 작은 글자",
+      "does": "작가의 모델 목록",
+      "act": "navigate",
+      "act_inferred": true,
+      "dynamic": true
+     }
+    ],
+    "traps": [
+     "결과 맨 위 «Paid picks» 4칸(Survival Engine $45 등)은 유료 광고다. 무료 결과는 그 아래부터다.",
+     "a[href^=\"/m/\"] 는 같은 모델에 앵커가 둘씩(빈 것+제목) 붙는다. 중복을 지워라.",
+     "체크박스 이름이 «on» 이다(값이 이름으로 잡힌다). name=animated 로 잡아라."
+    ]
+   },
+   "model": {
+    "url": "https://poly.pizza/m/{id}",
+    "ready": "document.body.innerText.includes('format')",
+    "controls": [
+     {
+      "role": "button",
+      "name": "Auto rotate",
+      "where": "3D 미리보기 오른쪽 위",
+      "does": "모델 자동 회전",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "FullScreen",
+      "where": "Auto rotate 왼쪽",
+      "does": "미리보기 전체 화면",
+      "act": "open_detail",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "Download",
+      "where": "미리보기 아래 단추 줄의 세 번째",
+      "does": "포맷을 골라 파일을 받는다",
+      "act": "download",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "Like",
+      "where": "미리보기 아래 단추 줄의 첫 번째",
+      "does": "좋아요(로그인 필요)",
+      "irreversible": true,
+      "act": "submit",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "List",
+      "where": "Like 오른쪽",
+      "does": "내 목록에 담기(로그인 필요)",
+      "irreversible": true,
+      "act": "submit",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "<작가 이름>",
+      "where": "단추 줄 아래 작가 줄",
+      "does": "작가의 모델 목록",
+      "act": "navigate",
+      "act_inferred": true,
+      "dynamic": true
+     },
+     {
+      "role": "button",
+      "name": "<분류·태그>",
+      "where": "작가 줄 아래 칩(Low Poly, Buildings, #Building)",
+      "does": "그 분류·태그로 검색",
+      "act": "filter",
+      "act_inferred": true,
+      "dynamic": true
+     },
+     {
+      "role": "textbox",
+      "name": "Like this model? Let the creator know!",
+      "where": "아래 댓글 칸",
+      "does": "댓글 입력(전송은 하지 마라)",
+      "irreversible": true,
+      "act": "send",
+      "act_inferred": true
+     }
+    ],
+    "traps": [
+     "라이선스·포맷은 칩 아래 한 줄이다: 예 «Aug 18, 2021 • FBX/GLTF format • Public Domain (CC0)». 모델마다 CC-BY 일 수 있으니 매번 이 줄을 읽어라."
+    ]
+   }
+  },
+  "verified": "2026-10-26",
+  "source": "observed 2026-10-26 by a browsing agent; act inferred"
+ },
+ "fab": {
+  "label": "Fab (Epic · 구 Quixel Megascans/UE 마켓플레이스)",
+  "access": "open",
+  "hosts": [
+   "fab.com"
+  ],
+  "go": {
+   "Megascans 판매자": "https://www.fab.com/sellers/Quixel%20Megascans",
+   "무료만": "https://www.fab.com/search?sellers=Quixel%20Megascans&is_free=1"
+  },
+  "has": [
+   "Quixel Megascans 스캔 에셋",
+   "무료 필터(is_free=1) 로 무료분 추림"
+  ],
+  "can": [
+   "구매",
+   "장바구니",
+   "위시리스트",
+   "신고"
+  ],
+  "pages": {
+   "search": {
+    "url": "https://www.fab.com/search?is_free=1",
+    "ready": "document.querySelectorAll('a[href*=\"/listings/\"]').length>5",
+    "controls": [
+     {
+      "role": "button",
+      "name": "검색 입력 열기",
+      "where": "맨 위 오른쪽 돋보기",
+      "does": "검색칸을 연다",
+      "act": "search",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "카테고리",
+      "where": "결과 위 거름 줄 왼쪽",
+      "does": "분류 고르기",
+      "act": "filter",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "필터 1",
+      "where": "거름 줄 오른쪽(숫자는 걸린 거름 개수)",
+      "does": "거름 창(가격·판매자 등)",
+      "act": "filter",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "정렬 기준: 연관성",
+      "where": "필터 오른쪽",
+      "does": "정렬 바꾸기",
+      "act": "sort",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "무료 제거",
+      "where": "거름 줄 아래 «무료» 칩의 x",
+      "does": "무료 거름을 뺀다",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "모두 해제",
+      "where": "무료 칩 오른쪽",
+      "does": "거름 전부 해제",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "<판매자>의 <에셋 이름>",
+      "where": "결과 카드 그림 아래 제목",
+      "does": "에셋 상세로 간다",
+      "then": "listing",
+      "act": "open_detail",
+      "act_inferred": true,
+      "dynamic": true
+     },
+     {
+      "role": "link",
+      "name": "<판매자>",
+      "where": "카드 제목 아래",
+      "does": "판매자 페이지",
+      "act": "paginate",
+      "act_inferred": true,
+      "dynamic": true
+     }
+    ],
+    "traps": [
+     "🔴 go 의 «무료만» 주소(sellers=Quixel%20Megascans&is_free=1)로 열면 search?is_free=1 로 바뀌며 판매자 거름이 빠진다(2026-10-26 실측). 결과에 JustB Studios 등 다른 판매자가 섞인다 — Megascans 만 보려면 카드의 판매자 이름을 확인하라.",
+     "«무료*» 표시는 할인 전 가격이 붙은 한시 무료일 수 있다(별표 주석: 할인 전 30일 최저가 기준)."
+    ]
+   },
+   "listing": {
+    "url": "https://www.fab.com/listings/{uuid}",
+    "ready": "document.body.innerText.length>1200",
+    "controls": [
+     {
+      "role": "button",
+      "name": "미디어 전체 화면 보기",
+      "where": "큰 미리보기 그림 오른쪽 위",
+      "does": "그림 전체 화면",
+      "act": "open_detail",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "Quixel Megascans",
+      "where": "미리보기 아래 판매자 이름",
+      "does": "판매자 페이지",
+      "act": "paginate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "제품 리뷰로 이동",
+      "where": "판매자 이름 아래 별점",
+      "does": "리뷰 영역으로 내려간다",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "라이선스를 선택하세요 (무료부터 ₩<금액>까지)",
+      "where": "가운데 넓은 고르개(id license-select)",
+      "does": "라이선스 등급을 고른다",
+      "css": "#license-select",
+      "act": "navigate",
+      "act_inferred": true,
+      "dynamic": true
+     },
+     {
+      "role": "button",
+      "name": "지금 구매",
+      "where": "라이선스 고르개 아래 왼쪽",
+      "does": "구매",
+      "irreversible": true,
+      "act": "pay",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "장바구니에 추가",
+      "where": "지금 구매 오른쪽",
+      "does": "장바구니에 담는다",
+      "irreversible": true,
+      "act": "submit",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "위시리스트에 추가",
+      "where": "장바구니 단추 오른쪽 하트",
+      "does": "위시리스트",
+      "irreversible": true,
+      "act": "submit",
+      "act_inferred": true
+     },
+     {
+      "role": "tab",
+      "name": "개요",
+      "where": "본문 아래 탭 줄의 첫 번째",
+      "does": "설명·맵 목록·크기",
+      "act": "tab",
+      "act_inferred": true
+     },
+     {
+      "role": "tab",
+      "name": "리뷰",
+      "where": "탭 줄의 두 번째",
+      "does": "리뷰",
+      "act": "tab",
+      "act_inferred": true
+     },
+     {
+      "role": "tab",
+      "name": "fbx",
+      "where": "«포함된 형식» 탭 줄",
+      "does": "fbx 파일 목록",
+      "act": "tab",
+      "act_inferred": true
+     },
+     {
+      "role": "tab",
+      "name": "변환된 GLB, glTF, USDZ",
+      "where": "포함된 형식 탭 줄의 마지막",
+      "does": "변환 파일 목록",
+      "act": "tab",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "<태그>",
+      "where": "아래 태그 칩 줄(Nordic, Ground…)",
+      "does": "그 태그 검색",
+      "act": "search",
+      "act_inferred": true,
+      "dynamic": true
+     }
+    ],
+    "traps": [
+     "무료 거름으로 찾은 에셋도 라이선스 고르개는 «무료부터 ₩43,660까지» 다. 고른 등급에 따라 값이 붙는다 — 고르개를 건드리지 말고 글자만 읽어라.",
+     "신고 링크가 공유 단추 옆에 붙어 있다. 누르지 마라."
+    ]
+   }
+  },
+  "verified": "2026-10-26",
+  "source": "observed 2026-10-26 by a browsing agent; act inferred"
+ },
+ "blender_download": {
+  "label": "Blender 배포 미러",
+  "access": "open",
+  "hosts": [
+   "download.blender.org"
+  ],
+  "go": {
+   "릴리스 목록": "https://download.blender.org/release/",
+   "버전 폴더": "https://download.blender.org/release/Blender{메이저}.{마이너}/",
+   "체크섬": "https://download.blender.org/release/Blender{X.Y}/blender-{X.Y.Z}.sha256"
+  },
+  "has": [
+   "전 버전 설치본",
+   "windows-x64 의 .msi/.msix/.zip",
+   "SHA256 체크섬"
+  ],
+  "can": [],
+  "pages": {
+   "release_index": {
+    "url": "https://download.blender.org/release/",
+    "ready": "document.querySelectorAll('a').length>20",
+    "controls": [
+     {
+      "role": "link",
+      "name": "../",
+      "where": "목록 맨 위 첫 줄",
+      "does": "상위 폴더",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "Blender<X.Y>/",
+      "where": "목록 각 줄(이름순, Blender5.2/ 가 Blender 줄의 마지막)",
+      "does": "그 버전 폴더로 간다",
+      "then": "version_folder",
+      "act": "navigate",
+      "act_inferred": true,
+      "dynamic": true
+     },
+     {
+      "role": "link",
+      "name": "Blender5.2/",
+      "where": "Blender 로 시작하는 줄의 맨 끝",
+      "does": "2026-10-26 기준 최신 버전 폴더",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "GPL3-license.txt",
+      "where": "목록 끝부분",
+      "does": "라이선스 원문",
+      "act": "open_detail",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "Blender1.0/",
+      "where": "../ 바로 아래",
+      "does": "가장 오래된 버전 폴더",
+      "act": "navigate",
+      "act_inferred": true
+     }
+    ],
+    "traps": [
+     "Apache 기본 색인 화면이라 정렬이 글자순이다(최신이 맨 아래). 목록은 딱 100줄이고 뒤쪽에 yafray·라이선스 파일이 섞인다."
+    ]
+   },
+   "version_folder": {
+    "url": "https://download.blender.org/release/Blender{X.Y}/",
+    "ready": "document.querySelectorAll('a').length>3",
+    "controls": [
+     {
+      "role": "link",
+      "name": "../",
+      "where": "맨 위 첫 줄",
+      "does": "릴리스 목록으로 돌아간다",
+      "then": "release_index",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "blender-<X.Y.Z>-windows-x64.zip",
+      "where": "패치 버전 묶음 안 windows-x64 줄",
+      "does": "포터블 zip 을 받는다(권한 없이 풀어 쓴다)",
+      "act": "navigate",
+      "act_inferred": true,
+      "dynamic": true
+     },
+     {
+      "role": "link",
+      "name": "blender-<X.Y.Z>-windows-x64.msi",
+      "where": "zip 줄 두 줄 위",
+      "does": "설치본(관리자 권한 필요)",
+      "act": "navigate",
+      "act_inferred": true,
+      "dynamic": true
+     },
+     {
+      "role": "link",
+      "name": "blender-<X.Y.Z>-linux-x64.tar.xz",
+      "where": "각 패치 묶음의 첫 줄",
+      "does": "리눅스 판",
+      "act": "navigate",
+      "act_inferred": true,
+      "dynamic": true
+     },
+     {
+      "role": "link",
+      "name": "blender-<X.Y.Z>-macos-arm64.dmg",
+      "where": "각 패치 묶음의 둘째 줄",
+      "does": "맥 판",
+      "act": "navigate",
+      "act_inferred": true,
+      "dynamic": true
+     },
+     {
+      "role": "link",
+      "name": "blender-<X.Y.Z>.sha256",
+      "where": "각 패치 묶음의 마지막 줄",
+      "does": "체크섬 파일",
+      "act": "navigate",
+      "act_inferred": true,
+      "dynamic": true
+     }
+    ],
+    "traps": [
+     "한 폴더에 패치 버전(5.2.0, 5.2.1, …)이 위에서 아래로 쌓인다. 최신 패치는 맨 아래 묶음이다.",
+     "파일 링크는 누르는 즉시 내려받기다. 조회만 할 땐 이름과 크기(오른쪽 숫자)만 읽어라."
+    ]
+   }
+  },
+  "verified": "2026-10-26",
+  "source": "observed 2026-10-26 by a browsing agent; act inferred"
+ },
+ "dacon": {
+  "label": "DACON (데이콘 AI 경진대회)",
+  "access": "open",
+  "hosts": [
+   "dacon.io"
+  ],
+  "go": {
+   "대회": "https://dacon.io/competitions",
+   "데이터셋": "https://dacon.io/datasets"
+  },
+  "has": [
+   "대회",
+   "데이터셋",
+   "리더보드",
+   "코드공유",
+   "채용연계"
+  ],
+  "can": [
+   "제출",
+   "참가신청"
+  ],
+  "pages": {
+   "competitions": {
+    "url": "https://dacon.io/competitions",
+    "ready": "document.querySelectorAll('a[href*=\"/competitions/official/\"]').length>3",
+    "controls": [
+     {
+      "role": "button",
+      "name": "search",
+      "where": "맨 위 오른쪽 돋보기",
+      "does": "사이트 검색을 연다",
+      "act": "search",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "구독 안내",
+      "where": "돋보기 오른쪽 파란 단추",
+      "does": "유료 구독 안내",
+      "irreversible": false,
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "login",
+      "where": "맨 위 오른쪽 끝 사람 아이콘",
+      "does": "로그인 창",
+      "act": "login",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "대회 참여 방법 알아보기",
+      "where": "«도전으로 기회를 얻으세요» 제목 아래 검은 단추",
+      "does": "참여 방법 안내",
+      "act": "open_detail",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "<대회명> <태그들> <상태>",
+      "where": "대회 목록 한 줄 전체(그림·제목·상태·상금)",
+      "does": "대회 상세로 간다",
+      "then": "competition",
+      "act": "open_detail",
+      "act_inferred": true,
+      "dynamic": true
+     },
+     {
+      "role": "button",
+      "name": "더보기",
+      "where": "대회 목록 맨 아래 가운데",
+      "does": "대회를 더 불러온다",
+      "act": "expand",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "대회",
+      "where": "화면 아래 고정 탭 줄 가운데",
+      "does": "대회 목록(지금 화면)",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "학습",
+      "where": "아래 고정 탭 줄의 네 번째",
+      "does": "학습 메뉴",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "✕",
+      "where": "맨 위 할인 광고 띠 오른쪽",
+      "does": "광고 띠를 닫는다",
+      "act": "navigate",
+      "act_inferred": true
+     }
+    ],
+    "traps": [
+     "🔴 숨은 창(로그인·XP·알림·약관)의 단추가 크기를 가진 채 DOM 에 있다. 접근성 목록에 «구글 로그인»·«재발송»·«모두 삭제» 가 보여도 화면엔 없다 — 화면을 찍어 확인하고 고르라.",
+     "목록은 처음 15개다. 더보기 단추로 늘어난다(전체 대회 수는 제목 아래 «324개»).",
+     "창 폭이 좁으면 아래에 고정 탭 줄(홈·커뮤니티·대회·학습·더보기)이 생긴다.",
+     "상태 글자: 참가신청중 / 마감. st=ing 거름은 SPA 가 무시한다(site_map 메모)."
+    ]
+   },
+   "competition": {
+    "url": "https://dacon.io/competitions/official/{id}/overview/",
+    "ready": "document.body.innerText.includes('리더보드')",
+    "controls": [
+     {
+      "role": "tab",
+      "name": "대회안내",
+      "where": "대회 제목 아래 첫째 탭 줄의 첫 번째",
+      "does": "개요·평가·규칙·일정",
+      "act": "tab",
+      "act_inferred": true
+     },
+     {
+      "role": "tab",
+      "name": "데이터",
+      "where": "첫째 탭 줄의 두 번째",
+      "does": "데이터 설명·내려받기(로그인 필요)",
+      "act": "tab",
+      "act_inferred": true
+     },
+     {
+      "role": "tab",
+      "name": "코드 공유",
+      "where": "첫째 탭 줄의 세 번째",
+      "does": "참가자 코드 글",
+      "act": "tab",
+      "act_inferred": true
+     },
+     {
+      "role": "tab",
+      "name": "토크",
+      "where": "첫째 탭 줄의 네 번째",
+      "does": "질의 게시판",
+      "act": "tab",
+      "act_inferred": true
+     },
+     {
+      "role": "tab",
+      "name": "리더보드",
+      "where": "첫째 탭 줄의 다섯 번째",
+      "does": "순위표",
+      "act": "tab",
+      "act_inferred": true
+     },
+     {
+      "role": "tab",
+      "name": "제출",
+      "where": "첫째 탭 줄의 마지막",
+      "does": "결과 제출 화면(로그인 필요)",
+      "irreversible": true,
+      "act": "submit",
+      "act_inferred": true
+     },
+     {
+      "role": "tab",
+      "name": "평가",
+      "where": "둘째 탭 줄의 두 번째",
+      "does": "평가 방식",
+      "act": "tab",
+      "act_inferred": true
+     },
+     {
+      "role": "tab",
+      "name": "규칙",
+      "where": "둘째 탭 줄의 세 번째",
+      "does": "대회 규칙",
+      "act": "tab",
+      "act_inferred": true
+     },
+     {
+      "role": "tab",
+      "name": "일정",
+      "where": "둘째 탭 줄의 네 번째",
+      "does": "일정",
+      "act": "tab",
+      "act_inferred": true
+     },
+     {
+      "role": "tab",
+      "name": "상금",
+      "where": "둘째 탭 줄의 다섯 번째",
+      "does": "상금",
+      "act": "tab",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "+ Google Calendar",
+      "where": "대회 제목 위 기간 줄 오른쪽",
+      "does": "구글 캘린더 일정 추가(외부 계정에 쓴다)",
+      "irreversible": true,
+      "act": "submit",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "공유하기",
+      "where": "대회 제목 줄 오른쪽 끝",
+      "does": "공유 창",
+      "act": "navigate",
+      "act_inferred": true
+     }
+    ],
+    "traps": [
+     "overview/ 로 열면 overview/description 으로 바뀐다.",
+     "참가신청 단추는 이번에 보지 못했다(마감된 대회만 열었다)."
+    ]
+   }
+  },
+  "verified": "2026-10-26",
+  "source": "observed 2026-10-26 by a browsing agent; act inferred"
+ },
+ "steamworks_docs": {
+  "label": "Steamworks 개발자 문서 (스팀 출시 규정·AI 공개 정책)",
+  "access": "open",
+  "hosts": [
+   "partner.steamgames.com"
+  ],
+  "go": {
+   "콘텐츠설문_AI정책": "https://partner.steamgames.com/doc/gettingstarted/contentsurvey",
+   "문서홈": "https://partner.steamgames.com/doc/home",
+   "AI공지_원문": "https://steamcommunity.com/groups/steamworks/announcements/detail/3862463747997849619",
+   "문서검색": "https://partner.steamgames.com/doc?q={검색어}"
+  },
+  "has": [
+   "콘텐츠 설문(Content Survey) — General/Mature/생성형 AI 3절",
+   "AI 생성 콘텐츠 공개 의무 원문 (Pre-Generated / Live-Generated)",
+   "출시 심사·수수료·스토어 규정"
+  ],
+  "can": [],
+  "pages": {
+   "doc": {
+    "url": "https://partner.steamgames.com/doc/{path}",
+    "ready": "document.body.innerText.length>2000",
+    "controls": [
+     {
+      "role": "textbox",
+      "name": "Search Steamworks Documentation…",
+      "where": "본문 위 오른쪽 검색칸",
+      "does": "문서 검색(엔터)",
+      "css": "input[name=q]",
+      "then": "search",
+      "act": "search",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "Documentation Home Page",
+      "where": "왼쪽 목차 맨 위",
+      "does": "문서 홈",
+      "act": "paginate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "Getting Started",
+      "where": "왼쪽 목차 두 번째 큰 항목",
+      "does": "입문 묶음(펼쳐진다)",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "Content Survey",
+      "where": "왼쪽 목차 Getting Started 아래",
+      "does": "콘텐츠 설문 문서",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "Content Survey Sections",
+      "where": "Content Survey 밑 들여쓴 항목",
+      "does": "문서 안의 절로 이동",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "FAQ",
+      "where": "Content Survey Sections 아래",
+      "does": "문서 안 FAQ 절",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "Store Presence",
+      "where": "왼쪽 목차 Getting Started 다음 큰 항목",
+      "does": "스토어 규정 묶음",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "Steamworks Web API Reference",
+      "where": "왼쪽 목차 맨 아래",
+      "does": "Web API 참고서",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "언어",
+      "where": "맨 위 오른쪽 Sign in 왼쪽",
+      "does": "화면 언어 바꾸기",
+      "act": "navigate",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "Sign in",
+      "where": "맨 위 오른쪽 끝",
+      "does": "파트너 로그인",
+      "act": "login",
+      "act_inferred": true
+     }
+    ],
+    "traps": [
+     "없는 문서 경로는 404 가 아니라 문서 홈으로 간다. location.href 를 꼭 확인하라(site_map 메모).",
+     "맨 위 «Find by App Name or ID» 칸은 파트너용 앱 찾기다(로그인 필요). 문서 검색칸과 헷갈리지 마라.",
+     "메뉴 글자는 한국어로 나오지만 문서 본문은 영어다."
+    ]
+   },
+   "search": {
+    "url": "https://partner.steamgames.com/doc?q={query}",
+    "ready": "document.title.startsWith('Search Results')",
+    "controls": [
+     {
+      "role": "textbox",
+      "name": "Search Steamworks Documentation…",
+      "where": "본문 위 오른쪽 검색칸",
+      "does": "다시 검색",
+      "css": "input[name=q]",
+      "act": "search",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "Search the Steamworks Developer Discussions for \"<검색어>\"",
+      "where": "결과 맨 위 첫 줄",
+      "does": "개발자 토론장 검색으로 간다",
+      "act": "search",
+      "act_inferred": true,
+      "dynamic": true
+     },
+     {
+      "role": "link",
+      "name": "<문서 제목>",
+      "where": "결과 각 덩어리의 큰 제목",
+      "does": "그 문서로 간다",
+      "then": "doc",
+      "act": "navigate",
+      "act_inferred": true,
+      "dynamic": true
+     },
+     {
+      "role": "link",
+      "name": "<절 제목>",
+      "where": "결과 제목 아래 작은 글자 링크",
+      "does": "문서 안 그 절로 간다",
+      "act": "navigate",
+      "act_inferred": true,
+      "dynamic": true
+     },
+     {
+      "role": "link",
+      "name": "Documentation Home Page",
+      "where": "왼쪽 목차 맨 위",
+      "does": "문서 홈",
+      "act": "paginate",
+      "act_inferred": true
+     }
+    ],
+    "traps": [
+     "검색은 GET 폼(/doc?q=)이라 주소만으로 된다. 결과에 쪽 번호가 있는지는 확인 못 함."
+    ]
+   }
+  },
+  "verified": "2026-10-26",
+  "source": "observed 2026-10-26 by a browsing agent; act inferred"
+ }
 }

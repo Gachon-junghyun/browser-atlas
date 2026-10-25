@@ -18,7 +18,8 @@ def check(site_key, port, sites=None, wait=(3, 9)) -> dict:
     for i, (key, page) in enumerate(site.get("pages", {}).items()):
         if i:
             time.sleep(random.uniform(*wait))
-        controls = page.get("controls", [])
+        # template names ("<title>") and nameless controls cannot be looked up by name
+        controls = [c for c in page.get("controls", []) if not c.get("dynamic") and not c.get("unnamed")]
         found, missing = [], []
         tab = None
         error = None
