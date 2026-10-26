@@ -309,12 +309,37 @@ class GraphTest(unittest.TestCase):
         self.assertEqual(_graph.plan(H + "/", "Financials", picks={"fresh": 7})["checks"], {"fresh_days": 7})
 
     def test_dated_list_words_in_titles_and_targets(self):
-        for word in ("news", "뉴스", "공시", "기사", "filing", "filings", "press", "보도"):
+        for word in ("news", "뉴스", "기사", "press", "보도"):
             with self.subTest(word=word):
                 _graph.page(H + "/list", word, direct=True)
                 self.assertEqual(_graph.plan(H + "/", "/list")["checks"], {"fresh_days": 14})
                 _graph.page(H + "/list", "List", direct=True)
                 self.assertEqual(_graph.plan(H + "/", word + " List")["checks"], {"fresh_days": 14})
+
+    def test_filings_checks_and_overrides(self):
+        for word in ("filing", "filings", "공시", "10-Q", "10-K", "8-K", "EDGAR"):
+            with self.subTest(word=word):
+                _graph.page(H + "/list", word, direct=True)
+                self.assertEqual(_graph.plan(H + "/", "/list")["checks"], {"fresh_days": 120})
+                self.assertEqual(_graph.plan(H + "/", "/list", picks={"fresh": 14})["checks"],
+                                 {"fresh_days": 14})
+                self.assertNotIn("checks", _graph.plan(H + "/", "/list", picks={"fresh": 0}))
+                _graph.page(H + "/list", "List", direct=True)
+                self.assertEqual(_graph.plan(H + "/", word + " List")["checks"], {"fresh_days": 120})
+
+    def test_popup_edge_names_a_query_thing_from_search(self):
+        start = "https://kosis.kr/search/search.do"
+        _graph.page(start, "Search", direct=True)
+        for suffix, name in (("014", "기본분류"), ("015", "특수분류")):
+            url = "https://kosis.kr/start.jsp?orgId=301&tblId=DT_404Y" + suffix
+            _graph.observe("browser_click", {"role": "link", "name": "생산자물가지수(" + name + ")"},
+                           {"url": start, "new_tab": {"url": url}}, start)
+        p = _graph.plan(start, "생산자물가지수(기본분류)")
+        self.assertNotIn("choose", p)
+        self.assertEqual(p["page"], "/start.jsp?orgId=301&tblId=DT_404Y014")
+        self.assertEqual(p["steps"], [["click", "link", "생산자물가지수(기본분류)"], ["tab", "new"]])
+        p = _graph.plan(start, "생산자물가지수")
+        self.assertEqual(p["choose"]["candidates"], ["DT_404Y014", "DT_404Y015"])
 
     def test_named_other_thing_beats_start_rebase(self):
         for thing in ("AMD.O", "NVDA.O"):

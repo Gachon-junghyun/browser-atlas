@@ -1,6 +1,8 @@
 """go stops where a choice is needed, follows new tabs, and doubts what it arrived at."""
 import json
 import os
+import shutil
+import subprocess
 import tempfile
 import unittest
 from datetime import date, datetime, timedelta
@@ -262,6 +264,60 @@ class GoTest(unittest.TestCase):
         result = mcp_server._read(c, {"mode": "text", "list_dates": True})
         self.assertEqual(result["list_dates"], rows)
         self.assertEqual(c.eval.call_args, mock.call(mcp_server._LIST_DATES_JS))
+
+    @unittest.skipUnless(shutil.which("node"), "Node is needed to execute the DOM fixture")
+    def test_metric_rows_above_stale_news_are_not_list_items(self):
+        # A small DOM fixture runs the actual extraction script without a browser.
+        fixture = r"""
+const nodes = [];
+function el(text, children = [], cls = '') {
+  const node = {tagName: 'DIV', className: cls, children,
+                innerText: text || children.map(c => c.innerText).join('\n')};
+  for (const child of children) child.parentElement = node;
+  nodes.push(node);
+  return node;
+}
+function row(parts) { return el('', parts.map(t => el(t)), 'row'); }
+const metrics = el('', [row(['배당일', '2026. 10. 31.']),
+                        row(['배당락일', '2026. 10. 06.']),
+                        row(['PER', '2026.09.', '13.90배'])]);
+const news = el('', ['2025. 01. 06.', '2024. 07. 10.', '2024. 04. 10.'].map(d =>
+  row(['Example company announces a new research project', d,
+       'This fictional report describes the research project and its expected progress over the coming year.'])));
+el('', [metrics, news]);
+const document = {querySelectorAll: () => nodes};
+"""
+        result = subprocess.run([shutil.which("node"), "-e", fixture +
+                                 "console.log(JSON.stringify(" + mcp_server._LIST_DATES_JS + "));"],
+                                check=True, capture_output=True, encoding="utf-8")
+        rows = json.loads(result.stdout)
+        self.assertEqual(rows, ["2025. 01. 06.", "2024. 07. 10.", "2024. 04. 10."])
+        class Clock(datetime):
+            @classmethod
+            def now(cls):
+                return cls(2026, 10, 27)
+
+        with mock.patch.object(mcp_server, "datetime", Clock), \
+                mock.patch.object(mcp_server, "_tracked", return_value={"list_dates": rows}):
+            checked, failure = mcp_server._check_arrival("T", {"checks": {"fresh_days": 14}}, None, None)
+        self.assertEqual(checked["fresh"], "2025-01-06")
+        self.assertEqual((failure["why"], failure["newest"]), ("stale", "2025-01-06"))
+
+    def test_quarterly_filing_passes_120_days_but_fails_14(self):
+        class Clock(datetime):
+            @classmethod
+            def now(cls):
+                return cls(2026, 10, 27)
+
+        for days in (120, 14):
+            with self.subTest(days=days), mock.patch.object(mcp_server, "datetime", Clock), \
+                    mock.patch.object(mcp_server, "_tracked", return_value={"list_dates": ["2026-08-26"]}):
+                checked, failure = mcp_server._check_arrival("T", {"checks": {"fresh_days": days}}, None, None)
+            self.assertEqual(checked["fresh"], "2026-08-26")
+            if days == 120:
+                self.assertIsNone(failure)
+            else:
+                self.assertEqual(failure["why"], "stale")
 
     def test_recent_rows_report_list_as_the_source(self):
         with mock.patch.object(mcp_server, "_tracked", return_value={

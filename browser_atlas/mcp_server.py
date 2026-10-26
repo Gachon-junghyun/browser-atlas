@@ -419,6 +419,10 @@ _OUTLINE_JS = r"""(() => {
 
 _LIST_DATES_JS = r"""(() => {
   const date = /(?:\d{4}\s*[.\-/년]\s*\d{1,2}\s*[.\-/월]\s*\d{1,2}|\d{1,2}\.\s*\d{1,2}\.|\d+\s*(?:분|시간|일)\s*전|어제|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2}|\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec))/i;
+  const item = el => {
+    const text = el.innerText || '';
+    return date.test(text) && text.replace(new RegExp(date.source, 'gi'), '').replace(/\s/g, '').length >= 40;
+  };
   const groups = new Map();
   for (const el of document.querySelectorAll('body *')) {
     if (!el.innerText || !date.test(el.innerText) ||
@@ -428,7 +432,8 @@ _LIST_DATES_JS = r"""(() => {
       const peers = Array.from(row.parentElement.children).filter(c =>
         c.tagName === row.tagName && c.className === row.className);
       if (peers.length < 3) continue;
-      const dated = peers.filter(c => date.test(c.innerText || ''));
+      if (!item(row)) continue;
+      const dated = peers.filter(item);
       if (dated.length >= 3) {
         if (!groups.has(row.parentElement)) groups.set(row.parentElement, new Set());
         groups.get(row.parentElement).add(el.innerText);

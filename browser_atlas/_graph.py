@@ -51,6 +51,7 @@ GENERIC = {"닫기", "close", "x", "×", "확인", "취소", "ok", "cancel", "�
            "오늘 하루 보지 않기", "다시 보지 않기", "오늘 그만 보기", "dismiss", "got it", "no thanks"}
 # Pages that are lists of dated items, whose newest date says whether the source is current. English
 # words stand alone ("compression" holds "press"); "news" may start a word (newsroom).
+FILINGS = re.compile(r"(?<![a-z])(?:filings?|edgar|10-[qk]|8-k)(?![a-z])|공시")
 DATED_LIST = re.compile(r"(?<![a-z])news|(?<![a-z])(?:filings?|press)(?![a-z])|뉴스|공시|기사|보도")
 # Controls that change the page in place instead of leaving it.
 TOGGLES = {"radio", "tab", "checkbox", "switch", "option", "menuitemradio", "menuitemcheckbox"}
@@ -408,6 +409,7 @@ def _plan(start_url: str, target: str, host: str | None = None, con=None, picks=
     goal: dict[str, float] = {}
     for s, p in targets:
         goal[rb(p)] = max(goal.get(rb(p), 0.0), s)
+    edge_scores: dict[str, float] = {}
     if start:
         # the same words on several pages (every course has "Class Announcements"): the one linked from
         # where the tab is now is meant (observed: from the database course, plain cost picked another course's board)
@@ -418,6 +420,7 @@ def _plan(start_url: str, target: str, host: str | None = None, con=None, picks=
                 continue                              # course query ids have their own board links
             lab = e["label"] if e["kind"] == "link" else " ".join(json.loads(e["label"])[1:2])
             s = _score(target, [lab])
+            edge_scores[rb(e["dst"])] = max(edge_scores.get(rb(e["dst"]), 0.0), s)
             if s >= 0.35:
                 goal[rb(e["dst"])] = max(goal.get(rb(e["dst"]), 0.0), s) + 0.5
     visited = {p for p, r in pages.items() if r["visits"]}
@@ -490,6 +493,11 @@ def _plan(start_url: str, target: str, host: str | None = None, con=None, picks=
             seg, by = th
             named = ([by[v]] if (v := _pick_thing(list(by), pick)) else []) if pick else \
                 [p for v, p in by.items() if _named(v, target)]
+            if not named and not pick:
+                # A table ID can be named by the link from the page the tab is on.
+                scores = {p: edge_scores.get(p, 0.0) for p in by.values()}
+                named = [p for p, s in scores.items() if s >= 0.8
+                         and all(s > other for q, other in scores.items() if q != p)]
             here = _segs(start) if start else []
             if named:
                 end = min((dist[p] - 2.0 * goal.get(p, 0.0), p) for p in named)[1]
@@ -599,7 +607,7 @@ def plan(start_url: str, target: str, host: str | None = None, con=None, picks=N
         return out
     end = out["page"]
     texts = " ".join((end, out["title"], target)).casefold()
-    fresh = picks.get("fresh", 14 if DATED_LIST.search(texts) else 0)
+    fresh = picks.get("fresh", 120 if FILINGS.search(texts) else 14 if DATED_LIST.search(texts) else 0)
     if fresh:
         out["checks"] = {"fresh_days": fresh}
     controls = con.execute("select path, role, name, used, seen from g_controls where host=?"
