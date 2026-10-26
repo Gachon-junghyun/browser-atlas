@@ -266,6 +266,34 @@ class GoTest(unittest.TestCase):
         self.assertEqual(c.eval.call_args, mock.call(mcp_server._LIST_DATES_JS))
 
     @unittest.skipUnless(shutil.which("node"), "Node is needed to execute the DOM fixture")
+    def test_pinned_dates_are_excluded_from_regular_news(self):
+        fixture = r"""
+const nodes = [];
+function el(text, children = [], cls = '', aria = '') {
+  const node = {tagName: 'DIV', className: cls, children,
+    innerText: text || children.map(c => c.innerText).join('\n'),
+    getAttribute: name => name === 'aria-label' ? aria : '',
+    querySelectorAll: () => children};
+  for (const child of children) child.parentElement = node;
+  nodes.push(node);
+  return node;
+}
+function row(date, marker) {
+  return el('', [el('Fictional company announces research results and describes its progress in detail.'),
+                 el(date), el(marker)], 'row');
+}
+const rows = [row('2026-10-27', 'Pinned notice'), row('2025-01-01', ''), row('2025-01-02', '')];
+el('', rows);
+const document = {querySelectorAll: () => nodes};
+"""
+        result = subprocess.run([shutil.which("node"), "-e", fixture +
+                                 "console.log(JSON.stringify(" + mcp_server._LIST_DATES_JS + "));"],
+                                check=True, capture_output=True, encoding="utf-8")
+        rows = json.loads(result.stdout)
+        self.assertEqual(rows, ["2025-01-01", "2025-01-02"])
+        self.assertEqual(mcp_server._newest_date("\n".join(rows), date(2026, 10, 27)), date(2025, 1, 2))
+
+    @unittest.skipUnless(shutil.which("node"), "Node is needed to execute the DOM fixture")
     def test_metric_rows_above_stale_news_are_not_list_items(self):
         # A small DOM fixture runs the actual extraction script without a browser.
         fixture = r"""
@@ -355,6 +383,14 @@ const document = {querySelectorAll: () => nodes};
 
 class NewestDateTest(unittest.TestCase):
     D = date(2026, 10, 27)
+
+    def test_plain_decimal_is_not_a_date_and_ranges_are_validated(self):
+        self.assertEqual(mcp_server._newest_date("Share price 10.27 USD; old news 2025-01-01", self.D),
+                         date(2025, 1, 1))
+        for text in ("13.27.", "10.32.", "2026-13-01", "2026-10-32", "Oct 32, 2026"):
+            self.assertIsNone(mcp_server._newest_date(text, self.D), text)
+        for text in ("10.27.", "10.27 09:30", "10.27 Tuesday"):
+            self.assertEqual(mcp_server._newest_date(text, self.D), self.D, text)
 
     def test_header_clocks_consensus_and_future_dates_are_ignored(self):
         text = "2026. 10. 31. 배당\n2026. 10. 15. 기준\n미국 10. 26. 12:15 실시간\n한국 10. 27. 01:15\n2025. 01. 06. 가상 뉴스"
@@ -594,6 +630,28 @@ class TimingTest(unittest.TestCase):
                 mock.patch.object(mcp_server, "_here", return_value=H + "/"), \
                 mock.patch.object(mcp_server._graph, "plan", return_value=plan):
             return mcp_server._run({"tab": "T", "steps": steps or [["go", "x"]]})
+
+    def test_loading_header_waits_for_stable_dated_rows(self):
+        reads = []
+        def tracked(name, args):
+            reads.append(self.clock)
+            return {"untrusted_page_content": date.today().isoformat() + " Loading news...",
+                    "list_dates": ["2025-01-01", "2025-01-02"] if self.clock >= 2 else []}
+        with mock.patch.object(mcp_server, "_tracked", side_effect=tracked):
+            checked, failure = mcp_server._check_arrival("T", {"checks": {"fresh_days": 14}}, None, None)
+        self.assertGreaterEqual(reads[-1], 2.3)
+        self.assertEqual(checked["from"], "list")
+        self.assertEqual(failure["why"], "stale")
+
+    def test_popup_polls_share_the_redirect_and_final_wait_budget(self):
+        def tracked(name, args):
+            self.clock += args["timeout"]
+            return {"met": False}
+        with mock.patch.object(mcp_server, "_here", return_value=H + "/wrong"), \
+                mock.patch.object(mcp_server, "_tracked", side_effect=tracked):
+            self.assertIsNone(mcp_server._popup_arrival("T", _plan("/wanted", []), "Missing"))
+        self.assertLessEqual(self.clock, mcp_server.REDIRECT_WAIT + 5)
+        self.assertAlmostEqual(self.clock, mcp_server.REDIRECT_WAIT + 5)
 
     def test_timing_and_only_interactions_get_one_pace(self):
         def tracked(name, args):

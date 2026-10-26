@@ -314,12 +314,13 @@ class CDP:
 
     def _isolated_ctx(self, timeout: float = 30.0) -> int:
         """Evaluate in an isolated world: same DOM, but page scripts cannot observe our calls."""
+        deadline = _T() + timeout
         if self._frame_id is None:
             self._frame_id = self.call("Page.getFrameTree", timeout=timeout)["frameTree"]["frame"]["id"]
         if self._ctx is None:
             r = self.call("Page.createIsolatedWorld",
                           {"frameId": self._frame_id, "worldName": "__atlas",
-                           "grantUniveralAccess": True}, timeout=timeout)   # sic, spec spelling
+                           "grantUniveralAccess": True}, timeout=max(0, deadline - _T()))   # sic, spec spelling
             self._ctx = r["executionContextId"]
         return self._ctx
 
@@ -334,15 +335,18 @@ class CDP:
 
     def eval(self, js: str, timeout: float = 30.0):
         """Run JS and return the value. Batch reads into one array/object: one round trip each."""
+        deadline = _T() + timeout
         try:
-            return self._eval_raw(js, self._isolated_ctx(timeout), timeout)
+            ctx = self._isolated_ctx(max(0, deadline - _T()))
+            return self._eval_raw(js, ctx, max(0, deadline - _T()))
         except RuntimeError as e:
             m = str(e)
             if self._ctx is not None and any(s in m for s in (
                     "Cannot find context", "Execution context was destroyed",
                     "uniqueContextId", "Inspected target")):
                 self._ctx = None      # navigation destroyed the world; rebuild once
-                return self._eval_raw(js, self._isolated_ctx(timeout), timeout)
+                ctx = self._isolated_ctx(max(0, deadline - _T()))
+                return self._eval_raw(js, ctx, max(0, deadline - _T()))
             raise
 
     def until(self, js: str, timeout: float = 20.0, poll: float = 0.04):
@@ -350,12 +354,12 @@ class CDP:
         t0, last = _T(), None
         while _T() - t0 < timeout:
             try:
-                v = self.eval(js)
+                v = self.eval(js, timeout=max(0, timeout - (_T() - t0)))
                 if v:
                     return v
             except Exception as e:
                 last = e
-            time.sleep(poll)
+            time.sleep(min(poll, max(0, timeout - (_T() - t0))))
         raise TimeoutError(f"not met in {timeout}s: {js[:120]} (last error: {last})")
 
     def goto(self, url: str, until: str | None = None, timeout: float = 30.0) -> dict:

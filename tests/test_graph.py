@@ -17,6 +17,35 @@ class GraphTest(unittest.TestCase):
         os.environ.pop("BROWSER_ATLAS_MAP", None)
         mcp_server.REC.open.clear()
 
+    def test_paging_keys_are_not_things_and_explicit_paths_stay_put(self):
+        for number in (1, 2):
+            _graph.page(H + f"/news?page={number}", "News", direct=True)
+        plan = _graph.plan(H + "/news?page=1", "/news?page=2")
+        self.assertEqual(plan["page"], "/news?page=2")
+        self.assertTrue(plan["steps"])
+        self.assertNotIn("choose", _graph.plan(H + "/", "News"))
+        for key in "page p pg pageno pageindex offset start limit count size rows per_page sort order orderby dir".split():
+            self.assertIsNone(_graph._difference(f"/news?{key}=1", f"/news?{key}=2"))
+            self.assertEqual(_graph.path_of(H + f"/news?{key}=40"), f"/news?{key}=40")
+        for number in (1, 2):
+            _graph.page(H + f"/table/{number}/view", "Table", direct=True)
+        self.assertEqual(_graph.plan(H + "/table/1/view", "/table/2/view")["page"], "/table/2/view")
+
+    def test_mixed_news_and_filings_uses_news_window(self):
+        _graph.page(H + "/news-and-filings", "News and Filings", direct=True)
+        self.assertEqual(_graph.plan(H + "/", "News and Filings")["checks"]["fresh_days"], 14)
+        _graph.page(H + "/filings", "Filings", direct=True)
+        self.assertEqual(_graph.plan(H + "/", "/filings")["checks"]["fresh_days"], 200)
+
+    def test_generic_exact_label_does_not_name_a_thing(self):
+        for number, label in ((1, "Company A News"), (2, "News")):
+            url = H + f"/table/{number}/view"
+            _graph.page(url, label, direct=True)
+            _graph.edge(H + "/", "link", label, url, None)
+        plan = _graph.plan(H + "/", "News")
+        self.assertEqual(plan["choose"]["kind"], "thing")
+        self.assertEqual(plan["choose"]["candidates"], ["1", "2"])
+
     def test_identity_query_values_select_and_keep_the_thing(self):
         base = "https://sec.gov/cgi-bin/browse-edgar?CIK={}&action=getcompany&count=40&owner=include&type=10-Q"
         urls = {v: base.format(v) for v in ("NVDA", "MSFT")}

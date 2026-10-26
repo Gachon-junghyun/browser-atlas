@@ -100,10 +100,14 @@ def _segs(path: str) -> list[str]:
     return base.strip("/").split("/") + [part for k, v in parse_qsl(query) for part in ("?" + k, v)] + [""]
 
 
+_QUERY_SCREEN = re.compile(r"^(page|p|pg|pageno|pageindex|offset|start|limit|count|size|rows|per_page|sort|order|orderby|dir)$", re.I)
+
+
 def _identity(path: str, i: int) -> bool:
     """Keep the last path segment a screen name; query values can name things."""
     n = len(path.split("?")[0].strip("/").split("/"))
-    return i < n - 1 or (i > n and (i - n) % 2 == 1)
+    return i < n - 1 or (i > n and (i - n) % 2 == 1
+                         and not _QUERY_SCREEN.fullmatch(_segs(path)[i - 1][1:]))
 
 
 def _difference(start: str, other: str) -> int | None:
@@ -399,7 +403,7 @@ def _plan(start_url: str, target: str, host: str | None = None, con=None, picks=
                 "title": (row["title"] or "") if row else "", "match": 1.0, "cost": 1.0,
                 "steps": [["goto", target]], "others": [], **({} if row else {"known": False})}
     pages = {r["path"]: dict(r) for r in con.execute("select * from g_pages where host=?", (host,))}
-    slot = _slot(start, pages) if start else None
+    slot = _slot(start, pages) if start and not target.startswith("/") and "://" not in target else None
     if slot:
         i, prefix, _ = slot
         known = sorted({_segs(p)[i] for p in pages if len(_segs(p)) > i + 1 and _segs(p)[:i] == prefix})
@@ -416,6 +420,7 @@ def _plan(start_url: str, target: str, host: str | None = None, con=None, picks=
     for s, p in targets:
         goal[rb(p)] = max(goal.get(rb(p), 0.0), s)
     edge_scores: dict[str, float] = {}
+    edge_labels: dict[str, set[str]] = {}
     if start:
         # the same words on several pages (every course has "Class Announcements"): the one linked from
         # where the tab is now is meant (observed: from the database course, plain cost picked another course's board)
@@ -425,6 +430,7 @@ def _plan(start_url: str, target: str, host: str | None = None, con=None, picks=
             if slot and slot[0] > len(start.split("?")[0].strip("/").split("/")) and e["src"] != start:
                 continue                              # course query ids have their own board links
             lab = e["label"] if e["kind"] == "link" else " ".join(json.loads(e["label"])[1:2])
+            edge_labels.setdefault(rb(e["dst"]), set()).update(re.findall(r"[\w]+", lab.casefold()))
             s = _score(target, [lab])
             edge_scores[rb(e["dst"])] = max(edge_scores.get(rb(e["dst"]), 0.0), s)
             if s >= 0.35:
@@ -502,7 +508,12 @@ def _plan(start_url: str, target: str, host: str | None = None, con=None, picks=
             if not named and not pick:
                 # A table ID can be named by the link from the page the tab is on.
                 scores = {p: edge_scores.get(p, 0.0) for p in by.values()}
+                generic = {"news", "뉴스", "table", "view", "list", "목록", "보기", "more", "더보기",
+                           "page", "screen", "페이지", "화면", "the", "and", "of"}
+                words = set(re.findall(r"[\w]+", target.casefold()))
                 named = [p for p, s in scores.items() if s >= 0.8
+                         and (edge_labels.get(p, set()) & words) - generic
+                         - set().union(*(edge_labels.get(q, set()) for q in scores if q != p))
                          and all(s > other for q, other in scores.items() if q != p)]
             here = _segs(start) if start else []
             if named:
@@ -612,10 +623,13 @@ def plan(start_url: str, target: str, host: str | None = None, con=None, picks=N
     if not out.get("found"):
         return out
     end = out["page"]
-    texts = " ".join((end, out["title"], target)).casefold()
+    texts = " ".join((end, out["title"])).casefold()
+    if not DATED_LIST.search(texts) and not FILINGS.search(texts):
+        texts = target.casefold()                    # a generic List title can be named by the request
+    news = re.search(r"(?<![a-z])news|(?<![a-z])press(?![a-z])|뉴스|기사|보도", texts)
     # a quarterly-filings list is current for months: the fourth quarter brings an annual report instead,
     # so the newest 10-Q can be six months old (observed: 181 days, and the list was the right answer)
-    fresh = picks.get("fresh", 200 if FILINGS.search(texts) else 14 if DATED_LIST.search(texts) else 0)
+    fresh = picks.get("fresh", 14 if news else 200 if FILINGS.search(texts) else 0)
     if fresh:
         out["checks"] = {"fresh_days": fresh}
     controls = con.execute("select path, role, name, used, seen from g_controls where host=?"

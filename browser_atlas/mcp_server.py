@@ -419,6 +419,9 @@ _OUTLINE_JS = r"""(() => {
 
 _LIST_DATES_JS = r"""(() => {
   const date = /(?:\d{4}\s*[.\-/년]\s*\d{1,2}\s*[.\-/월]\s*\d{1,2}|\d{1,2}\.\s*\d{1,2}\.|\d+\s*(?:분|시간|일)\s*전|어제|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2}|\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec))/i;
+  const pinned = row => /notice|pinned|sticky|공지|고정|알림|\bpin\b/i.test(
+    (row.className || '') + ' ' + (row.innerText || '') + ' ' +
+    [row, ...(row.querySelectorAll ? row.querySelectorAll('[aria-label]') : [])].map(el => (el.getAttribute && el.getAttribute('aria-label')) || '').join(' '));
   const item = el => {
     const text = el.innerText || '';
     return date.test(text) && text.replace(new RegExp(date.source, 'gi'), '').replace(/\s/g, '').length >= 40;
@@ -436,7 +439,7 @@ _LIST_DATES_JS = r"""(() => {
       const dated = peers.filter(item);
       if (dated.length >= 3) {
         if (!groups.has(row.parentElement)) groups.set(row.parentElement, new Set());
-        groups.get(row.parentElement).add(el.innerText);
+        if (!pinned(row)) groups.get(row.parentElement).add(el.innerText);
         break;
       }
     }
@@ -686,7 +689,12 @@ def _browser(name: str, args: dict):
             js = _wait_js(args)
             if not js:
                 raise ValueError("give wait_css or wait_text")
-            return {"met": bool(c.until(js, timeout=float(args.get("timeout", 15)))), "url": c.eval("location.href")}
+            import time
+            deadline = time.monotonic() + float(args.get("timeout", 15))
+            met = bool(c.until(js, timeout=max(0, deadline - time.monotonic())))
+            url = c.eval("location.href", **({"timeout": max(0, deadline - time.monotonic())}
+                                           if "timeout" in args else {}))
+            return {"met": met, "url": url}
         p = Pointer(c, pace=args.get("pace", "human"))
         which = (args.get("role"), args.get("name"))
         idx = args.get("index")
@@ -951,7 +959,8 @@ _MON = r"(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?"
 _DATES = [
     (re.compile(r"(?<!\d)(\d{4})\s*[.\-/]\s*(\d{1,2})\s*[.\-/]\s*(\d{1,2})(?!\d)"), "ymd"),
     (re.compile(r"(\d{4})\s*년\s*(\d{1,2})\s*월\s*(\d{1,2})\s*일"), "ymd"),
-    (re.compile(r"(?<![\d.])(\d{1,2})\.\s*(\d{1,2})\.?(?!\d)"), "md"),
+    (re.compile(r"(?<![\d.])(\d{1,2})\.\s*(\d{1,2})(?:\.(?!\d)|(?=\s*(?:\d{1,2}:\d{2}|Mon|Tue|Wed|Thu|Fri|Sat|Sun|[월화수목금토일]요일)))", re.I), "md"),
+    (re.compile(r"(?<!\d)(\d{1,2})\s*월\s*(\d{1,2})\s*일"), "md"),
     (re.compile(_MON + r"\s+(\d{1,2}),?\s+(\d{4})(?!\d)", re.I), "mdy"),
     (re.compile(r"(?<!\d)(\d{1,2})\s+" + _MON + r",?\s+(\d{4})(?!\d)", re.I), "dmy"),
 ]
@@ -972,7 +981,7 @@ def _newest_date(text: str, today) -> date | None:
             before, after = text[max(0, m.start() - 12):m.start()], text[m.end():m.end() + 20]
             if re.match(r"[.\s]*(?:기준|실시간)", after) or re.search(r"(?:기준|실시간)\s*$", before):
                 continue
-            if order == "md" and re.match(r"\s*\d{1,2}:\d{2}", after):
+            if order == "md" and m.group(0).endswith(".") and re.match(r"\s*\d{1,2}:\d{2}", after):
                 continue
             g = m.groups()
             if order == "ymd":
@@ -1044,9 +1053,10 @@ def _check_arrival(tab: str, p: dict, wait: str | None, picks: dict | None, wait
                 source = "list" if rows else "text"
                 newest = _newest_date("\n".join(rows) if rows else text, now)
                 size = r.get("total_chars", len(text))
-                if newest is not None and previous == size:
+                signature = (tuple(rows), size) if rows else size
+                if newest is not None and previous == signature and (rows or "list_dates" not in r):
                     break
-                previous = size
+                previous = signature
                 remaining = min(deadline - time.monotonic(), 6.0 - slept)
                 if remaining < 1e-6:
                     break
@@ -1069,14 +1079,16 @@ def _check_arrival(tab: str, p: dict, wait: str | None, picks: dict | None, wait
 
 def _arrived(tab: str, p: dict, waits: dict | None = None) -> bool:
     """Whether the tab is on the planned page; poll late client-side navigation for 1.5 s."""
+    import time
+    deadline = time.monotonic() + 1.5
     for attempt in range(9):
         here = _here(tab)
         if _graph.host_of(here) == p["host"] and _graph.path_of(here) == p["page"]:
             return True
         if attempt < 8:
-            _pause(0.2 if attempt < 7 else 0.1, "arrive", waits)
+            _pause(min(0.2 if attempt < 7 else 0.1, max(0, deadline - time.monotonic())), "arrive", waits)
             try:
-                _poll_page(tab, "arrive", waits)
+                _poll_page(tab, "arrive", waits, timeout=max(0, min(0.2, deadline - time.monotonic())))
             except Exception:
                 pass
     return False
@@ -1094,11 +1106,15 @@ def _popup_arrival(tab: str, p: dict, wait: str | None, waits: dict | None = Non
     None means it ended elsewhere (a login page)."""
     import time
     previous, stable = None, 0
+    deadline = time.monotonic() + REDIRECT_WAIT
     for attempt in range(int(REDIRECT_WAIT / 0.25) + 1):
         if attempt:
-            _pause(0.25, "popup_settle", waits)
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                break
+            _pause(min(0.25, remaining), "popup_settle", waits)
             try:
-                _poll_page(tab, "popup_settle", waits)   # refreshes where it is
+                _poll_page(tab, "popup_settle", waits, timeout=max(0, min(0.2, deadline - time.monotonic())))
             except Exception:
                 pass
         here = _here(tab)
@@ -1108,14 +1124,14 @@ def _popup_arrival(tab: str, p: dict, wait: str | None, waits: dict | None = Non
             return here
         if wait and stable >= STABLE_LOOKS:
             try:
-                w = _poll_page(tab, "popup_settle", waits, wait)
+                w = _poll_page(tab, "popup_settle", waits, wait, timeout=max(0, min(0.2, deadline - time.monotonic())))
                 if not (isinstance(w, dict) and w.get("met") is False):
                     return _here(tab)
             except TimeoutError:
                 pass
     if wait:
         try:
-            w = _poll_page(tab, "popup_settle", waits, wait, timeout=5)
+            w = _poll_page(tab, "popup_settle", waits, wait, timeout=max(0, min(5, deadline + 5 - time.monotonic())))
             if not (isinstance(w, dict) and w.get("met") is False):
                 return _here(tab)
         except TimeoutError:
