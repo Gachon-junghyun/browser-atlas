@@ -501,6 +501,49 @@ class ClickTest(unittest.TestCase):
         self.assertNotIn("new_tab", r)
         self.assertLess(time.perf_counter() - t0, 1.0)
 
+    def test_planned_browser_click_waits_before_sending_input(self):
+        events = []
+        fake = FakeCDP(opener=None, event=False)
+        class Pointer:
+            def __init__(self, c, pace="human"):
+                pass
+
+            def wait_control(self, role, name, index=None):
+                events.append(("wait", role, name, index))
+                return 375
+
+            def click_control(self, role, name, index=None):
+                events.append(("click", role, name, index))
+                return {"role": role}
+
+        with mock.patch.object(_cdp, "CDP", fake), \
+                mock.patch("browser_atlas._pointer.Pointer", Pointer), mock.patch("time.sleep"):
+            result = mcp_server._browser("browser_click", {"tab": "T", "role": "radio", "name": "Quarter",
+                                                          "index": 2, "_planned": True})
+        self.assertEqual(events, [("wait", "radio", "Quarter", 2), ("click", "radio", "Quarter", 2)])
+        self.assertEqual(result["control_ms"], 375)
+
+    def test_toggle_skips_grace_and_quiet_hold_but_keeps_window_events(self):
+        for changes, opener in ((0, None), (3, None), (0, "T")):
+            with self.subTest(changes=changes, opener=opener):
+                fake = FakeCDP(opener=opener, event=bool(opener), changes=changes)
+                class Pointer:
+                    def __init__(self, c, pace="human"):
+                        pass
+
+                    def click_control(self, role, name, index=None):
+                        fake.click()
+                        return {"role": role}
+
+                with mock.patch.object(_cdp, "CDP", fake), \
+                        mock.patch("browser_atlas._pointer.Pointer", Pointer), \
+                        mock.patch("time.sleep") as sleep, \
+                        mock.patch.object(_cdp, "opened_by", wraps=_cdp.opened_by) as opened:
+                    result = mcp_server._browser("browser_click", {"tab": "T", "role": "radio", "name": "Quarter"})
+                self.assertEqual(sleep.call_args_list, [mock.call(0)])
+                self.assertEqual(opened.call_args.args[2], 0)
+                self.assertEqual("new_tab" in result, bool(opener))
+
     def test_opened_by_needs_the_window_open_event_and_waits_for_an_address(self):
         known = {"T": H + "/search", "P": H + "/elsewhere"}
         fake = FakeCDP(url="about:blank", event=False)
@@ -593,6 +636,91 @@ class TimingTest(unittest.TestCase):
         self.assertIsNone(failure)
         self.assertEqual(reads, [0, 0.3])
         self.assertEqual(waits["fresh_poll"], 300)
+
+    def test_planned_control_appears_without_retry_or_extra_clicks(self):
+        from browser_atlas._pointer import Pointer, NoControl
+        polls, clicks = [], []
+
+        class DrawingPointer:
+            wait_control = Pointer.wait_control
+
+            def _control(self, role, name, index=None):
+                polls.append(index)
+                if len(polls) < 4:
+                    raise NoControl(role, name, [])
+                return "#quarter"
+
+            def target(self, css):
+                return {"x": 10, "y": 20}
+
+        def tracked(name, args):
+            if name == "browser_click":
+                self.assertTrue(args["_planned"])
+                elapsed = DrawingPointer().wait_control(args["role"], args["name"], index=args.get("index"))
+                clicks.append(self.clock)
+                return {"control_ms": elapsed}
+            return {}
+
+        result = self.run_plan(_plan("/", [["goto", H], ["click", "radio", "Quarter", 1]]), tracked)
+        self.assertTrue(all(row["ok"] for row in result["steps"]))
+        self.assertEqual(polls, [1, 1, 1, 1])
+        self.assertEqual(len(clicks), 1)
+        self.assertEqual(result["steps"][0]["waits_ms"]["control"], 375)
+        self.assertEqual(result["steps"][0]["waits_ms"]["retry"], 0)
+        self.assertEqual(result["steps"][0]["waits_ms"]["pace"], 250)
+
+    def test_control_wait_hit_tests_and_stops_at_budget(self):
+        from browser_atlas._pointer import Pointer
+        pointer = mock.Mock()
+        pointer._control.return_value = "#quarter"
+        pointer.target.side_effect = RuntimeError("covered: loader")
+        with self.assertRaisesRegex(TimeoutError, "control not clickable") as error:
+            Pointer.wait_control(pointer, "radio", "Quarter")
+        self.assertEqual(self.clock, 2)
+        self.assertEqual(error.exception.control_ms, 2000)
+        self.assertEqual(pointer.target.call_count, 17)
+
+    def test_control_wait_returns_as_soon_as_cover_clears(self):
+        from browser_atlas._pointer import Pointer
+        pointer = mock.Mock()
+        pointer._control.return_value = "#quarter"
+        pointer.target.side_effect = [RuntimeError("covered: loader"), RuntimeError("covered: loader"), {}]
+        elapsed = Pointer.wait_control(pointer, "radio", "Quarter")
+        self.assertEqual(elapsed, 250)
+        self.assertEqual(self.sleeps, [0.125, 0.125])
+
+    def test_exhausted_control_wait_is_accounted_without_retry(self):
+        def tracked(name, args):
+            if name == "browser_click":
+                self.sleep(2)
+                error = TimeoutError("control not clickable: no control: Quarter")
+                error.control_ms = 2000
+                raise error
+            return {}
+        result = self.run_plan(_plan("/", [["goto", H], ["click", "radio", "Quarter"]]), tracked)
+        self.assertFalse(result["steps"][-1]["ok"])
+        self.assertEqual(result["steps"][0]["waits_ms"]["control"], 2000)
+        self.assertEqual(result["steps"][0]["waits_ms"]["retry"], 0)
+
+    def test_control_wait_does_not_swallow_other_errors(self):
+        from browser_atlas._pointer import Pointer
+        pointer = mock.Mock()
+        pointer._control.side_effect = RuntimeError("blocked site")
+        with self.assertRaisesRegex(RuntimeError, "blocked site"):
+            Pointer.wait_control(pointer, "radio", "Quarter")
+        self.assertEqual(self.sleeps, [])
+
+    def test_genuinely_covered_click_has_only_one_retry(self):
+        clicks = []
+        def tracked(name, args):
+            if name == "browser_click":
+                clicks.append(self.clock)
+                raise RuntimeError("covered: overlay")
+            return {}
+        result = self.run_plan(_plan("/", [["goto", H], ["click", "button", "Table"]]), tracked)
+        self.assertFalse(result["steps"][-1]["ok"])
+        self.assertEqual(len(clicks), 2)
+        self.assertEqual(result["steps"][0]["waits_ms"]["retry"], 200)
 
     def test_retry_polls_without_stacking_pace(self):
         clicks = []

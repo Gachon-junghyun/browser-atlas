@@ -199,6 +199,24 @@ class Pointer:
         self.matches = len(same)
         return _ax.mark(self.c, node["backend"])
 
+    def wait_control(self, role, name, index=None, timeout=2.0) -> float:
+        """Resolve and hit-test without sending input while a planned page draws."""
+        start = time.monotonic()
+        deadline = start + timeout
+        while True:
+            try:
+                self.target(self._control(role, name, index=index))
+                return (time.monotonic() - start) * 1000
+            except RuntimeError as e:
+                if not isinstance(e, NoControl) and not str(e).startswith("covered:"):
+                    raise
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    error = TimeoutError(f"control not clickable: {e}")
+                    error.control_ms = (time.monotonic() - start) * 1000
+                    raise error from e
+                time.sleep(min(0.125, remaining))
+
     def click_control(self, role, name, exact=True, index=None) -> dict:
         r = self.click(self._control(role, name, exact, index))
         return {**r, "same_name_controls": self.matches}

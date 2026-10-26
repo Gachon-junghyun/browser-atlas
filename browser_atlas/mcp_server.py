@@ -695,7 +695,15 @@ def _browser(name: str, args: dict):
         if name == "browser_click":
             known, since = _known_tabs(c), len(getattr(c, "window_opens", []))
             _watch(c)
-            r = p.click_control(*which, index=idx) if which[1] else p.click(args["css"])
+            control_ms = p.wait_control(*which, index=idx) if args.get("_planned") and which[1] else None
+            try:
+                r = p.click_control(*which, index=idx) if which[1] else p.click(args["css"])
+            except Exception as e:
+                if control_ms is not None:
+                    e.control_ms = control_ms
+                raise
+            if control_ms is not None:
+                r["control_ms"] = control_ms
         elif name == "browser_type":
             if which[1]:
                 r = p.type_control(*which, args["text"], clear=bool(args.get("clear")), index=idx)
@@ -703,9 +711,11 @@ def _browser(name: str, args: dict):
                 r = p.type(args["css"], args["text"], clear=bool(args.get("clear")))
         else:
             raise KeyError(f"unknown tool {name}")
-        r["url"] = _settle(c, before)
+        toggle = name == "browser_click" and (r.get("role") or which[0]) in _graph.TOGGLES
+        # Toggle handlers change this document; do not pay a navigation grace or a quiet popup hold.
+        r["url"] = _settle(c, before, grace=0 if toggle else 0.25)
         if known is not None:
-            opened = _popup(c, tab, port, known, since, quiet=r["url"] == before and _quiet(c))
+            opened = _popup(c, tab, port, known, since, quiet=r["url"] == before and _quiet(c) and not toggle)
             if opened:
                 r["new_tab"] = opened
         return r
@@ -1152,12 +1162,14 @@ def _steps(run: dict, pace: str, steps: list, out: list, prefix: str, depth: int
                         if not _steps(run, pace, [sub_step], out, f"{label}.", depth + 1, first=k):
                             # right after a goto the page may still be drawing (a loader on top, the
                             # control not there yet; observed on a finance site): retry while it draws
-                            if sub_step[0] != "click" or not re.search(r"covered|no control", out[-1].get("error", "")):
+                            if (sub_step[0] != "click"
+                                    or out[-1].get("error", "").startswith("TimeoutError: control not clickable")
+                                    or not re.search(r"covered|no control", out[-1].get("error", ""))):
                                 return False
                             failed_ms = out[-1]["ms"]
                             retry_start = time.monotonic()
                             deadline = retry_start + 2.0
-                            for retry in range(10):
+                            for retry in range(1 if "covered" in out[-1].get("error", "") else 10):
                                 out.pop()
                                 _pause(min(0.2, max(0, deadline - time.monotonic())), "retry", waits)
                                 run["retrying"] = True
@@ -1239,6 +1251,7 @@ def _steps(run: dict, pace: str, steps: list, out: list, prefix: str, depth: int
                     "read": ("browser_read", lambda: {"mode": a[0] if a else "text",
                                                       **({"find": a[1]} if len(a) > 1 else {})}),
                     "click": ("browser_click", lambda: {"role": a[0], "name": a[1],
+                                                        **({"_planned": True} if depth and waits is not None else {}),
                                                         **({"index": a[2]} if len(a) > 2 else {})}),
                     "click_css": ("browser_click", lambda: {"css": a[0]}),
                     "type": ("browser_type", lambda: {"role": a[0], "name": a[1], "text": a[2]}),
@@ -1250,6 +1263,8 @@ def _steps(run: dict, pace: str, steps: list, out: list, prefix: str, depth: int
                     if run.get("started") and pace == "human" and not run.get("retrying"):
                         _pause(_r.uniform(0.15, 0.45), "pace", waits)
                 res = _tracked(name, {"tab": run["tab"], "pace": pace, **sub()})
+                if name == "browser_click" and waits is not None and isinstance(res, dict) and "control_ms" in res:
+                    waits["control"] = waits.get("control", 0) + res.pop("control_ms")
                 if name == "browser_click":           # only the latest click's tab is "new"
                     run["opened"] = res.get("new_tab") if isinstance(res, dict) else None
             out.append({"step": label, "op": op, "ok": True, "result": res})
@@ -1257,6 +1272,8 @@ def _steps(run: dict, pace: str, steps: list, out: list, prefix: str, depth: int
             out.append({"step": label, "op": op, "ok": False, "error": f"unknown step {op!r}"})
             return False
         except Exception as e:
+            if waits is not None and hasattr(e, "control_ms"):
+                waits["control"] = waits.get("control", 0) + e.control_ms
             out.append({"step": label, "op": op, "ok": False, "error": f"{type(e).__name__}: {e}"[:600]})
             return False
         finally:
@@ -1268,7 +1285,7 @@ def _steps(run: dict, pace: str, steps: list, out: list, prefix: str, depth: int
                         entry["waits_ms"] = {key: round(value, 3) for key, value in waits.items()}
             if op == "go" and parent_waits is not None:
                 for key, value in waits.items():
-                    parent_waits[key] += value
+                    parent_waits[key] = parent_waits.get(key, 0) + value
             run["waits"] = parent_waits
             run["started"] = True
     return True
@@ -1414,6 +1431,10 @@ def _tracked(name: str, args: dict):
         if tab:                                       # a refused goto is filed under where it tried to go
             REC.step(tab, name, False, error=e, control=control, css=args.get("css"),
                      url=args.get("url") if name == "browser_goto" else REC.current_url(tab))
+        if type(e.__cause__).__name__ == "NoControl" and control and hasattr(e, "control_ms"):
+            hint = _map_hint(control[0], control[1], REC.current_url(tab) if tab else "")
+            if hint:
+                e.args = (f"{e}.{hint}",)
         if type(e).__name__ == "NoControl" and control:
             hint = _map_hint(control[0], control[1], REC.current_url(tab) if tab else "")
             if hint:
