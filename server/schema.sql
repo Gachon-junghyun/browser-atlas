@@ -163,3 +163,45 @@ end $$;
 
 revoke execute on function merge_submission(uuid), reject_submission(uuid) from public, anon;
 grant execute on function merge_submission(uuid), reject_submission(uuid) to authenticated;
+
+-- ── optional: mail the maintainer when submissions arrive ──────────────────
+-- Needs three Vault secrets (Project Settings > Vault): resend_api_key, notify_to, notify_from
+-- (a sender on a domain verified in Resend). Without them nothing is sent. At most one mail per
+-- 10 minutes, and the mail carries only the pending count: submitted text never leaves the database.
+create extension if not exists pg_net with schema extensions;
+create table if not exists notify_state (id int primary key default 1 check (id = 1), last_sent timestamptz);
+alter table notify_state enable row level security;          -- no policies: invisible to the API
+
+create or replace function notify_submissions() returns trigger
+language plpgsql security definer set search_path = public, extensions as $$
+declare
+  k text; to_addr text; from_addr text; pending int; last timestamptz;
+begin
+  select decrypted_secret into k from vault.decrypted_secrets where name = 'resend_api_key';
+  select decrypted_secret into to_addr from vault.decrypted_secrets where name = 'notify_to';
+  select decrypted_secret into from_addr from vault.decrypted_secrets where name = 'notify_from';
+  if k is null or to_addr is null or from_addr is null then
+    return null;
+  end if;
+  select last_sent into last from notify_state where id = 1;
+  if last is not null and last > now() - interval '10 minutes' then
+    return null;
+  end if;
+  insert into notify_state (id, last_sent) values (1, now())
+    on conflict (id) do update set last_sent = excluded.last_sent;
+  select count(*) into pending from submissions where status = 'pending';
+  perform net.http_post(
+    url := 'https://api.resend.com/emails',
+    headers := jsonb_build_object('Authorization', 'Bearer ' || k, 'Content-Type', 'application/json'),
+    body := jsonb_build_object(
+      'from', from_addr, 'to', jsonb_build_array(to_addr),
+      'subject', 'browser-atlas: ' || pending || ' submission(s) waiting for review',
+      'text', pending || ' submission(s) are waiting in the browser-atlas review queue.' || chr(10) ||
+              'Review them on your machine: python -m browser_atlas share review' || chr(10) ||
+              'This mail never contains submitted text.'));
+  return null;
+exception when others then
+  return null;                                                -- a mail problem must never block a submission
+end $$;
+create trigger submissions_notify after insert on submissions
+  for each statement execute function notify_submissions();
