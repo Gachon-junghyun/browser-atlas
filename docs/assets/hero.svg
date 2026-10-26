@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 560" width="920" height="560" role="img" aria-label="A Claude Code session using browser-atlas: the agent looks up the site map, opens a page, reads its controls, and stops before a pay button">
+  <style>
+    .t { font-family: ui-monospace, SFMono-Regular, "Cascadia Mono", Menlo, Consolas, "D2Coding", monospace; font-size: 14.5px; fill: #e8e6e3; }
+    .dim { fill: #8b8680; }
+    .clay { fill: #d97757; }
+    .ok { fill: #7ec699; }
+    .warn { fill: #e5c07b; }
+    .stop { fill: #ef6f6c; }
+    .b { font-weight: 700; }
+  </style>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1f1e1d"/>
+      <stop offset="1" stop-color="#161514"/>
+    </linearGradient>
+  </defs>
+
+  <!-- window -->
+  <rect x="0.5" y="0.5" width="919" height="559" rx="12" fill="url(#bg)" stroke="#3a3836"/>
+  <rect x="0.5" y="0.5" width="919" height="34" rx="12" fill="#2a2826"/>
+  <rect x="0.5" y="22" width="919" height="13" fill="#2a2826"/>
+  <circle cx="22" cy="18" r="6" fill="#ff5f57"/>
+  <circle cx="42" cy="18" r="6" fill="#febc2e"/>
+  <circle cx="62" cy="18" r="6" fill="#28c840"/>
+  <text x="460" y="22.5" text-anchor="middle" class="t dim" style="font-size:13px">claude  ~/research</text>
+
+  <!-- welcome box -->
+  <rect x="24" y="52" width="520" height="58" rx="6" fill="none" stroke="#d97757"/>
+  <text x="40" y="76" class="t"><tspan class="clay b">✻</tspan> Welcome to <tspan class="b">Claude Code</tspan></text>
+  <text x="40" y="97" class="t dim">mcp: browser-atlas  |  77 sites, 99 mapped screens  |  0 deps</text>
+
+  <!-- prompt -->
+  <text x="24" y="146" class="t"><tspan class="dim">&gt;</tspan> Find KOSIS's unemployment table, then check out my bookstore cart</text>
+
+  <!-- step 1 -->
+  <text x="24" y="182" class="t"><tspan class="clay">●</tspan> <tspan class="b">atlas_find</tspan>(<tspan class="warn">"KOSIS"</tspan>)</text>
+  <text x="44" y="203" class="t dim">⎿  kosis, access <tspan class="ok">open</tspan>, 3 pages mapped; prefer KOSIS OpenAPI</text>
+
+  <!-- step 2 -->
+  <text x="24" y="236" class="t"><tspan class="clay">●</tspan> <tspan class="b">browser_open</tspan>(<tspan class="warn">"kosis.kr/search/search.do?query=실업률"</tspan>, goal=…)</text>
+  <text x="44" y="257" class="t dim">⎿  ready <tspan class="ok">✓</tspan>, past_routes: your earlier tries on this site, best first</text>
+
+  <!-- step 3 -->
+  <text x="24" y="290" class="t"><tspan class="clay">●</tspan> <tspan class="b">browser_read</tspan>(mode=<tspan class="warn">"controls"</tspan>)</text>
+  <text x="44" y="311" class="t dim">⎿  button <tspan class="t">"상세검색"</tspan>, link <tspan class="t">"통계표"</tspan>, combobox <tspan class="t">"정렬을 선택해주세요."</tspan>, link <tspan class="t">"&lt;통계표 이름&gt;"</tspan> …</text>
+
+  <!-- step 4 -->
+  <text x="24" y="344" class="t"><tspan class="clay">●</tspan> <tspan class="b">browser_click</tspan>(role=<tspan class="warn">"link"</tspan>, name=<tspan class="warn">"통계표"</tspan>)</text>
+  <text x="44" y="365" class="t dim">⎿  found by role + name, moved along your recorded curve, url changed <tspan class="ok">✓</tspan></text>
+
+  <!-- step 5: the stop -->
+  <text x="24" y="398" class="t"><tspan class="clay">●</tspan> <tspan class="dim">kyobobook:</tspan> <tspan class="b">browser_click</tspan>(role=<tspan class="warn">"link"</tspan>, name=<tspan class="warn">"주문하기"</tspan>)</text>
+  <text x="44" y="419" class="t"><tspan class="dim">⎿  </tspan><tspan class="stop b">stopped</tspan><tspan class="dim">: irreversible (pay), ask the human</tspan></text>
+  <text x="44" y="440" class="t dim">   only a terminal can allow it once:  <tspan class="t">browser-atlas allow "주문하기"</tspan></text>
+
+  <!-- answer -->
+  <text x="24" y="478" class="t"><tspan class="clay">●</tspan> Table found. I stopped at <tspan class="b">주문하기</tspan>: orders are yours to place.</text>
+
+  <!-- input box -->
+  <rect x="24" y="500" width="872" height="38" rx="6" fill="none" stroke="#4a4744"/>
+  <text x="40" y="524" class="t dim">&gt; <tspan class="t">▌</tspan></text>
+</svg>

@@ -1,161 +1,210 @@
-# claude-browser-atlas
+<div align="center">
 
-A site atlas and a learned pointer for browser agents.
+# 🧭 browser-atlas
 
-Browser drivers tell an agent *how* to click. They do not tell it *where things are*,
-*which sites it must not automate*, or *how its owner actually moves a mouse*.
-This repository is about those three.
+**A map of the web for browser agents: where things are, what you may touch, and when to stop.**
 
-> Status: early. The pointer and the mouse-style learner work and are tested; the atlas is
-> a seed (blocked sites only) and grows next.
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-3776ab?logo=python&logoColor=white)](pyproject.toml)
+[![Dependencies: 0](https://img.shields.io/badge/dependencies-0-7ec699)](pyproject.toml)
+[![Sites mapped: 77](https://img.shields.io/badge/sites_mapped-77-d97757)](atlas/sites.json)
+[![Button maps: 99 screens](https://img.shields.io/badge/button_maps-99_screens-d97757)](atlas/sites.json)
+[![MCP ready](https://img.shields.io/badge/MCP-ready-8b8680)](#-plug-it-into-claude-code)
+[![License: MIT](https://img.shields.io/badge/license-MIT-lightgrey)](LICENSE)
 
-## What is here
+[English](README.md) | [한국어](README.ko.md)
 
-| Part | What it does |
+<img src="docs/assets/hero.svg" alt="A Claude Code session using browser-atlas: it looks up KOSIS in the atlas, opens the search page, reads the controls by role and name, clicks a link, and stops before an order button." width="860">
+
+</div>
+
+---
+
+Browser drivers teach an agent **how** to click. Nobody tells it **where** the search box is on a
+government statistics site, **whether** that site's terms allow a robot at all, or **that** the
+button it is about to press spends your money.
+
+`browser-atlas` is that missing layer: a reviewed, shared map of real sites, a Chrome driver
+that reads it, and safety rules written in code instead of in a prompt.
+
+```text
+  you ──► Claude Code ──► browser-atlas (MCP) ──► your own Chrome (CDP)
+                               │
+              ┌────────────────┼──────────────────┐
+              ▼                ▼                  ▼
+        atlas/sites.json   safety rules      experience memory
+        where, and         stop before       what worked last
+        whether at all     pay and submit    time, per site
+```
+
+## ✨ What you get
+
+|   |   |
 |---|---|
-| `browser_atlas/_atlas.py` + `atlas/sites.json` | One JSON entry per site: access level (`open` / `session` / `api` / `blocked`), entry URLs, and *why* a site is off limits. Every pointer action checks the current URL first and refuses on a `blocked` host. |
-| `browser_atlas/_mouse.py` | Records your own mouse, cuts it into aimed movements, fits Fitts' law to your timing and keeps your paths as a style library. Plans new movements in that style. |
-| `browser_atlas/_pointer.py` | Clicks a random point *inside* the target (only points where `elementFromPoint` really hits it), moving there from the last pointer position along a planned path. |
-| `browser_atlas/_cdp.py` | A dependency-free Chrome DevTools Protocol client that attaches to a Chrome you already run. |
+| 🗺️ **Site atlas** | 77 sites, each with an access level (`open`, `session`, `api`, `blocked`), entry URLs, the official API to prefer, and for blocked ones the reason, quoted from robots.txt or the terms and dated. |
+| 🔘 **Button maps** | 99 real screens with the 5 to 15 controls people actually use, stored as **role + accessible name** (`button "검색"`) instead of brittle CSS. Every one was seen on the live page and passes `check`. |
+| 🛑 **Safety in code** | Pay, order, submit, send and delete controls stop with *ask the human*. Only a person at a terminal can allow one click (`browser-atlas allow "주문하기"`); no MCP tool can. Blocked hosts are refused, even after a redirect. |
+| 🧠 **Experience memory** | Every tab is an episode, judged from signals (captcha means `blocked`, never reading means `fail`). Next time, `browser_open` hands back the routes that worked on that site, best first. |
+| 🖱️ **Your own pointer** | Record your mouse for a few minutes and clicks follow your Fitts' law timing and your path shapes, landing on a point that really hits the target. Typing goes key by key, Hangul composition included. |
+| 🔎 **Research mode** | `browser_search` asks five engines at once and interleaves one result per domain, so no single ranking decides what gets read. Long pages start with an outline. |
 
-Standard library only. Python 3.10+.
+## 🗺️ What is in the map
 
-## Quick start
+🔘 marks a site with a button map. Everything else has entry URLs and an access verdict.
+
+| Area | Open | API instead | Blocked, with the quote |
+|---|---|---|---|
+| 📊 **Statistics and open data** | KOSIS 🔘, data.go.kr 🔘, Seoul Open Data 🔘, MDIS 🔘, Data.gov 🔘, World Bank 🔘 | Bank of Korea ECOS, V-World | |
+| 🏛️ **Finance and regulators** | FSS 🔘, FSC 🔘, KDIC 🔘, FINE 🔘, DART, KRX press, Naver Pay Securities | | Toss Securities, TradingView, IMF Data, Apple IR, NVIDIA IR |
+| ⚖️ **Law, patents, parliament** | National Law Information Center, USPTO 🔘 | | KIPRIS, National Assembly bills |
+| 🩺 **Health and safety** | KDCA 🔘, HIRA hospital finder 🔘, Food Safety Korea 🔘, WHO 🔘 | PubMed (E-utilities) | MFDS drug portal |
+| 🌦️ **Weather and environment** | KMA weather 🔘, KMA open data 🔘, AirKorea 🔘 | | |
+| 🎓 **Science and learning** | arXiv 🔘, solved.ac 🔘, Hacker News 🔘, DACON 🔘 | | KCI, Academy Info, JEDEC |
+| 📚 **Culture and libraries** | National Library of Korea 🔘, National Museum of Korea 🔘, Culture Portal 🔘, Korea Heritage 🔘, Namuwiki 🔘, Watcha Pedia 🔘, Kyobo Book 🔘 | | |
+| 📰 **Company newsrooms** | Samsung Electronics 🔘, SK hynix 🔘, Hyundai Motor 🔘 | | |
+| 🗺️ **Maps, places, travel** | Kakao Map 🔘, Naver Map 🔘, KOBUS 🔘, Starfield 🔘, COEX events 🔘, real estate prices 🔘 | | SRT, MOLIT transaction prices |
+| 🛒 **Shopping and local** | Daangn 🔘, Joongna 🔘, Ohouse store 🔘 | | Baemin |
+| 🎮 **Games, 3D and design** | Google Play 🔘, Steam 🔘, Steamworks docs 🔘, Kenney 🔘, Quaternius 🔘, Poly Pizza 🔘, Fab 🔘, Blender mirror 🔘, ArchDaily 🔘, Unsplash 🔘 | | |
+| 🤖 **AI apps and chat** | | | Claude.ai, Perplexity, Kling AI, KakaoTalk client, Blind |
+
+Each entry is plain JSON ([schema](docs/SCHEMA.md)). Agents decide with the closed fields
+(`role`, `name`, `act`, `access`); `where` and `does` are for people, and today they are mostly Korean.
+A taste, straight from the file:
+
+```jsonc
+"arxiv": {
+  "label": "arXiv", "access": "open", "hosts": ["arxiv.org"],
+  "pages": {
+    "abs": {
+      "url": "https://arxiv.org/abs/{arXiv ID}",
+      "ready": "!!document.querySelector('#abs')",
+      "controls": [
+        {"role": "link", "name": "View PDF", "where": "오른쪽 Access Paper 상자 맨 위",
+         "act": "download", "does": "논문 PDF를 연다", "css": "a[href^='/pdf/']"},
+        {"role": "button", "name": "Export BibTeX Citation", "where": "오른쪽 Export BibTeX 상자",
+         "act": "expand", "does": "BibTeX 인용문을 화면에 펼친다"},
+        ...
+```
+
+## ⚡ Plug it into Claude Code
 
 ```bash
-# 1. Chrome with a debug port and its own profile (log in by hand once in that window)
-python -m browser_atlas launch --port 9222
+git clone https://github.com/Gachon-junghyun/browser-atlas
+cd browser-atlas
+pip install -e .          # standard library only, nothing else is pulled in
 
-# 2. Teach it your mouse: use the computer normally for a few minutes and click real things
-python -m browser_atlas mouse record --seconds 300
-python -m browser_atlas mouse fit
-python -m browser_atlas mouse stats
-python -m browser_atlas mouse plot          # grey = your movement, blue = generated for the same endpoints
-
-# 3. Click
-python -m browser_atlas tabs
-python -m browser_atlas click "button[type=submit]" --tab example.com
+claude mcp add browser-atlas -- python -m browser_atlas mcp
 ```
+
+Then just ask:
+
+```text
+> open KOSIS and find the latest unemployment table
+> what's new on arXiv's cs.AI list today?
+> look up a company's filings on DART, but don't submit anything
+```
+
+The agent starts its own Chrome with a separate profile on a debug port (`browser_launch`), so
+your everyday browser is never touched. When a site needs a login, sign in by hand once in that window.
+
+## 🧰 CLI
+
+```bash
+python -m browser_atlas launch --port 9222          # Chrome with its own profile
+python -m browser_atlas guard https://example.com   # may an agent act here?
+python -m browser_atlas controls --tab example.com  # role and name of what is on screen
+python -m browser_atlas check kosis                 # are the mapped controls still there?
+
+python -m browser_atlas atlas validate              # schema, safety and personal-trace checks, offline
+python -m browser_atlas atlas merge new.json --dry-run
+
+python -m browser_atlas mouse record --seconds 300  # teach it your mouse
+python -m browser_atlas mouse fit
+python -m browser_atlas mouse plot                  # grey: yours, blue: generated
+```
+
+## 🛡️ The rules it lives by
+
+- **A captcha or a rate limit means stop for the day.** It does not solve captchas and never will.
+- **Terms first.** A site whose robots.txt or terms forbid automation goes in as `blocked`, with the
+  sentence quoted and dated, and the pointer will not act there at all.
+- **The map can only tighten.** Whether a control is irreversible is decided on your machine from the
+  live control. Shared map text can mark more things dangerous, never fewer.
+  [Why shared text must not become instructions](docs/SCHEMA.md#trust-model-shared-text-must-not-become-instructions)
+- **Page text is data.** Everything read from a page comes back labelled `untrusted_page_content`.
+- **Your traces stay home.** Mouse recordings, credentials and private sites live in `~/.browser_atlas/`
+  and never enter this repository. Credentials go from the OS store straight into the page; the model
+  never sees them.
+
+## 🤝 Add a site
+
+The map grows by pull request. One site is one JSON object.
+
+1. Open the site with the MCP tools and collect controls with `browser_read(mode="controls")`.
+   Write role and name exactly as Chrome exposes them, and mark result-dependent names `dynamic`.
+2. Read robots.txt and the terms. If either forbids automation, the entry is `blocked` with the quote.
+3. Run `python -m browser_atlas atlas validate new.json`, then `check <site>` until nothing is missing.
+4. Run `python -m browser_atlas atlas merge new.json` and open a pull request.
+
+Field notes from real sites (iframes, overlays, sites that rename a button between screens) are in
+[docs/LESSONS.md](docs/LESSONS.md). Read them before your first map; they will save you an evening.
+
+## 🔬 Under the hood
+
+<details>
+<summary><b>Experience memory: a loop that runs even when the agent forgets it</b></summary>
+
+The MCP server records every browser call itself. One tab is one episode; when the tab is closed,
+sits idle for 15 minutes, or the server exits, the episode is judged from signals and stored:
+captcha or rate limit means `blocked`, never reading content means `fail`, ending on an error means
+`partial`, otherwise `success`, with quality lowered by errors and wasted steps.
+
+`browser_open(url, goal=...)` returns `past_routes` for that site and goal, ranked by similarity,
+Bayesian route quality and recency, plus one rarely tried route to explore. Failed routes fade and
+confirmed ones rise. `memory_rate` lets a human or a second source re-grade.
+
+Button-map repairs are learned too: a mapped control that goes missing and then succeeds under
+another name becomes a rename, and a working control that is not mapped becomes a new one. They go
+into your personal layer (`~/.browser_atlas/sites.learned.json`) and apply from the next call.
+
+</details>
+
+<details>
+<summary><b>How the mouse learner works</b></summary>
+
+1. **Record**: poll the cursor and the left button (Windows, via `ctypes`). Keys are never recorded.
+2. **Segment**: one movement runs from the last rest (120 ms without motion) to the moment the cursor
+   reaches within 3 px of a click. Drags and wandering paths are dropped.
+3. **Normalize**: rotate and scale each movement onto (0,0) to (1,0) and resample it on a normalized
+   time axis, so the shape *and* the speed profile are kept.
+4. **Fit**: least squares on `T = a + b·log2(1 + D/W)` gives your speed; the normalized paths become the library.
+5. **Plan**: for a new start and end, blend two of your movements recorded at a similar distance and
+   direction, stretch the blend onto the new segment, and give it a Fitts-predicted duration.
+
+Your recordings are a behavioural fingerprint. They stay in `~/.browser_atlas/mouse/` and are never
+part of this repository.
+
+</details>
+
+<details>
+<summary><b>Python API</b></summary>
 
 ```python
 from browser_atlas import CDP, Pointer
 
 with CDP(9222, match="example.com") as c:
-    p = Pointer(c)                  # uses your fitted style if present, else a minimum-jerk curve
-    print(p.click("#search-button"))
+    p = Pointer(c)                     # your fitted style if present, else a minimum-jerk curve
+    p.click_control("button", "Search")
+    p.type_control("textbox", "Company", "Example", clear=True)
 ```
 
-## Button map
+</details>
 
-Use accessible roles and names with `p.click_control("button", "Search")` or
-`p.type_control("textbox", "Company", "Example", clear=True)`.
-`python -m browser_atlas controls --tab example.com` lists the current controls;
-`python -m browser_atlas check <site>` (or `check --all`) checks mapped pages in fresh tabs.
-
-`p.type("#search", "한글 and Latin", clear=True)` types individual keys with variable timing,
-Shift handling and Hangul composition; the CLI also supports `type <CSS> <TEXT> --tab STR`.
-
-## MCP server
-
-```bash
-claude mcp add browser-atlas -- python -m browser_atlas mcp
-```
-
-Atlas tools (`atlas_find`, `atlas_site`, `atlas_guard`), experience tools (`memory_recall` before a task,
-`memory_record` after it, `memory_rate`, `memory_stats`) and browser tools (`browser_open`, `browser_read`,
-`browser_click`, `browser_type`, `browser_screenshot`, `browser_tabs`, `browser_close`, `browser_launch`).
-
-## Research: several engines, outline first
-
-`browser_search(query)` asks naver, google, bing, daum and duckduckgo at once and interleaves their
-results, one engine at a time and one result per domain, so a single engine's ranking does not decide
-what gets read. Each result says which engines listed it and how often you already used that domain
-(`familiar`); engines showing a captcha are reported and skipped. Engine furniture (shopping, dictionaries,
-site maps) and ad redirects are dropped; click trackers are unwrapped.
-
-Long pages start with `browser_read(mode="outline")`: total characters, the main article's size, headings
-with their offsets and how many chunks it takes. Then read the article body with `scope="main"` and
-`offset`, or a window around a phrase with `find`, instead of a cut prefix.
-
-## Safety, in code
-
-- `blocked` sites are refused, including after a redirect.
-- Pay / submit / send / delete-like controls and Enter outside search fields stop with "ask the human".
-  The human allows exactly one such action from a terminal: `python -m browser_atlas allow "결제하기"`.
-  No MCP tool can grant that.
-- Ports in `BROWSER_ATLAS_DENY_PORTS` (profiles that belong to someone else) are refused.
-- Page text comes back labelled `untrusted_page_content`.
-- Do not attach the server to an unattended agent that is supposed to have no way to act on the web.
-
-See [docs/SCHEMA.md](docs/SCHEMA.md#trust-model-shared-text-must-not-become-instructions) for why shared
-map text cannot steer an agent, and [docs/LESSONS.md](docs/LESSONS.md) for field notes from real sites.
-
-## Experience memory: a loop that runs even when the agent forgets it
-
-The MCP server records every browser call itself. One tab is one episode; when the tab is closed,
-sits idle for 15 minutes, or the server exits (or is killed and restarted), the episode is judged
-from signals and stored: captcha or rate limit means `blocked`, never reading content means `fail`,
-ending on an error means `partial`, otherwise `success`, with quality lowered by errors and wasted steps.
-
-`browser_open(url, goal=...)` returns `past_routes` for that site and goal: ranked by similarity x
-Bayesian route quality x recency, spread across sites, plus one rarely tried route to explore.
-Failed routes fade, confirmed ones rise. `memory_rate` lets a human or a second source re-grade.
-
-Button-map repairs are learned too: a mapped control that is missing and then succeeds under another
-name becomes a rename; a working control that is not mapped becomes a new control. They go into your
-personal layer (`~/.browser_atlas/sites.learned.json`) and apply from the next call; `learned` lists them.
-
-## Sharing: personal first, shared when you say so
-
-Your agent reads two things at once: your own, not-yet-shared memory and map fixes, and the shared
-database (pulled in the background once a day). Recalled routes say where they came from
-(`mine`, `shared`, or both, in which case their quality is pooled).
-
-Nothing leaves your machine until you ask. Tell Claude "upload it to the shared DB": it calls
-`share_preview` to show exactly what would go, then `share_upload`. What can go is reduced by code:
-no goal text, notes or queries; only sites in the repository map with `open`/`api` access (never
-your private overlay sites or logged-in sites); no strings shaped like e-mails, phone or account numbers.
-CLI: `python -m browser_atlas share` (preview), `share --yes` (upload), `share sync` (pull now).
-
-The shared database is Supabase: everyone reads with the public key, only listed maintainers write,
-and the tables themselves limit what a row can contain. See [server/schema.sql](server/schema.sql).
-Configure with `~/.browser_atlas/shared.json` (`url`, `anon_key`); maintainers also store
-`set-cred shared_email` and `set-cred shared_password`.
-
-Only search-field input is kept as keywords. Everything stays on your machine;
-`python -m browser_atlas memory shareable` prints the only fields that could ever be shared.
-
-## How the mouse learner works
-
-1. **Record**: poll the cursor and the left button (Windows, via `ctypes`). Keys are never recorded.
-2. **Segment**: one movement runs from the last rest (120 ms without motion) to the moment the
-   cursor reaches within 3 px of a click. Drags and wandering paths are dropped.
-   Hover time before the click and button-hold time are kept separately.
-3. **Normalize**: rotate and scale each movement onto (0,0) → (1,0) and resample it on a
-   normalized time axis, so the shape *and* the speed profile are kept.
-4. **Fit**: least squares on `T = a + b·log2(1 + D/W)` gives your speed; the normalized paths become the library.
-5. **Plan**: for a new start and end, blend two of your movements recorded at a similar distance
-   and direction, stretch the blend onto the new segment, and give it a Fitts-predicted duration.
-
-Chrome accepts about one `mouseMoved` per frame, so the pointer sends "where the hand is now"
-on the planned timeline rather than every planned point; the total duration stays as planned.
-
-Your recordings are a behavioural fingerprint. They stay in `~/.browser_atlas/mouse/`
-(`BROWSER_ATLAS_HOME` to move it) and are never part of this repository. Do not commit or share them.
-
-## What this is not for
-
-The pointer is for working on sites you are allowed to automate, with accounts you own.
-It does not solve captchas and does not try to. **A captcha or rate limit means stop for that
-source for the day**, and a site whose terms forbid automation goes into the atlas as `blocked`,
-where the pointer will not act at all.
-
-## Tests
+## 🧪 Tests
 
 ```bash
 python -m unittest discover tests
 ```
 
-## License
+## 📄 License
 
-MIT
+MIT. The map describes public pages; each site's own terms still govern how you use it.
