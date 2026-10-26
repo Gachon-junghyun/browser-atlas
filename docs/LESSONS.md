@@ -223,6 +223,19 @@ Measure in this order before suspecting the selector.
 - Symptom: the value shows in a `title` attribute but the search does not run (Naver Ads keyword box).
 - Fix: type with CDP `Input.insertText`, then click the suggested option by coordinates (options span several lines, so exact text match fails).
 
+**Inline autocomplete keeps its own copy of what you typed** (GitHub repository topics, observed 2026-10)
+- Symptom: the box reads `claude-code`, the value check passes, and the comma that turns it into a topic saves `claude-cod`. Saved topics came out as `browser-automatio`, `chrome-devtools-protoco`, `web-crawle`. Not every word: exact, rare words survived.
+- Cause: the field has `aria-autocomplete="both"`. It fills in the rest of a suggestion and selects it, and its internal copy of "what was typed" ended one letter short of the box when the word was typed straight through. The next click into the field or the comma put that copy back. Waiting six seconds did not help; pressing End did not help.
+- Fix (now in `Pointer.type`): on inline-autocomplete fields, type all but the last letter, let the suggestion land, click back into the field, type the last letter, then drop any selected suggestion tail with Delete and retype whatever of yours it covered. Six new topics in a row then came out exact. Choosing the suggestion from the dropdown by click did not select it.
+
+**Clearing a token input pulls the last token back**
+- Symptom: `clear` (Ctrl+A, Backspace) on an empty topics box produced `devtoolasjson-schem`.
+- Cause: Backspace in an empty token input turns the last token back into editable text; Ctrl+A had nothing to select.
+- Fix: do not `clear` a token input to start a new token; type into it as is. To remove a token, use its own remove control.
+
+**Typing appends**
+- A field that already holds text keeps it: GitHub's description became `Browser atlas public repositoryA map of the web...`. Pass `clear` when replacing a value (not in token inputs, see above).
+
 **Virtual lists with no search box**
 - Fix: scroll with `Input.dispatchMouseEvent` type `mouseWheel` over the list. For cascading region pickers, pick every level down to the last; stopping halfway silently keeps the previous results.
 
@@ -346,6 +359,14 @@ The rule: **a captcha or rate limit means stop for that source for the day.** Pi
 **Which account is this console?**
 - Supabase and Cloudflare were logged in with two Google accounts whose addresses differ by one character. Supabase does not 404 on an unknown project ref; it silently redirects to `/dashboard/org/<other org>`, so you can run SQL in the wrong project.
 - Order: `/dashboard/account/me` for the email, then confirm the project or worker exists, then act.
+
+**Supabase dashboard** (observed 2026-10)
+- The SQL editor is Monaco: its typing target sits under the rendered lines, so a safe click reports "covered" and typing never lands. Open the editor with the query already in it instead: `/dashboard/project/<ref>/sql/new?content=<url-encoded SQL>`, check the text on screen, then press Run. Strip comments and newlines first so nothing depends on how the editor indents.
+- With unsaved edits in the editor, navigating away by URL silently does nothing (a leave-page guard). Use the sidebar links, or close the tab.
+- A personal access token kept in one app's config can be scoped to that app's project: listing still works, but creating a project and reading the organisation return 403. Check what a token can do before planning around it.
+- "Asia-Pacific" on the new-project form placed the project in Sydney, and the overview showed a warm-pool name (`warm-project-pool_...`) for about half a minute before the real name appeared.
+- On the Free plan the two-project limit counts active projects; a paused project does not take a slot.
+- The new publishable key (`sb_publishable_...`) worked both as `apikey` and as the `Authorization: Bearer` value for anonymous reads, and row-level security refused an anonymous insert with HTTP 401 and code `42501`.
 
 **Where auth lives**
 - Discord and Telegram Web keep auth in `localStorage`, not cookies. Saving cookies alone does not keep the session.

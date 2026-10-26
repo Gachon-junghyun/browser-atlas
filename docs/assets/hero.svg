@@ -27,7 +27,7 @@
   <!-- welcome box -->
   <rect x="24" y="52" width="520" height="58" rx="6" fill="none" stroke="#d97757"/>
   <text x="40" y="76" class="t"><tspan class="clay b">✻</tspan> Welcome to <tspan class="b">Claude Code</tspan></text>
-  <text x="40" y="97" class="t dim">mcp: browser-atlas  |  77 sites, 99 mapped screens  |  0 deps</text>
+  <text x="40" y="97" class="t dim">mcp: browser-atlas  |  79 sites, 104 mapped screens  |  0 deps</text>
 
   <!-- prompt -->
   <text x="24" y="146" class="t"><tspan class="dim">&gt;</tspan> Find KOSIS's unemployment table, then check out my bookstore cart</text>

@@ -6,8 +6,8 @@
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-3776ab?logo=python&logoColor=white)](pyproject.toml)
 [![Dependencies: 0](https://img.shields.io/badge/dependencies-0-7ec699)](pyproject.toml)
-[![Sites mapped: 77](https://img.shields.io/badge/sites_mapped-77-d97757)](atlas/sites.json)
-[![Button maps: 99 screens](https://img.shields.io/badge/button_maps-99_screens-d97757)](atlas/sites.json)
+[![Sites mapped: 79](https://img.shields.io/badge/sites_mapped-79-d97757)](atlas/sites.json)
+[![Button maps: 104 screens](https://img.shields.io/badge/button_maps-104_screens-d97757)](atlas/sites.json)
 [![MCP ready](https://img.shields.io/badge/MCP-ready-8b8680)](#-plug-it-into-claude-code)
 [![License: MIT](https://img.shields.io/badge/license-MIT-lightgrey)](LICENSE)
 
@@ -40,8 +40,8 @@ that reads it, and safety rules written in code instead of in a prompt.
 
 |   |   |
 |---|---|
-| 🗺️ **Site atlas** | 77 sites, each with an access level (`open`, `session`, `api`, `blocked`), entry URLs, the official API to prefer, and for blocked ones the reason, quoted from robots.txt or the terms and dated. |
-| 🔘 **Button maps** | 99 real screens with the 5 to 15 controls people actually use, stored as **role + accessible name** (`button "검색"`) instead of brittle CSS. Every one was seen on the live page and passes `check`. |
+| 🗺️ **Site atlas** | 79 sites, each with an access level (`open`, `session`, `api`, `blocked`), entry URLs, the official API to prefer, and for blocked ones the reason, quoted from robots.txt or the terms and dated. |
+| 🔘 **Button maps** | 104 real screens with the 5 to 15 controls people actually use, stored as **role + accessible name** (`button "검색"`) instead of brittle CSS. Every one was seen on the live page; all but two pass `check` (a dialog that has no URL, and a signed-in form that hides its fields when the account is at its plan limit). |
 | 🛑 **Safety in code** | Pay, order, submit, send and delete controls stop with *ask the human*. Only a person at a terminal can allow one click (`browser-atlas allow "주문하기"`); no MCP tool can. Blocked hosts are refused, even after a redirect. |
 | 🧠 **Experience memory** | Every tab is an episode, judged from signals (captcha means `blocked`, never reading means `fail`). Next time, `browser_open` hands back the routes that worked on that site, best first. |
 | 🖱️ **Your own pointer** | Record your mouse for a few minutes and clicks follow your Fitts' law timing and your path shapes, landing on a point that really hits the target. Typing goes key by key, Hangul composition included. |
@@ -64,6 +64,7 @@ that reads it, and safety rules written in code instead of in a prompt.
 | 🗺️ **Maps, places, travel** | Kakao Map 🔘, Naver Map 🔘, KOBUS 🔘, Starfield 🔘, COEX events 🔘, real estate prices 🔘 | | SRT, MOLIT transaction prices |
 | 🛒 **Shopping and local** | Daangn 🔘, Joongna 🔘, Ohouse store 🔘 | | Baemin |
 | 🎮 **Games, 3D and design** | Google Play 🔘, Steam 🔘, Steamworks docs 🔘, Kenney 🔘, Quaternius 🔘, Poly Pizza 🔘, Fab 🔘, Blender mirror 🔘, ArchDaily 🔘, Unsplash 🔘 | | |
+| 🛠️ **Developer consoles** (sign in once by hand) | GitHub repository pages 🔘, Supabase dashboard 🔘 | GitHub REST API, Supabase Management API | |
 | 🤖 **AI apps and chat** | | | Claude.ai, Perplexity, Kling AI, KakaoTalk client, Blind |
 
 Each entry is plain JSON ([schema](docs/SCHEMA.md)). Agents decide with the closed fields

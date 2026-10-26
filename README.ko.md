@@ -6,8 +6,8 @@
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-3776ab?logo=python&logoColor=white)](pyproject.toml)
 [![Dependencies: 0](https://img.shields.io/badge/dependencies-0-7ec699)](pyproject.toml)
-[![Sites mapped: 77](https://img.shields.io/badge/sites_mapped-77-d97757)](atlas/sites.json)
-[![Button maps: 99 screens](https://img.shields.io/badge/button_maps-99_screens-d97757)](atlas/sites.json)
+[![Sites mapped: 79](https://img.shields.io/badge/sites_mapped-79-d97757)](atlas/sites.json)
+[![Button maps: 104 screens](https://img.shields.io/badge/button_maps-104_screens-d97757)](atlas/sites.json)
 [![License: MIT](https://img.shields.io/badge/license-MIT-lightgrey)](LICENSE)
 
 [English](README.md) | [한국어](README.ko.md)
@@ -29,8 +29,8 @@
 
 |   |   |
 |---|---|
-| 🗺️ **사이트 지도** | 77곳. 사이트마다 접근 등급(`open`, `session`, `api`, `blocked`), 바로가기 주소, 먼저 쓸 공식 API, 막힌 곳은 robots.txt 나 약관 원문을 날짜와 함께 적은 이유. |
-| 🔘 **버튼 지도** | 실제 화면 99개에서 사람이 쓰는 컨트롤 5~15개를 **역할 + 접근성 이름**(`button "검색"`)으로 적었습니다. 깨지기 쉬운 CSS 가 아닙니다. 전부 실제 화면에서 보고 `check` 를 통과했습니다. |
+| 🗺️ **사이트 지도** | 79곳. 사이트마다 접근 등급(`open`, `session`, `api`, `blocked`), 바로가기 주소, 먼저 쓸 공식 API, 막힌 곳은 robots.txt 나 약관 원문을 날짜와 함께 적은 이유. |
+| 🔘 **버튼 지도** | 실제 화면 104개에서 사람이 쓰는 컨트롤 5~15개를 **역할 + 접근성 이름**(`button "검색"`)으로 적었습니다. 깨지기 쉬운 CSS 가 아닙니다. 전부 실제 화면에서 봤고, 둘을 뺀 나머지는 `check` 를 통과했습니다(주소가 없는 대화상자 하나, 요금제 한도에 걸리면 칸을 숨기는 로그인 화면 하나). |
 | 🛑 **코드로 지키는 안전** | 결제, 주문, 제출, 전송, 삭제 버튼은 «사람에게 물어보라»며 멈춥니다. 한 번 누르는 허락은 터미널 앞의 사람만 줄 수 있고(`browser-atlas allow "주문하기"`), MCP 도구로는 못 줍니다. 막힌 호스트는 리다이렉트 뒤에도 거절합니다. |
 | 🧠 **경험 기억** | 탭 하나가 한 번의 시도입니다. 캡차면 `blocked`, 본문을 못 읽었으면 `fail` 처럼 신호로 판정해 저장하고, 다음에 같은 사이트를 열면 잘 됐던 길을 먼저 돌려줍니다. |
 | 🖱️ **내 손 같은 포인터** | 몇 분간 마우스를 녹화하면 클릭이 내 Fitts 법칙 속도와 내 궤적 모양을 따라갑니다. 입력은 한 글자씩, 한글 조합까지 합니다. |
@@ -53,6 +53,7 @@
 | 🗺️ **지도, 장소, 이동** | 카카오맵 🔘, 네이버 지도 🔘, 고속버스 🔘, 스타필드 🔘, 코엑스 행사 🔘, 부동산 시세 🔘 | | SRT, 국토부 실거래가 |
 | 🛒 **쇼핑, 동네** | 당근 🔘, 중고나라 🔘, 오늘의집 🔘 | | 배달의민족 |
 | 🎮 **게임, 3D, 디자인** | Google Play 🔘, Steam 🔘, Steamworks 문서 🔘, Kenney 🔘, Quaternius 🔘, Poly Pizza 🔘, Fab 🔘, Blender 미러 🔘, ArchDaily 🔘, Unsplash 🔘 | | |
+| 🛠️ **개발자 콘솔**(사람이 한 번 로그인) | GitHub 리포 화면 🔘, Supabase 대시보드 🔘 | GitHub REST API, Supabase Management API | |
 | 🤖 **AI 앱, 메신저** | | | Claude.ai, Perplexity, Kling AI, 카카오톡 클라이언트, 블라인드 |
 
 형식은 [docs/SCHEMA.md](docs/SCHEMA.md) 에 있습니다. 에이전트는 닫힌 값(`role`, `name`, `act`, `access`)으로

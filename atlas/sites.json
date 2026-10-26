@@ -9344,5 +9344,384 @@
   "prefer": "NCBI E-utilities https://eutils.ncbi.nlm.nih.gov/entrez/eutils/ — NCBI 정책: «Make no more than 3 requests every 1 second.»",
   "why": "검색 화면(/?term=)이 브라우저 확인(reCAPTCHA)에서 30초 넘게 안 넘어갔다 (2026-10-26)",
   "verified": "2026-10-26"
+ },
+ "github": {
+  "label": "GitHub (repository pages, signed in)",
+  "access": "session",
+  "hosts": [
+   "github.com"
+  ],
+  "go": {
+   "repository": "https://github.com/{owner}/{repo}",
+   "topic": "https://github.com/topics/{topic}"
+  },
+  "has": [
+   "repository files and README",
+   "About: description, website, topics",
+   "commit history"
+  ],
+  "can": [
+   "edit a repository's description, website and topics (owner only, public change)"
+  ],
+  "prefer": "GitHub REST API: PATCH /repos/{owner}/{repo} for description and website, PUT /repos/{owner}/{repo}/topics for topics",
+  "pages": {
+   "repo": {
+    "url": "https://github.com/{owner}/{repo}",
+    "ready": "!!document.querySelector('[aria-label=\"Go to file\"], #repository-container-header')",
+    "controls": [
+     {
+      "role": "link",
+      "name": "Code",
+      "where": "first tab under the repository name",
+      "act": "tab",
+      "does": "file list and README"
+     },
+     {
+      "role": "link",
+      "name": "Issues",
+      "where": "second tab under the repository name",
+      "act": "tab",
+      "does": "issue list"
+     },
+     {
+      "role": "link",
+      "name": "Pull requests",
+      "where": "third tab under the repository name",
+      "act": "tab",
+      "does": "pull request list"
+     },
+     {
+      "role": "combobox",
+      "name": "Go to file",
+      "where": "above the file list, left of Add file",
+      "act": "search",
+      "does": "jumps to a file by name"
+     },
+     {
+      "role": "button",
+      "name": "Code",
+      "where": "green button above the file list, right end",
+      "act": "expand",
+      "does": "clone URLs and ZIP download"
+     },
+     {
+      "role": "link",
+      "name": "<N> Commits",
+      "where": "right end of the latest-commit bar above the file list",
+      "act": "navigate",
+      "does": "commit history",
+      "dynamic": true
+     },
+     {
+      "role": "button",
+      "name": "Edit repository metadata",
+      "where": "gear icon right of the About heading in the right column; only shown to people who can edit",
+      "act": "expand",
+      "does": "opens the Edit repository details dialog",
+      "then": "about_dialog"
+     },
+     {
+      "role": "link",
+      "name": "Readme",
+      "where": "right column under About",
+      "act": "navigate",
+      "does": "jumps to the README section"
+     }
+    ],
+    "traps": [
+     "Edit repository metadata exists only when signed in with write access; logged out, the About column has no gear (2026-10-26)."
+    ]
+   },
+   "about_dialog": {
+    "url": "https://github.com/{owner}/{repo}",
+    "ready": "!!document.querySelector('[aria-label=\"Add topics\"]')",
+    "controls": [
+     {
+      "role": "textbox",
+      "name": "Description",
+      "where": "first field of the Edit repository details dialog",
+      "act": "input",
+      "does": "the one-line description shown under About"
+     },
+     {
+      "role": "textbox",
+      "name": "Website",
+      "where": "second field of the dialog",
+      "act": "input",
+      "does": "homepage link shown under About"
+     },
+     {
+      "role": "combobox",
+      "name": "Add topics",
+      "where": "third field of the dialog, holds the topic tokens",
+      "act": "input",
+      "does": "a comma or space turns the typed word into a topic token"
+     },
+     {
+      "role": "checkbox",
+      "name": "Releases",
+      "where": "Include in the home page group, first",
+      "act": "filter",
+      "does": "shows the Releases box on the repository page"
+     },
+     {
+      "role": "checkbox",
+      "name": "Packages",
+      "where": "Include in the home page group, third",
+      "act": "filter",
+      "does": "shows the Packages box on the repository page"
+     },
+     {
+      "role": "button",
+      "name": "Cancel",
+      "where": "bottom right of the dialog, left of Save changes",
+      "act": "navigate",
+      "does": "closes the dialog and discards the edits"
+     },
+     {
+      "role": "button",
+      "name": "Save changes",
+      "where": "bottom right corner of the dialog, green",
+      "act": "submit",
+      "does": "saves description, website and topics publicly",
+      "irreversible": true
+     }
+    ],
+    "traps": [
+     "The dialog opens over the repository page; open it with Edit repository metadata, the URL does not change (2026-10-26).",
+     "Add topics is an inline-autocomplete token box: typed straight through, the saved topic lost its last letter (browser-automatio, web-crawle). Pointer.type now types the last letter separately (2026-10-26).",
+     "Clearing an empty Add topics box turns the last topic token back into text; do not clear it (2026-10-26).",
+     "Typing into Description appends to the old text; clear it first (2026-10-26)."
+    ]
+   }
+  },
+  "verified": "2026-10-26"
+ },
+ "supabase_dashboard": {
+  "label": "Supabase dashboard (signed in)",
+  "access": "session",
+  "hosts": [
+   "supabase.com"
+  ],
+  "go": {
+   "organizations": "https://supabase.com/dashboard/organizations",
+   "new project": "https://supabase.com/dashboard/new/{org_id}",
+   "SQL editor with a query": "https://supabase.com/dashboard/project/{ref}/sql/new?content={url_encoded_sql}",
+   "project settings": "https://supabase.com/dashboard/project/{ref}/settings/general",
+   "API keys": "https://supabase.com/dashboard/project/{ref}/settings/api-keys"
+  },
+  "has": [
+   "projects per organisation and their plan",
+   "project URL and publishable key",
+   "SQL editor",
+   "API keys"
+  ],
+  "can": [
+   "create, pause, restart or delete a project",
+   "run SQL",
+   "create and rotate keys"
+  ],
+  "prefer": "Supabase Management API (api.supabase.com/v1) with a personal access token that has organisation access; a token scoped to one project returns 403 for creating projects",
+  "pages": {
+   "new_project": {
+    "url": "https://supabase.com/dashboard/new/{org_id}",
+    "ready": "(document.body.innerText||'').includes('Create a new project')",
+    "controls": [
+     {
+      "role": "combobox",
+      "name": "Organization",
+      "where": "first row of the form",
+      "act": "filter",
+      "does": "which organisation and plan the project goes into"
+     },
+     {
+      "role": "textbox",
+      "name": "Project name",
+      "where": "form row under GitHub (optional)",
+      "act": "input",
+      "does": "project name"
+     },
+     {
+      "role": "textbox",
+      "name": "Database password",
+      "where": "form row under Project name",
+      "act": "input",
+      "does": "Postgres password; leave it to Generate a password"
+     },
+     {
+      "role": "button",
+      "name": "Generate a password",
+      "where": "link-style button under the password strength bar",
+      "act": "input",
+      "does": "fills a strong password without anyone typing it"
+     },
+     {
+      "role": "combobox",
+      "name": "Region",
+      "where": "form row under Database password",
+      "act": "filter",
+      "does": "region group; Asia-Pacific placed the project in Sydney"
+     },
+     {
+      "role": "checkbox",
+      "name": "Enable Data API",
+      "where": "Security group, first",
+      "act": "filter",
+      "does": "REST API for the public schema"
+     },
+     {
+      "role": "checkbox",
+      "name": "Automatically expose new tables",
+      "where": "Security group, second",
+      "act": "filter",
+      "does": "grants Data API roles on new tables"
+     },
+     {
+      "role": "checkbox",
+      "name": "Enable automatic RLS",
+      "where": "Security group, third",
+      "act": "filter",
+      "does": "turns on row-level security for new tables"
+     },
+     {
+      "role": "button",
+      "name": "Cancel",
+      "where": "bottom of the form, left of Create new project",
+      "act": "navigate",
+      "does": "leaves without creating"
+     },
+     {
+      "role": "button",
+      "name": "Create new project",
+      "where": "bottom right of the form",
+      "act": "submit",
+      "does": "creates the project (counts against the plan's project limit)",
+      "irreversible": true
+     }
+    ],
+    "traps": [
+     "On the Free plan only active projects count toward the two-project limit; a paused project leaves the slot free (2026-10-26).",
+     "At the limit the form fields are replaced by a notice that members have exceeded their free project limits, with Upgrade to Pro; only Organization, Cancel and Create new project remain, so check reports the rest missing (2026-10-26).",
+     "Right after creation the overview shows a warm-pool name (warm-project-pool_...) for about half a minute (2026-10-26)."
+    ]
+   },
+   "sql_editor": {
+    "url": "https://supabase.com/dashboard/project/{ref}/sql/new?content={url_encoded_sql}",
+    "ready": "!!document.querySelector('[aria-label=\"Editor content\"]') && [...document.querySelectorAll('a')].some(a => a.textContent.trim() === 'Project Settings')",
+    "controls": [
+     {
+      "role": "textbox",
+      "name": "Editor content",
+      "where": "the Monaco editor filling the upper half",
+      "act": "input",
+      "does": "the query text; covered by its own lines, so prefill it through the content parameter"
+     },
+     {
+      "role": "button",
+      "name": "Run",
+      "where": "green button top right of the editor",
+      "act": "submit",
+      "does": "runs the whole query against the project database",
+      "irreversible": true
+     },
+     {
+      "role": "button",
+      "name": "Save",
+      "where": "top right of the editor, left of Run",
+      "act": "submit",
+      "does": "saves the query as a snippet",
+      "irreversible": true
+     },
+     {
+      "role": "button",
+      "name": "Prettify SQL",
+      "where": "toolbar above the editor",
+      "act": "input",
+      "does": "reformats the query text"
+     },
+     {
+      "role": "tab",
+      "name": "Results",
+      "where": "under the editor, first tab",
+      "act": "tab",
+      "does": "rows or the Success message after Run"
+     },
+     {
+      "role": "link",
+      "name": "Project Settings",
+      "where": "left icon rail, near the bottom",
+      "act": "navigate",
+      "does": "project settings",
+      "then": "settings_general"
+     }
+    ],
+    "traps": [
+     "Typing into the editor fails as covered (the rendered lines sit on top of the input); open sql/new?content=<url-encoded SQL> instead and read the text back before Run (2026-10-26).",
+     "First visit shows a Snippets no longer save automatically dialog; press Understood (2026-10-26).",
+     "Every visit to sql/new opens a new Untitled query tab and the URL becomes sql/<id> (2026-10-26).",
+     "The editor is ready before the left rail; wait for the Project Settings link too (2026-10-26).",
+     "With unsaved edits, navigating away by URL silently does nothing; use the left rail links or close the tab (2026-10-26)."
+    ]
+   },
+   "settings_general": {
+    "url": "https://supabase.com/dashboard/project/{ref}/settings/general",
+    "ready": "!!document.querySelector('[aria-label=\"Project name\"], input[name=\"name\"]') || (document.body.innerText||'').includes('Project ID')",
+    "controls": [
+     {
+      "role": "link",
+      "name": "API Keys",
+      "where": "settings menu, CONFIGURATION group",
+      "act": "navigate",
+      "does": "publishable and secret keys"
+     },
+     {
+      "role": "link",
+      "name": "Data API",
+      "where": "settings menu, INTEGRATIONS group",
+      "act": "navigate",
+      "does": "REST API settings"
+     },
+     {
+      "role": "textbox",
+      "name": "Project name",
+      "where": "General card, first field",
+      "act": "input",
+      "does": "project display name"
+     },
+     {
+      "role": "textbox",
+      "name": "Project ID",
+      "where": "General card, under Project name, read-only",
+      "act": "input",
+      "does": "the project ref used in URLs"
+     },
+     {
+      "role": "button",
+      "name": "Save changes",
+      "where": "General card, right",
+      "act": "submit",
+      "does": "saves the name",
+      "irreversible": true
+     },
+     {
+      "role": "button",
+      "name": "Pause project",
+      "where": "Project availability card",
+      "act": "submit",
+      "does": "pauses the project",
+      "irreversible": true
+     },
+     {
+      "role": "button",
+      "name": "Delete project",
+      "where": "Delete project card at the bottom",
+      "act": "delete",
+      "does": "deletes the project and its data",
+      "irreversible": true
+     }
+    ]
+   }
+  },
+  "verified": "2026-10-26"
  }
 }
