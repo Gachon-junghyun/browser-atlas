@@ -359,6 +359,35 @@ def shareable(owner: str = "me", con: sqlite3.Connection | None = None, unshared
     return out
 
 
+def reindex(con: sqlite3.Connection | None = None) -> dict:
+    """Recompute keywords from the stored goals and fill missing sites from route URLs.
+
+    Run after the tokenizer or the atlas changes: rows keep the keywords they were stored with,
+    so old rows would otherwise match by yesterday's rules.
+    """
+    from . import _atlas
+    con = con or connect()
+    sites = _atlas.load()
+    changed = filled = 0
+    for r in con.execute("select id, goal, keywords, site, route from experience").fetchall():
+        kws = json.dumps(keywords(r["goal"]), ensure_ascii=False)
+        site = r["site"]
+        if not site:
+            for step in json.loads(r["route"]):
+                hit = _atlas.site_for(str(step.get("url", "")), sites) if isinstance(step, dict) else None
+                if hit:
+                    site = hit[0]
+                    filled += 1
+                    break
+        if kws != r["keywords"] or site != r["site"]:
+            route = json.loads(r["route"])
+            con.execute("update experience set keywords = ?, site = ?, route_key = ? where id = ?",
+                        (kws, site, _route_key(site, route), r["id"]))
+            changed += 1
+    con.commit()
+    return {"rows_changed": changed, "sites_filled": filled}
+
+
 def mark_shared(ids: list[str], con: sqlite3.Connection | None = None) -> None:
     con = con or connect()
     con.executemany("update experience set shared_at = ? where id = ?", [(time.time(), i) for i in ids])

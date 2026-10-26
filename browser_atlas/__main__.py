@@ -161,10 +161,12 @@ def main(argv: list[str]) -> int:
             _dump(_memory.stats())
         elif sub == "recall" and len(rest) > 1:
             _dump(_memory.recall(" ".join(rest[1:])))
+        elif sub == "reindex":
+            _dump(_memory.reindex())         # after tokenizer or atlas changes
         elif sub == "shareable":
             _dump(_memory.shareable())       # exactly what would leave this machine; nothing is sent
         else:
-            print("usage: memory stats | recall <GOAL> | shareable")
+            print("usage: memory stats | recall <GOAL> | reindex | shareable")
             return 2
         return 0
     if cmd == "launch":
