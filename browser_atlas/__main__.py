@@ -7,6 +7,7 @@
   python -m browser_atlas guard  <URL>                  # is this URL allowed?
   python -m browser_atlas robots <URL> [<URL> ...]      # robots.txt verdict (RFC 9309, cached a day)
   python -m browser_atlas seen <HOST>                   # everything this machine tried on a host
+  python -m browser_atlas rank "<GOAL>" [--k N]         # which site for this task, with reasons
   python -m browser_atlas click  <CSS> --tab STR [--port N] [--seed N]
   python -m browser_atlas hover  <CSS> --tab STR [--port N]
   python -m browser_atlas type <CSS> <TEXT> --tab STR [--port N] [--clear]
@@ -125,6 +126,14 @@ def main(argv: list[str]) -> int:
     if cmd == "robots":
         from . import _robots
         _dump([{"url": u, **_robots.check(u)} for u in rest])
+        return 0
+    if cmd == "rank":
+        from . import _rank
+        k = int(_opt(rest, "--k", 5))
+        if len(rest) != 1:
+            print('usage: rank "<goal>" [--k N]', file=sys.stderr)
+            return 2
+        _dump(_rank.site_rank(rest[0], k=k))
         return 0
     if cmd == "seen":
         from . import _memory

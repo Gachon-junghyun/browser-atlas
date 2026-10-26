@@ -24,7 +24,8 @@ VERSION = "0.1.0"
 
 INSTRUCTIONS = (
     "browser-atlas: a reviewed map of sites, a Chrome driver and an experience memory.\n"
-    "Before: atlas_find or atlas_site for where to go and whether you may; browser_open with goal= returns "
+    "Before: site_rank(goal) for which site to use (the map and past attempts together, with reasons); "
+    "atlas_site for one site's map; browser_open with goal= returns "
     "past_routes, map_shortcuts and map_traps (pitfalls already hit on that page). Read map_traps first.\n"
     "During: blocked sites, captchas and irreversible controls stop you; ask the human, do not work around them.\n"
     "After: browser_close with result=. Then, if anything tripped you up (a control that was not what its name "
@@ -37,6 +38,14 @@ _ROUTE = {"type": "array", "items": {"type": "object"},
           "description": 'Steps taken, structured: {"page": key} | {"control": [role, name]} | {"url": url}'}
 
 TOOLS = [
+    {"name": "site_rank",
+     "description": "Before a task: which site to use. Ranks sites from the atlas and from past attempts on this "
+                    "machine (and merged shared rows) for this goal: relevance x (quality of similar attempts and "
+                    "readiness: button map, official API, login, unmapped) x a cut for a block in the last week. "
+                    "Each pick has its reasons; one 'explore' pick is a matching site not tried yet. Blocked "
+                    "sites come back under excluded with the reason.",
+     "inputSchema": {"type": "object", "properties": {"goal": {"type": "string"},
+                     "k": {"type": "integer", "default": 5}}, "required": ["goal"]}},
     {"name": "atlas_find",
      "description": "Find sites in the atlas for a task. Returns access level (open/session/api/blocked), "
                     "entry URLs, a better route if one exists, and why a site is blocked.",
@@ -839,6 +848,9 @@ def call(name: str, args: dict):
         return {"share_preview": _shared.preview, "share_upload": _shared.upload, "share_sync": _shared.sync}[name]()
     if name.startswith("browser_"):
         return _tracked(name, args)
+    if name == "site_rank":
+        from . import _rank
+        return _rank.site_rank(args["goal"], k=int(args.get("k", 5)))
     if name == "atlas_find":
         return _find(args["query"])
     if name == "atlas_site":

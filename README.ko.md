@@ -88,6 +88,7 @@ python -m browser_atlas launch --port 9222          # 따로 쓰는 프로필로
 python -m browser_atlas guard https://example.com   # 이 주소에서 에이전트가 움직여도 되나
 python -m browser_atlas robots https://example.com/search   # 주소 하나의 robots.txt 판정
 python -m browser_atlas seen example.com           # 이 컴퓨터가 그 호스트에서 해 본 것 전부
+python -m browser_atlas rank "물가 통계표"            # 이 일엔 어느 사이트가 좋은가: 지도 + 지난 시도, 근거와 함께
 python -m browser_atlas controls --tab example.com  # 지금 화면 버튼의 역할과 이름
 python -m browser_atlas check kosis                 # 지도의 버튼이 아직 그대로 있나
 
