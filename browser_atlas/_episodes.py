@@ -252,6 +252,8 @@ class Recorder:
         rid = _memory.record(goal, ep["site"], ep["route"], outcome,
                              quality, "self", round(ep["last"] - ep["started"], 1), notes)
         out = {"id": rid, "outcome": outcome, "quality": quality, "steps": len(ep["steps"]), "route": ep["route"]}
+        if ep.get("learned"):
+            out["learned"] = ep["learned"]               # new pages and controls this tab added to the local graph
         if said and auto != outcome:
             out["auto_outcome"] = auto                  # the signals disagreed with what you said
         return out

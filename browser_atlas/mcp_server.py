@@ -18,7 +18,7 @@ import os
 import sys
 from urllib.parse import urlparse
 
-from . import _atlas, _ax, _cdp, _episodes, _memory, _robots, _safety
+from . import _atlas, _ax, _cdp, _episodes, _graph, _memory, _robots, _safety
 
 VERSION = "0.1.0"
 
@@ -133,7 +133,12 @@ TOOLS += [
                     "[\"goto\", url] [\"wait_css\", selector] [\"wait_text\", text] "
                     "[\"read\", mode, find?] [\"click\", role, name, index?] [\"click_css\", selector] "
                     "[\"type\", role, name, text] [\"type_css\", selector, text] [\"dismiss\"] [\"back\"] "
-                    "[\"sleep\", lo_seconds, hi_seconds].",
+                    "[\"sleep\", lo_seconds, hi_seconds]. "
+                    "Planned and repeated steps: [\"go\", target] walks the local page graph to a page matching "
+                    "target (see browser_plan); [\"each_link\", find, [steps], max?] runs the steps once per link "
+                    "on this page whose text or URL contains find (same host only, at most 30), with {url} in the "
+                    "steps replaced by that link; [\"if_text\", text, [steps]] runs the steps only if the page "
+                    "text contains text.",
      "inputSchema": {"type": "object", "properties": {"tab": _TAB, "steps": {"type": "array", "items": {"type": "array"}},
                                                       "pace": _PACE}, "required": ["tab", "steps"]}},
     {"name": "browser_wait",
@@ -183,8 +188,23 @@ TOOLS += [
      "inputSchema": {"type": "object", "properties": {"tab": _TAB, **_WHICH, "text": {"type": "string"},
                      "clear": {"type": "boolean"}}, "required": ["tab", "text"]}},
     {"name": "browser_screenshot",
-     "description": "Screenshot of a tab's viewport.",
-     "inputSchema": {"type": "object", "properties": {"tab": _TAB}, "required": ["tab"]}},
+     "description": "Screenshot of a tab: the viewport, or full=true for the whole page (long lists, evidence). "
+                    "save= an absolute .png path also writes it to disk (an existing file is not overwritten).",
+     "inputSchema": {"type": "object", "properties": {"tab": _TAB, "full": {"type": "boolean"},
+                                                      "save": {"type": "string"}}, "required": ["tab"]}},
+    {"name": "browser_plan",
+     "description": "Steps to a page, from this machine's local page graph (every address, button and link met "
+                    "before, on any host, mapped or not). target: a URL, a path, or words from the page's title, "
+                    "a link text or a control name. Returns steps for browser_run (or use [\"go\", target] inside "
+                    "browser_run). found=false lists the pages this host has.",
+     "inputSchema": {"type": "object", "properties": {"target": {"type": "string"}, "tab": _TAB,
+                                                      "url": {"type": "string", "description": "start here instead of a tab"}},
+                     "required": ["target"]}},
+    {"name": "map_local",
+     "description": "This machine's own map of a host, filled automatically from use: pages (visits, whether a "
+                    "direct goto works), the buttons and fields used or seen on each, and how many links between "
+                    "pages are known. Local only; never shared.",
+     "inputSchema": {"type": "object", "properties": {"host": {"type": "string"}}, "required": ["host"]}},
     {"name": "browser_close",
      "description": "Close a tab this server opened and get the episode verdict. result= tells whether you got "
                     "what you came for (success / partial / fail); it overrides the automatic verdict. A tab "
@@ -487,6 +507,39 @@ def _goto(c, url: str, wait_js: str | None) -> dict:
                 "hint": "the page loaded but the wait condition never held; read the page before deciding"}
 
 
+FULL_MAX_PX = 16000
+
+
+def _screenshot(c, full: bool = False, save: str | None = None) -> dict:
+    """The viewport, or the whole page (capped at FULL_MAX_PX tall). The viewport alone once hid the one
+    row that mattered: a deadline sat below the fold, so the evidence shot did not show it."""
+    import base64
+    from pathlib import Path
+    params: dict = {"format": "png"}
+    out: dict = {}
+    if full:
+        m = c.call("Page.getLayoutMetrics")
+        size = m.get("cssContentSize") or m.get("contentSize") or {}
+        w, h = float(size.get("width") or 0), float(size.get("height") or 0)
+        if w and h:
+            params.update(captureBeyondViewport=True,
+                          clip={"x": 0, "y": 0, "width": w, "height": min(h, FULL_MAX_PX), "scale": 1})
+            out["page_px"] = [round(w), round(h)]
+            if h > FULL_MAX_PX:
+                out["cut_at_px"] = FULL_MAX_PX
+    data = c.call("Page.captureScreenshot", params)["data"]
+    if save:
+        p = Path(save)
+        if not p.is_absolute() or p.suffix.lower() != ".png":
+            raise ValueError("save= takes an absolute path ending in .png")
+        if p.exists():
+            raise FileExistsError(f"{p} exists; pick a new name")
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_bytes(base64.b64decode(data))
+        out["saved"] = str(p)
+    return {**out, "__image__": data}
+
+
 def _robots_gate(url: str) -> dict | None:
     """For a site the atlas does not know, robots.txt decides: a disallowed URL is not opened. Mapped
     sites carry a reviewed verdict instead, so they are not fetched here. Returns the verdict, or None
@@ -557,7 +610,7 @@ def _browser(name: str, args: dict):
         if name == "browser_read":
             return _read(c, args)
         if name == "browser_screenshot":
-            return {"__image__": c.call("Page.captureScreenshot", {"format": "png"})["data"]}
+            return _screenshot(c, bool(args.get("full")), args.get("save"))
         if name == "browser_goto":
             _atlas.guard(args["url"])
             robots = _robots_gate(args["url"])
@@ -671,14 +724,73 @@ def _map_hint(role: str, name: str, url: str) -> str:
     return ""
 
 
+EACH_MAX = 30
+
+
+def _fill(steps, url: str):
+    """Sub-steps with {url} replaced by one link's address. Only {url}: link texts are page content."""
+    if isinstance(steps, list):
+        return [_fill(s, url) for s in steps]
+    return steps.replace("{url}", url) if isinstance(steps, str) else steps
+
+
+_FULL_URL: dict[str, str] = {}
+
+
+def _here(tab: str) -> str:
+    """Where the tab is, query included (episode routes drop queries, but ?id= says which page it is)."""
+    return _FULL_URL.get(tab) or REC.current_url(tab)
+
+
 def _run(args: dict) -> dict:
+    out: list = []
+    tab, pace = args["tab"], args.get("pace", "human")
+    _steps(tab, pace, args.get("steps") or [], out, "")
+    return {"steps": out, "completed": sum(1 for x in out if x["ok"]), "of": len(args.get("steps") or [])}
+
+
+def _steps(tab: str, pace: str, steps: list, out: list, prefix: str, depth: int = 0) -> bool:
+    """Run steps in order; False at the first error (already in out). Nested steps report as 2.0, 2.1..."""
     import random as _r
     import time
-    tab, pace = args["tab"], args.get("pace", "human")
-    out = []
-    for i, st in enumerate(args.get("steps") or []):
+    for i, st in enumerate(steps):
         op, a = (st[0], st[1:]) if isinstance(st, list) and st else ("?", [])
+        label = f"{prefix}{i}" if prefix else i
         try:
+            if op in ("go", "each_link", "if_text"):
+                if depth >= 3:
+                    raise ValueError("steps nest at most 3 deep")
+                if op == "go":
+                    p = _graph.plan(_here(tab), str(a[0]))
+                    if not p.get("found"):
+                        raise LookupError(json.dumps({k: p[k] for k in p if k != "found"}, ensure_ascii=False)[:500])
+                    out.append({"step": label, "op": op, "ok": True,
+                                "result": {"page": p["page"], "title": p.get("title"), "planned": p["steps"]}})
+                    if not _steps(tab, pace, p["steps"], out, f"{label}.", depth + 1):
+                        return False
+                    continue
+                if op == "if_text":
+                    r = _tracked("browser_read", {"tab": tab, "mode": "text", "find": str(a[0])})
+                    met = bool(r.get("untrusted_page_content"))
+                    out.append({"step": label, "op": op, "ok": True, "result": {"met": met}})
+                    if met and not _steps(tab, pace, a[1] if len(a) > 1 else [], out, f"{label}.", depth + 1):
+                        return False
+                    continue
+                here = _graph.host_of(_here(tab))
+                r = _tracked("browser_read", {"tab": tab, "mode": "links", "find": str(a[0]), "max_chars": 60000})
+                urls, seen = [], set()
+                for item in r.get("untrusted_page_content") or []:
+                    u = str(item[1]) if isinstance(item, list) and len(item) > 1 else ""
+                    if u and u not in seen and _graph.host_of(u) == here:
+                        seen.add(u)
+                        urls.append(u)
+                cap = min(int(a[2]) if len(a) > 2 else EACH_MAX, EACH_MAX)
+                out.append({"step": label, "op": op, "ok": True,
+                            "result": {"links": len(urls), "running": min(len(urls), cap)}})
+                for j, u in enumerate(urls[:cap]):
+                    if not _steps(tab, pace, _fill(a[1] if len(a) > 1 else [], u), out, f"{label}.{j}.", depth + 1):
+                        return False
+                continue
             if op == "sleep":
                 lo = float(a[0]) if a else 1.0
                 secs = _r.uniform(lo, float(a[1])) if len(a) > 1 else lo
@@ -700,14 +812,14 @@ def _run(args: dict) -> dict:
                     "back": ("browser_back", lambda: {}),
                 }[op]
                 res = _tracked(name, {"tab": tab, "pace": pace, **sub()})
-            out.append({"step": i, "op": op, "ok": True, "result": res})
+            out.append({"step": label, "op": op, "ok": True, "result": res})
         except KeyError:
-            out.append({"step": i, "op": op, "ok": False, "error": f"unknown step {op!r}"})
-            break
+            out.append({"step": label, "op": op, "ok": False, "error": f"unknown step {op!r}"})
+            return False
         except Exception as e:
-            out.append({"step": i, "op": op, "ok": False, "error": f"{type(e).__name__}: {e}"[:600]})
-            break
-    return {"steps": out, "completed": sum(1 for x in out if x["ok"]), "of": len(args.get("steps") or [])}
+            out.append({"step": label, "op": op, "ok": False, "error": f"{type(e).__name__}: {e}"[:600]})
+            return False
+    return True
 
 
 def _familiar() -> dict[str, int]:
@@ -787,6 +899,10 @@ def _tracked(name: str, args: dict):
         REC.start(r["tab"], r.get("url") or args["url"], args.get("goal"))
         REC.open[r["tab"]]["robots"] = r.get("robots")
         REC.step(r["tab"], name, True, url=r.get("url", ""))
+        _learn(r["tab"], name, args, r, "")
+        local = _local_map(r.get("url") or args["url"])
+        if local:
+            r["local_map"] = local
         if r.get("wait_timed_out"):
             REC.step(r["tab"], "browser_wait", False, error=TimeoutError(r["wait_timed_out"]), url=r.get("url", ""))
         if not hit and not _atlas.site_for(r.get("url") or ""):
@@ -824,6 +940,7 @@ def _tracked(name: str, args: dict):
         return r
     if name == "browser_close":
         episode = REC.finish(args["tab"], said=args.get("result"))   # the verdict is kept even if closing fails
+        _FULL_URL.pop(args["tab"], None)
         try:
             r = _browser(name, args)
         except Exception as e:
@@ -837,7 +954,8 @@ def _tracked(name: str, args: dict):
     tab = args.get("tab")
     if tab and tab not in REC.open and tab in _opened():  # our tab with no open episode: start one, never drop steps
         _adopt(tab)
-    control = [args["role"], args["name"]] if args.get("role") and args.get("name") else None
+    before = _here(tab) if tab else ""
+    control =[args["role"], args["name"]] if args.get("role") and args.get("name") else None
     try:
         r = _browser(name, args)
     except Exception as e:
@@ -854,7 +972,38 @@ def _tracked(name: str, args: dict):
                  url=r.get("url", "") if isinstance(r, dict) else "")
         if isinstance(r, dict) and r.get("wait_timed_out"):
             REC.step(tab, "browser_wait", False, error=TimeoutError(r["wait_timed_out"]), url=r.get("url", ""))
+        _learn(tab, name, args, r, before)
     return r
+
+
+def _learn(tab: str, name: str, args: dict, result, before: str) -> None:
+    """Every new address, button and link goes into the local page graph, on any host. Learning must
+    never break the call that taught it, so errors here are swallowed."""
+    if isinstance(result, dict) and str(result.get("url") or "").startswith("http"):
+        _FULL_URL[tab] = str(result["url"])
+    try:
+        new = _graph.observe(name, args, result, before)
+    except Exception:
+        return
+    ep = REC.open.get(tab)
+    if ep is not None and (new["pages"] or new["controls"]):
+        got = ep.setdefault("learned", {"pages": 0, "controls": 0})
+        got["pages"] += new["pages"]
+        got["controls"] += new["controls"]
+        REC._save()
+
+
+def _local_map(url: str) -> dict | None:
+    """A short view of what this machine already knows about the host, for browser_open."""
+    try:
+        m = _graph.host_map(_graph.host_of(url), limit=8)
+    except Exception:
+        return None
+    if m["pages"] < 2:
+        return None
+    return {"pages": m["pages"], "controls": m["controls"], "links": m["edges"],
+            "top": [[p["path"], p["title"]] for p in m["top"]],
+            "hint": "browser_plan(target) gives steps to any of these; or [\"go\", target] inside browser_run"}
 
 
 def _adopt(tab: str) -> None:
@@ -876,6 +1025,13 @@ def call(name: str, args: dict):
         return _episodes.proposals()
     if name == "lesson_record":
         return _episodes.record_lesson(args["site"], args["text"], args.get("page"))
+    if name == "browser_plan":
+        start = args.get("url") or (_here(args["tab"]) if args.get("tab") else "")
+        if not start:
+            raise ValueError("give tab (where the tab is now) or url (where to start)")
+        return _graph.plan(start, args["target"])
+    if name == "map_local":
+        return _graph.host_map(args["host"])
     if name in ("share_preview", "share_upload", "share_sync"):
         from . import _shared
         return {"share_preview": _shared.preview, "share_upload": _shared.upload, "share_sync": _shared.sync}[name]()

@@ -359,4 +359,4 @@ class Pointer:
         return {"x": round(end[0], 1), "y": round(end[1], 1), "from": [round(v, 1) for v in start],
                 "size": [round(info["w"]), round(info["h"])], "dwell_ms": round(dwell),
                 "hold_ms": round(hold), "style": "quick" if quick else ("learned" if self.model.learned else "synthetic"),
-                **r}
+                "role": info.get("role", ""), "name": info.get("name", ""), **r}

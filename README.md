@@ -44,6 +44,7 @@ that reads it, and safety rules written in code instead of in a prompt.
 | 🔘 **Button maps** | 142 real screens with the 5 to 15 controls people actually use, stored as **role + accessible name** (`button "검색"`) instead of brittle CSS. Every one was seen on the live page; all but two pass `check` (a dialog that has no URL, and a signed-in form that hides its fields when the account is at its plan limit). |
 | 🛑 **Safety in code** | Pay, order, submit, send and delete controls stop with *ask the human*. Only a person at a terminal can allow one click (`browser-atlas allow "주문하기"`); no MCP tool can. Blocked hosts are refused, even after a redirect. |
 | 🧠 **Experience memory** | Every tab is an episode, judged from signals (captcha means `blocked`, never reading means `fail`). Next time, `browser_open` hands back the routes that worked on that site, best first. |
+| 🧭 **Local page graph** | Every address, button and link met on any host, mapped or not, is kept on this machine as it happens (css clicks too: the element's real role and name). `browser_plan(target)` turns it into steps, and `browser_run` can walk them in one call: `["go", target]`, a loop over links `["each_link", find, steps]`, a branch `["if_text", text, steps]`. Never shared. |
 | 🖱️ **Your own pointer** | Record your mouse for a few minutes and clicks follow your Fitts' law timing and your path shapes, landing on a point that really hits the target. Typing goes key by key, Hangul composition included. |
 | 🔎 **Research mode** | `browser_search` asks five engines at once and interleaves one result per domain, so no single ranking decides what gets read. Long pages start with an outline. |
 
@@ -115,6 +116,8 @@ python -m browser_atlas launch --port 9222          # Chrome with its own profil
 python -m browser_atlas guard https://example.com   # may an agent act here?
 python -m browser_atlas robots https://example.com/search   # robots.txt verdict for one URL
 python -m browser_atlas seen example.com           # everything this machine tried on a host
+python -m browser_atlas map example.com            # the local page graph: pages, buttons, links (fills itself)
+python -m browser_atlas plan https://example.com/ "notices"   # steps from there to a matching page
 python -m browser_atlas rank "inflation tables"     # which site for this task: map + past attempts, with reasons
 python -m browser_atlas controls --tab example.com  # role and name of what is on screen
 python -m browser_atlas check kosis                 # are the mapped controls still there?

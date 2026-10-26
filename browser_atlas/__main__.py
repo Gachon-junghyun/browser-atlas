@@ -7,6 +7,8 @@
   python -m browser_atlas guard  <URL>                  # is this URL allowed?
   python -m browser_atlas robots <URL> [<URL> ...]      # robots.txt verdict (RFC 9309, cached a day)
   python -m browser_atlas seen <HOST>                   # everything this machine tried on a host
+  python -m browser_atlas map <HOST>                    # the local page graph: pages, buttons, links (auto-filled)
+  python -m browser_atlas plan <START_URL> "<TARGET>"   # steps from there to a matching page, for browser_run
   python -m browser_atlas rank "<GOAL>" [--k N]         # which site for this task, with reasons
   python -m browser_atlas click  <CSS> --tab STR [--port N] [--seed N]
   python -m browser_atlas hover  <CSS> --tab STR [--port N]
@@ -141,6 +143,20 @@ def main(argv: list[str]) -> int:
             print("usage: seen <host>", file=sys.stderr)
             return 2
         _dump({**_memory.host_digest(rest[0]), "lessons": _atlas.host_lessons("https://" + rest[0] + "/")})
+        return 0
+    if cmd == "map":
+        from . import _graph
+        if len(rest) != 1:
+            print("usage: map <host>", file=sys.stderr)
+            return 2
+        _dump(_graph.host_map(rest[0]))
+        return 0
+    if cmd == "plan":
+        from . import _graph
+        if len(rest) != 2:
+            print('usage: plan <start url> "<target>"', file=sys.stderr)
+            return 2
+        _dump(_graph.plan(rest[0], rest[1]))
         return 0
     if cmd == "learned":
         # map fixes this machine learned from use; already applied locally

@@ -33,6 +33,7 @@
 | 🔘 **버튼 지도** | 실제 화면 142개에서 사람이 쓰는 컨트롤 5~15개를 **역할 + 접근성 이름**(`button "검색"`)으로 적었습니다. 깨지기 쉬운 CSS 가 아닙니다. 전부 실제 화면에서 봤고, 둘을 뺀 나머지는 `check` 를 통과했습니다(주소가 없는 대화상자 하나, 요금제 한도에 걸리면 칸을 숨기는 로그인 화면 하나). |
 | 🛑 **코드로 지키는 안전** | 결제, 주문, 제출, 전송, 삭제 버튼은 «사람에게 물어보라»며 멈춥니다. 한 번 누르는 허락은 터미널 앞의 사람만 줄 수 있고(`browser-atlas allow "주문하기"`), MCP 도구로는 못 줍니다. 막힌 호스트는 리다이렉트 뒤에도 거절합니다. |
 | 🧠 **경험 기억** | 탭 하나가 한 번의 시도입니다. 캡차면 `blocked`, 본문을 못 읽었으면 `fail` 처럼 신호로 판정해 저장하고, 다음에 같은 사이트를 열면 잘 됐던 길을 먼저 돌려줍니다. |
+| 🧭 **로컬 페이지 그래프** | 지도에 있든 없든 어느 호스트에서나 만난 주소, 버튼, 링크를 그때그때 이 컴퓨터에 쌓습니다(CSS 로 누른 것도 그 요소의 실제 역할과 이름으로). `browser_plan(target)` 이 그걸 단계로 바꿔 주고, `browser_run` 은 한 번에 걸어갑니다: `["go", target]`, 링크마다 반복하는 `["each_link", find, steps]`, 갈림길 `["if_text", text, steps]`. 공유하지 않습니다. |
 | 🖱️ **내 손 같은 포인터** | 몇 분간 마우스를 녹화하면 클릭이 내 Fitts 법칙 속도와 내 궤적 모양을 따라갑니다. 입력은 한 글자씩, 한글 조합까지 합니다. |
 | 🔎 **조사 모드** | `browser_search` 가 검색엔진 다섯 곳에 한 번에 묻고 도메인당 하나씩 섞어 보여 줍니다. 긴 페이지는 목차부터 봅니다. |
 
@@ -88,6 +89,8 @@ python -m browser_atlas launch --port 9222          # 따로 쓰는 프로필로
 python -m browser_atlas guard https://example.com   # 이 주소에서 에이전트가 움직여도 되나
 python -m browser_atlas robots https://example.com/search   # 주소 하나의 robots.txt 판정
 python -m browser_atlas seen example.com           # 이 컴퓨터가 그 호스트에서 해 본 것 전부
+python -m browser_atlas map example.com            # 로컬 페이지 그래프: 페이지, 버튼, 링크 (저절로 채워짐)
+python -m browser_atlas plan https://example.com/ "공지"   # 거기서 맞는 페이지까지 가는 단계
 python -m browser_atlas rank "물가 통계표"            # 이 일엔 어느 사이트가 좋은가: 지도 + 지난 시도, 근거와 함께
 python -m browser_atlas controls --tab example.com  # 지금 화면 버튼의 역할과 이름
 python -m browser_atlas check kosis                 # 지도의 버튼이 아직 그대로 있나
