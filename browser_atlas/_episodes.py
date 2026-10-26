@@ -262,7 +262,7 @@ def proposals() -> list[dict]:
 def propose(p: dict) -> None:
     """Record a fix in the personal layer; `_atlas.load()` applies it from the next call on."""
     items = proposals()
-    key = json.dumps({k: p[k] for k in sorted(p) if k != "url"}, ensure_ascii=False)
+    key = json.dumps({k: p[k] for k in sorted(p) if k not in ("url", "day")}, ensure_ascii=False)
     for it in items:
         if it["key"] == key:
             it["seen"] += 1
@@ -274,3 +274,25 @@ def propose(p: dict) -> None:
     path = _atlas.learned_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(items, ensure_ascii=False, indent=1), encoding="utf-8")
+
+
+LESSON_MAX = 200
+
+
+def record_lesson(site: str, text: str, page: str | None = None) -> dict:
+    """A pitfall learned on a mapped site, one sentence. Applied locally at once (it shows up in
+    atlas_site and in browser_open's map_traps); shared only through the review queue, on request."""
+    from . import _memory
+    sites = _atlas.load()
+    if site not in sites:
+        raise ValueError(f"no site {site!r} in the atlas; lessons attach to mapped sites")
+    pages = sites[site].get("pages") or {}
+    if page and page not in pages:
+        raise ValueError(f"no page {page!r} on {site}; pages: {sorted(pages)}")
+    text = " ".join(str(text).split())
+    if not 5 <= len(text) <= LESSON_MAX:
+        raise ValueError(f"one sentence, 5 to {LESSON_MAX} characters")
+    if _memory._has_pii(text):
+        raise ValueError("looks like it holds personal data (e-mail, phone, account number); describe the page, not the person")
+    propose({"kind": "trap", "site": site, "page": page or "", "text": text, "day": time.strftime("%Y-%m-%d")})
+    return {"site": site, "page": page or None, "text": text, "stored": "this machine only"}

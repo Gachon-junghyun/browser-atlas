@@ -9659,6 +9659,8 @@
      "Typing into the editor fails as covered (the rendered lines sit on top of the input); open sql/new?content=<url-encoded SQL> instead and read the text back before Run (2026-10-26).",
      "First visit shows a Snippets no longer save automatically dialog; press Understood (2026-10-26).",
      "Every visit to sql/new opens a new Untitled query tab and the URL becomes sql/<id> (2026-10-26).",
+     "A content parameter longer than about 3.5 KB of URL was silently dropped (empty editor); split the SQL into parts (2026-10-26).",
+     "Run asks Potential issue detected for any drop, even drop ... if exists on something that cannot exist yet; leave such lines out of a first-time setup instead of confirming (2026-10-26).",
      "The editor is ready before the left rail; wait for the Project Settings link too (2026-10-26).",
      "With unsaved edits, navigating away by URL silently does nothing; use the left rail links or close the tab (2026-10-26)."
     ]

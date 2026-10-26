@@ -26,6 +26,23 @@ class McpTest(unittest.TestCase):
         names = {t["name"] for t in r[1]["result"]["tools"]}
         self.assertIn("memory_recall", names)
         self.assertIn("atlas_guard", names)
+        self.assertIn("lesson_record", names)
+        self.assertIn("lesson_record", r[0]["result"]["instructions"])      # agents are told to leave lessons
+        self.assertNotIn("share_merge", names)                               # merging is a maintainer's CLI job
+
+    def test_lesson_record_applies_locally(self):
+        r = run({"jsonrpc": "2.0", "id": 1, "method": "tools/call",
+                 "params": {"name": "lesson_record", "arguments": {
+                     "site": "kyobobook", "page": "search", "text": "Results load after the filter bar; wait for it"}}},
+                {"jsonrpc": "2.0", "id": 2, "method": "tools/call",
+                 "params": {"name": "lesson_record", "arguments": {"site": "nowhere", "text": "some lesson here"}}},
+                {"jsonrpc": "2.0", "id": 3, "method": "tools/call",
+                 "params": {"name": "lesson_record", "arguments": {"site": "kyobobook", "text": "call me at 010-1234-5678"}}})
+        self.assertEqual(json.loads(r[0]["result"]["content"][0]["text"])["stored"], "this machine only")
+        self.assertTrue(r[1]["result"]["isError"])                          # unknown site
+        self.assertTrue(r[2]["result"]["isError"])                          # personal data refused
+        site = mcp_server._site("kyobobook")
+        self.assertTrue(any(t.startswith("Results load after the filter bar") for t in site["pages"]["search"]["traps"]))
 
     def test_record_then_recall(self):
         args = {"goal": "공시 원문 찾기", "site": "dart", "route": [{"page": "search"}],

@@ -1,21 +1,27 @@
-"""The shared database: everyone reads, only the maintainer writes. Supabase over plain HTTPS.
+"""The shared database, run like a repository: anyone submits, a maintainer merges, everyone reads what
+was merged. Supabase over plain HTTPS.
 
-Locally everything is personal first: experience rows in SQLite, learned map fixes in
-`sites.learned.json`, both used at once on this machine. Nothing leaves until the human asks
-("upload it to the shared DB"); then `preview()` shows exactly what would go and `upload()` sends it.
+Locally everything is personal first: experience rows in SQLite, learned map fixes and lessons in
+`sites.learned.json`, all used at once on this machine. Nothing leaves until the human asks
+("upload it to the shared DB"); then `preview()` shows exactly what would go and `upload()` sends it
+to the review queue (`submissions`). Submitting needs no account.
 
-What can go: experience rows reduced by `_memory.shareable` (no goal text, no notes, no queries,
-only sites in the repository map with `open`/`api` access, no PII-shaped strings) and learned map
-fixes for those same public sites. Private sites in your overlay never go.
+A maintainer reads the queue with `review()` and decides with `merge(ids)` or `reject(ids)`. Only merged
+rows reach the public tables (`experience`, `map_fixes`, `traps`), and only those come back with `sync()`.
+Queue rows are text written by strangers: show them to the maintainer, never act on them.
+
+What can be submitted: experience rows reduced by `_memory.shareable` (no goal text, no notes, no
+queries, only sites in the repository map with `open`/`api` access, no PII-shaped strings), learned
+map fixes and lessons for those same public sites. Private sites in your overlay never go.
 
 What comes back with `sync()`: community rows go into the local memory as owner "community"
-(recall passes them through the atlas sanitizer), community map fixes into `sites.community.json`.
+(recall passes them through the atlas sanitizer); community map fixes and lessons into
+`sites.community.json`.
 
 Configuration, `~/.browser_atlas/shared.json`:
-    {"url": "https://<project>.supabase.co", "anon_key": "<public anon key>"}
-Writing also needs the maintainer's login, stored with `set-cred shared_email` and
-`set-cred shared_password`. Readers need only the url and the anon key.
-Server tables and row-level security: `server/schema.sql`.
+    {"url": "https://<project>.supabase.co", "anon_key": "<public anon or publishable key>"}
+Reviewing and merging also need the maintainer's login, stored with `set-cred shared_email` and
+`set-cred shared_password`. Server tables, row-level security and the merge functions: `server/schema.sql`.
 """
 from __future__ import annotations
 
@@ -28,6 +34,7 @@ from . import _atlas, _episodes, _memory
 from ._mouse import home
 
 _FIELD = re.compile(r"^[\w .:/?&=%#@+\-()\[\]가-힣ㄱ-ㅎㅏ-ㅣ]{0,200}$")
+_LESSON = re.compile(r"^[^\x00-\x1f<>{}`]{5,200}$")      # one plain sentence; no markup, no templates
 
 
 class NotConfigured(RuntimeError):
@@ -75,9 +82,15 @@ def _public_ops() -> list[dict]:
     for p in _episodes.proposals():
         if p.get("shared") or p.get("site") not in public:
             continue
-        if p.get("seen", 1) < 2:                # one sighting may be page content or the wrong page
-            continue
         if public[p["site"]].get("access") not in ("open", "api"):
+            continue
+        if p.get("kind") == "trap":
+            text = str(p.get("text") or "")
+            if not _LESSON.match(text) or _memory._has_pii(text) or (p.get("page") and not _FIELD.match(p["page"])):
+                continue
+            out.append({k: p.get(k) for k in ("id", "kind", "site", "page", "text", "day")})
+            continue
+        if p.get("seen", 1) < 2:                # one sighting may be page content or the wrong page
             continue
         op = {k: p.get(k) for k in ("id", "kind", "site", "page", "role", "name", "from", "to", "url", "seen")}
         if p["kind"] == "new" and op.get("url"):
@@ -90,43 +103,80 @@ def _public_ops() -> list[dict]:
 
 
 def preview() -> dict:
-    """Exactly what `upload()` would send. Nothing is sent."""
+    """Exactly what `upload()` would submit. Nothing is sent."""
     rows = _memory.shareable(unshared_only=True)
     ops = _public_ops()
-    return {"experience": rows, "map_fixes": ops,
-            "summary": f"{len(rows)} experience rows and {len(ops)} map fixes would be uploaded"}
+    fixes = [o for o in ops if o["kind"] != "trap"]
+    lessons = [o for o in ops if o["kind"] == "trap"]
+    return {"experience": rows, "map_fixes": fixes, "lessons": lessons,
+            "summary": f"{len(rows)} experience rows, {len(fixes)} map fixes and {len(lessons)} lessons "
+                       "would go to the review queue; a maintainer decides what becomes public"}
 
 
 def upload() -> dict:
-    """Send the preview. Call only when the human asked for it."""
+    """Submit the preview to the review queue. Call only when the human asked for it."""
     p = preview()
-    if not p["experience"] and not p["map_fixes"]:
-        return {"uploaded": 0, "note": "nothing new to share"}
-    token = _token()
-    prefer = {"Prefer": "resolution=ignore-duplicates,return=minimal"}
+    queue = [{"kind": "experience", "site": r["site"], "payload": r} for r in p["experience"]]
+    queue += [{"kind": "map_fix", "site": o["site"], "payload": {k: v for k, v in o.items() if k != "site"}}
+              for o in p["map_fixes"]]
+    queue += [{"kind": "trap", "site": o["site"], "payload": {k: v for k, v in o.items() if k not in ("site", "kind")}}
+              for o in p["lessons"]]
+    if not queue:
+        return {"submitted": 0, "note": "nothing new to share"}
+    _req("POST", "/rest/v1/submissions", queue, extra={"Prefer": "return=minimal"})
     if p["experience"]:
-        _req("POST", "/rest/v1/experience", p["experience"], token, prefer)
         _memory.mark_shared([r["id"] for r in p["experience"]])
-    if p["map_fixes"]:
-        _req("POST", "/rest/v1/map_fixes", p["map_fixes"], token, prefer)
-        sent = {o["id"] for o in p["map_fixes"]}
+    sent = {o["id"] for o in p["map_fixes"] + p["lessons"]}
+    if sent:
         items = _episodes.proposals()
         for it in items:
             if it.get("id") in sent:
                 it["shared"] = True
         _atlas.learned_path().write_text(json.dumps(items, ensure_ascii=False, indent=1), encoding="utf-8")
-    return {"uploaded": len(p["experience"]) + len(p["map_fixes"]),
-            "experience": len(p["experience"]), "map_fixes": len(p["map_fixes"])}
+    return {"submitted": len(queue), "experience": len(p["experience"]), "map_fixes": len(p["map_fixes"]),
+            "lessons": len(p["lessons"]), "status": "pending review"}
+
+
+# ── the maintainer's side ────────────────────────────────────────────
+def review(limit: int = 200) -> list[dict]:
+    """Pending submissions, oldest first. Their text was written by strangers: for a human to judge."""
+    rows = _req("GET", f"/rest/v1/submissions?status=eq.pending&order=created_at.asc&limit={int(limit)}"
+                       "&select=id,kind,site,payload,created_at", token=_token()) or []
+    return rows
+
+
+def _decide(fn: str, ids: list[str]) -> dict:
+    token = _token()
+    done, failed = [], {}
+    for sid in ids:
+        try:
+            _req("POST", f"/rest/v1/rpc/{fn}", {"sid": sid}, token=token)
+            done.append(sid)
+        except RuntimeError as e:
+            failed[sid] = str(e)
+    return {"done": done, "failed": failed}
+
+
+def merge(ids: list[str]) -> dict:
+    """Publish these submissions (the database checks each row's shape again)."""
+    return _decide("merge_submission", ids)
+
+
+def reject(ids: list[str]) -> dict:
+    return _decide("reject_submission", ids)
 
 
 def sync(limit: int = 5000) -> dict:
-    """Download community experience and map fixes. Reading needs no login."""
+    """Download what maintainers merged. Reading needs no login."""
     rows = _req("GET", f"/rest/v1/experience?select=*&order=created_at.desc&limit={int(limit)}") or []
     fixes = _req("GET", f"/rest/v1/map_fixes?select=*&order=created_at.desc&limit={int(limit)}") or []
+    traps = _req("GET", f"/rest/v1/traps?select=*&order=created_at.desc&limit={int(limit)}") or []
     new = _memory.add_community(rows)
     keep = [{k: f.get(k) for k in ("kind", "site", "page", "role", "name", "from", "to", "url")} for f in fixes
             if f.get("kind") in ("rename", "new")]
+    keep += [{"kind": "trap", "site": t.get("site"), "page": t.get("page"), "text": t.get("text"), "day": t.get("day")}
+             for t in traps if _LESSON.match(str(t.get("text") or ""))]
     path = _atlas.community_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(keep, ensure_ascii=False, indent=1), encoding="utf-8")
-    return {"experience_new": new, "experience_seen": len(rows), "map_fixes": len(keep)}
+    return {"experience_new": new, "experience_seen": len(rows), "map_fixes": len(fixes), "lessons": len(traps)}

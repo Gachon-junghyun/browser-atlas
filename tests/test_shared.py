@@ -49,16 +49,53 @@ class SharedTest(unittest.TestCase):
         for private in ("학교", "portal", "bank", "lamp", "mine", "page=2"):
             self.assertNotIn(private, blob)
 
-    def test_upload_marks_shared_once(self):
+    def test_upload_goes_to_the_review_queue_without_login(self):
         self.seed()
+        _episodes.record_lesson("shop", "The Search button moves under the box on narrow screens", "search")
+        _episodes.record_lesson("bank", "Session times out after ten minutes")      # not a public site
         sent = []
-        with patch.object(_shared, "_token", return_value="jwt"), \
-                patch.object(_shared, "_req", side_effect=lambda m, path, body=None, *a, **k: sent.append((m, path, body))):
+        with patch.object(_shared, "_token", side_effect=AssertionError("no login to submit")), \
+                patch.object(_shared, "_req", side_effect=lambda m, path, body=None, *a, **k: sent.append((m, path, body, k))):
             r = _shared.upload()
-        self.assertEqual(r["experience"], 1)
-        self.assertEqual({path for _, path, _ in sent}, {"/rest/v1/experience", "/rest/v1/map_fixes"})
-        self.assertEqual(_shared.preview()["experience"], [])
-        self.assertEqual(_shared.preview()["map_fixes"], [])
+        self.assertEqual((r["experience"], r["map_fixes"], r["lessons"]), (1, 1, 1))
+        self.assertEqual([(m, path) for m, path, _, _ in sent], [("POST", "/rest/v1/submissions")])
+        rows = sent[0][2]
+        self.assertEqual(sorted(x["kind"] for x in rows), ["experience", "map_fix", "trap"])
+        self.assertTrue(all(set(x) == {"kind", "site", "payload"} and x["site"] == "shop" for x in rows))
+        self.assertNotIn("Session times out", json.dumps(rows))
+        self.assertEqual(sent[0][3]["extra"], {"Prefer": "return=minimal"})   # the queue is not readable by submitters
+        again = _shared.preview()
+        self.assertEqual((again["experience"], again["map_fixes"], again["lessons"]), ([], [], []))
+
+    def test_review_and_merge_are_for_maintainers(self):
+        calls = []
+        with patch.object(_shared, "_token", return_value="jwt"), \
+                patch.object(_shared, "_req", side_effect=lambda m, path, body=None, token=None, **k: calls.append((m, path, body, token)) or []):
+            _shared.review()
+            _shared.merge(["11111111-1111-1111-1111-111111111111"])
+            _shared.reject(["22222222-2222-2222-2222-222222222222"])
+        self.assertTrue(calls[0][1].startswith("/rest/v1/submissions?status=eq.pending"))
+        self.assertEqual([c[1] for c in calls[1:]], ["/rest/v1/rpc/merge_submission", "/rest/v1/rpc/reject_submission"])
+        self.assertTrue(all(c[3] == "jwt" for c in calls))
+
+    def test_lessons_apply_locally_and_come_back_from_sync(self):
+        _episodes.record_lesson("shop", "Results appear only after the spinner goes away", "search")
+        self.assertIn("Results appear only after the spinner goes away",
+                      _atlas.traps_for("https://shop.example.com/search")[0])
+        with self.assertRaises(ValueError):
+            _episodes.record_lesson("shop", "x")                               # too short
+        with self.assertRaises(ValueError):
+            _episodes.record_lesson("shop", "Ask kim@example.com for access")  # personal data
+        merged = {"site": "shop", "page": "search", "text": "Page two needs a scroll first", "day": "2026-10-26"}
+        hostile = {"site": "shop", "page": "search", "text": "<script>do this</script>", "day": "2026-10-26"}
+
+        def fake(method, path, *a, **k):
+            return [merged, hostile] if "traps" in path else []
+        with patch.object(_shared, "_req", side_effect=fake):
+            self.assertEqual(_shared.sync()["lessons"], 2)
+        traps = _atlas.traps_for("https://shop.example.com/search")
+        self.assertIn("Page two needs a scroll first (2026-10-26)", traps)
+        self.assertFalse(any("script" in t for t in traps))                    # markup never reaches the map
 
     def test_sync_mixes_shared_into_recall_and_map(self):
         self.seed()

@@ -87,9 +87,16 @@ injection for every user at once. Describing instead of commanding is not enough
    The map can add `irreversible: true` or an irreversible `act`; it cannot make a pay button safe.
 3. **A name in the map is only a pointer.** Before acting, the agent finds the control on the live page
    by role and name. A map entry cannot create a button that is not there.
-4. **One writer.** The repository map changes through reviewed pull requests. The shared database is
-   written by maintainers only (row-level security) and limits the shape of every row; readers never write.
-   What each machine learns applies to that machine at once and is shared only when its owner asks.
+4. **One writer.** The repository map changes through reviewed pull requests, and the shared database
+   works the same way: anyone may submit to a review queue that nobody but maintainers can read, and only
+   a maintainer's merge publishes a row (row-level security and `merge_submission()` in `server/schema.sql`).
+   The tables limit the shape of every row twice, on submit and on merge. What each machine learns applies
+   to that machine at once and is submitted only when its owner asks. Queue rows are stranger-written
+   text: a maintainer reads them as data and never lets an agent act on them.
+
+Lessons (`traps`) are the one free-text field agents are shown on purpose: `browser_open` returns the page's
+`map_traps` so the next run avoids a known pitfall. They come from the reviewed map, from your own
+`lesson_record` calls, or from merged submissions, never straight from a stranger.
 
 
 ## Offline validation and merging

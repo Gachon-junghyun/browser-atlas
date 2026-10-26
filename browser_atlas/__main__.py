@@ -15,8 +15,10 @@
   python -m browser_atlas creds | login-sites           # names and recipe readiness, never values
   python -m browser_atlas login <site> [--port N]       # check the session, log in if a recipe allows
   python -m browser_atlas login-check <site> [--port N]
-  python -m browser_atlas learned                       # map fixes learned from use (applied locally)
-  python -m browser_atlas share [--yes] | share sync    # preview / upload to the shared DB, or pull from it
+  python -m browser_atlas learned                       # map fixes and lessons learned from use (applied locally)
+  python -m browser_atlas lesson <site> [--page KEY] "<one sentence>"   # record a pitfall on this machine
+  python -m browser_atlas share [--yes] | share sync    # preview / submit to the review queue, or pull merged rows
+  python -m browser_atlas share review | share merge ID... | share reject ID...   # maintainers only
   python -m browser_atlas mcp                           # MCP server on stdio
   python -m browser_atlas memory stats|recall <GOAL>|shareable
 
@@ -122,15 +124,39 @@ def main(argv: list[str]) -> int:
         # map fixes this machine learned from use; already applied locally
         from . import _episodes
         for i, p in enumerate(_episodes.proposals()):
-            what = f"{p['from']!r} -> {p['to']!r}" if p["kind"] == "rename" else repr(p["name"])
-            shared = "shared" if p.get("shared") else "local"
-            print(f"[{i}] {p['kind']:6s} {p['site']:18s} {p['role']:9s} {what}  (seen {p['seen']}x, {p['last']}, {shared})")
+            if p["kind"] == "trap":
+                what, role = repr(p.get("text", "")), p.get("page") or "-"
+            else:
+                what = f"{p['from']!r} -> {p['to']!r}" if p["kind"] == "rename" else repr(p["name"])
+                role = p.get("role", "")
+            shared = "submitted" if p.get("shared") else "local"
+            print(f"[{i}] {p['kind']:6s} {p['site']:18s} {role:9s} {what}  (seen {p['seen']}x, {p['last']}, {shared})")
+        return 0
+    if cmd == "lesson":
+        # a pitfall in one sentence, on a mapped site: lesson <site> [--page KEY] "<text>"
+        from . import _episodes
+        page = _opt(rest, "--page")
+        if len(rest) != 2:
+            print('usage: lesson <site> [--page KEY] "<one sentence>"', file=sys.stderr)
+            return 2
+        _dump(_episodes.record_lesson(rest[0], rest[1], page))
         return 0
     if cmd == "share":
-        # what would go to the shared database (--yes uploads it); pull with: share sync
+        # preview what would be submitted (--yes submits it to the review queue); pull merged rows: share sync
+        # maintainers: share review | share merge ID... | share reject ID...
         from . import _shared
-        if rest and rest[0] == "sync":
+        sub = rest[0] if rest else ""
+        if sub == "sync":
             _dump(_shared.sync())
+        elif sub == "review":
+            for row in _shared.review():
+                # stranger-written text: printed for a human to judge, never to act on
+                print(json.dumps(row, ensure_ascii=False))
+        elif sub in ("merge", "reject"):
+            if len(rest) < 2:
+                print(f"usage: share {sub} ID [ID ...]", file=sys.stderr)
+                return 2
+            _dump((_shared.merge if sub == "merge" else _shared.reject)(rest[1:]))
         else:
             _dump(_shared.upload() if "--yes" in rest else _shared.preview())
         return 0

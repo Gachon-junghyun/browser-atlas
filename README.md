@@ -136,6 +136,21 @@ python -m browser_atlas mouse plot                  # grey: yours, blue: generat
   and never enter this repository. Credentials go from the OS store straight into the page; the model
   never sees them.
 
+## 📚 Learn once, share on review
+
+Every run leaves something behind, and the next run starts from it:
+
+- **Routes** are recorded by the server itself; `browser_open` hands back the ones that worked on that site.
+- **Lessons** are one-sentence pitfalls (`lesson_record`, or `browser-atlas lesson <site> "..."`). The server's
+  instructions ask the agent to leave one whenever something tripped it up, and `browser_open` returns the
+  page's `map_traps` before the next attempt.
+- **Renamed or new buttons** found while working are applied to your own map at once.
+
+All of it stays on your machine. When you say "share it", `share_upload` sends a sanitized copy to a
+**review queue**, GitHub-style: anyone can submit without an account, nobody but maintainers can read the
+queue, and only what a maintainer merges (`browser-atlas share review`, `share merge ID`) becomes public.
+Everyone then pulls merged rows with `share sync`.
+
 ## 🤝 Add a site
 
 The map grows by pull request. One site is one JSON object.

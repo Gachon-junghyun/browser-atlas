@@ -363,6 +363,8 @@ The rule: **a captcha or rate limit means stop for that source for the day.** Pi
 **Supabase dashboard** (observed 2026-10)
 - The SQL editor is Monaco: its typing target sits under the rendered lines, so a safe click reports "covered" and typing never lands. Open the editor with the query already in it instead: `/dashboard/project/<ref>/sql/new?content=<url-encoded SQL>`, check the text on screen, then press Run. Strip comments and newlines first so nothing depends on how the editor indents.
 - With unsaved edits in the editor, navigating away by URL silently does nothing (a leave-page guard). Use the sidebar links, or close the tab.
+- A `content` URL of about 6.6 KB opened an empty editor with no error; 3.5 KB worked. Split long setup SQL into parts.
+- Run stops on "Potential issue detected" for any `drop`, including `drop trigger if exists` on a table created a line earlier. In first-time setup, leave such lines out rather than confirming a destructive-operation prompt.
 - A personal access token kept in one app's config can be scoped to that app's project: listing still works, but creating a project and reading the organisation return 403. Check what a token can do before planning around it.
 - "Asia-Pacific" on the new-project form placed the project in Sydney, and the overview showed a warm-pool name (`warm-project-pool_...`) for about half a minute before the real name appeared.
 - On the Free plan the two-project limit counts active projects; a paused project does not take a slot.
