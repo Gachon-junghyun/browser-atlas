@@ -115,5 +115,100 @@ class PointerGuardTest(unittest.TestCase):
         self.assertEqual(c.calls, [])
 
 
+class RefoundTest(unittest.TestCase):
+    def run_action(self, failures=1, typing=False, css=False, missing=False, error="no-element", fail_at=1):
+        from unittest.mock import patch
+        from browser_atlas._pointer import Pointer
+        from test_ax import FakeCDP as AXCDP
+
+        class RerenderCDP(AXCDP):
+            def __init__(self):
+                super().__init__()
+                self.lookups = 0
+                self.marks = 0
+
+            def call(self, method, params=None):
+                if method == "DOM.setAttributeValue":
+                    self.marks += 1
+                if missing and self.lookups and method == "Accessibility.getFullAXTree":
+                    return {"nodes": []}
+                return super().call(method, params)
+
+            def eval(self, js):
+                if "getBoundingClientRect" in js:
+                    self.lookups += 1
+                    if fail_at <= self.lookups < fail_at + failures:
+                        return {"err": error, "by": "overlay"}
+                    return {"x": 100, "y": 100, "w": 40, "h": 20, "vw": 800, "vh": 600,
+                            "name": "Company" if typing else "Search", "role": "textbox" if typing else "button"}
+                if "selectionStart" in js:
+                    return None
+                if "isContentEditable ? e.innerText" in js:
+                    return "abc"
+                return super().eval(js)
+
+        c = RerenderCDP()
+        with patch("browser_atlas._pointer._load_state", return_value={}), \
+                patch("browser_atlas._pointer._save_state"), \
+                patch("browser_atlas._pointer.time.sleep"):
+            p = Pointer(c, model=_mouse.Model(), pace="quick")
+            try:
+                if typing:
+                    result = p.type("input", "abc") if css else p.type_control("textbox", "Company", "abc", index=0)
+                else:
+                    result = p.click("button") if css else p.click_control("button", "Search", index=0)
+            except RuntimeError as exc:
+                return c, exc
+        return c, result
+
+    def test_refinds_once_before_click_or_type(self):
+        for typing in (False, True):
+            for css in (False, True):
+                with self.subTest(typing=typing, css=css):
+                    c, result = self.run_action(typing=typing, css=css)
+                    self.assertEqual(result["refound"], 1)
+                    self.assertEqual(c.marks, 0 if css else 2)
+                    events = [v["type"] for m, v in c.calls if m == "Input.dispatchMouseEvent"]
+                    self.assertEqual(events, ["mouseMoved", "mousePressed", "mouseReleased"])
+
+    def test_second_missing_lookup_keeps_original_error(self):
+        for typing in (False, True):
+            for missing in (False, True):
+                with self.subTest(typing=typing, missing=missing):
+                    c, error = self.run_action(failures=2, typing=typing, missing=missing)
+                    self.assertIsInstance(error, RuntimeError)
+                    first_mark = next(v["value"] for m, v in c.calls if m == "DOM.setAttributeValue")
+                    self.assertEqual(str(error), f'no element: [data-atlas-target="{first_mark}"]')
+                    self.assertFalse(any(m.startswith("Input.") for m, _ in c.calls))
+                    self.assertEqual(c.lookups, 1 if missing else 2)
+
+    def test_other_errors_are_not_retried(self):
+        for error in ("covered", "zero-size", "offscreen"):
+            with self.subTest(error=error):
+                c, result = self.run_action(error=error)
+                self.assertIsInstance(result, RuntimeError)
+                self.assertEqual(c.marks, 1)
+                self.assertEqual(c.lookups, 1)
+                self.assertFalse(any(m.startswith("Input.") for m, _ in c.calls))
+
+    def test_typing_refinds_at_focus_click(self):
+        c, result = self.run_action(typing=True, fail_at=2)
+        self.assertEqual(result["refound"], 1)
+        self.assertEqual(c.marks, 2)
+        self.assertEqual(c.lookups, 3)
+        self.assertEqual(result["value"], "abc")
+
+    def test_typing_focus_retry_stops_after_second_missing_lookup(self):
+        c, error = self.run_action(typing=True, failures=2, fail_at=2)
+        self.assertIsInstance(error, RuntimeError)
+        self.assertEqual(c.marks, 2)
+        self.assertEqual(c.lookups, 3)
+
+    def test_unchanged_success_has_no_refound(self):
+        c, result = self.run_action(failures=0)
+        self.assertNotIn("refound", result)
+        self.assertEqual(c.marks, 1)
+
+
 if __name__ == "__main__":
     unittest.main()

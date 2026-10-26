@@ -218,23 +218,54 @@ class Pointer:
                 time.sleep(min(0.125, remaining))
 
     def click_control(self, role, name, exact=True, index=None) -> dict:
-        r = self.click(self._control(role, name, exact, index))
+        css = self._control(role, name, exact, index)
+        r = self.click(css, _locator={"css": css, "find": lambda: self._control(role, name, exact, index)})
         return {**r, "same_name_controls": self.matches}
 
     def move_control(self, role, name, exact=True, index=None) -> dict:
         return self.move(self._control(role, name, exact, index))
 
     def type_control(self, role, name, text, exact=True, clear=False, model=None, index=None) -> dict:
-        r = self.type(self._control(role, name, exact, index), text, clear=clear, model=model)
+        css = self._control(role, name, exact, index)
+        r = self.type(css, text, clear=clear, model=model,
+                      _locator={"css": css, "find": lambda: self._control(role, name, exact, index)})
         return {**r, "same_name_controls": self.matches}
 
-    def type(self, css, text, clear=False, model=None, secret=False) -> dict:
+    def _locate(self, locator) -> dict:
+        """Re-find a replaced target once, before any pointer motion or click pacing."""
+        css = locator["css"]
+        try:
+            return self.target(css)
+        except RuntimeError as error:
+            if str(error) != f"no element: {css}" or locator.get("refound"):
+                raise
+            locator["refound"] = 1
+            try:
+                locator["css"] = locator["find"]()
+            except NoControl:
+                raise error from None
+            try:
+                return self.target(locator["css"])
+            except RuntimeError as retry:
+                if str(retry) == f"no element: {locator['css']}":
+                    raise error from None
+                raise
+
+    def type(self, css, text, clear=False, model=None, secret=False, _locator=None) -> dict:
         """`secret=True` (passwords): the value never appears in the result or in an error."""
         self._guard()
-        field = self.target(css)
+        locator = _locator if _locator is not None else {"css": css, "find": lambda: css}
+        field = self._locate(locator)
+        css = locator["css"]
         if ("\n" in text or "\r" in text) and not field.get("search"):
             _safety.require_enter(field.get("name") or css)
-        self.click(css)
+        if _locator is None and not locator.get("refound"):
+            clicked = self.click(css)
+            if clicked.get("refound"):
+                locator["refound"] = 1
+        else:
+            self.click(css, _locator=locator)
+        css = locator["css"]
         if clear:
             ctrl = {"key": "Control", "code": "ControlLeft", "windowsVirtualKeyCode": 17}
             select = {"key": "a", "code": "KeyA", "windowsVirtualKeyCode": 65}
@@ -254,7 +285,8 @@ class Pointer:
             # what a person does and what keeps the two in step (2026-10-26)
             self._play(typing.plan(text[:-1], self.rng))
             time.sleep(INLINE_SETTLE_S)
-            self.click(css)
+            self.click(css, _locator=locator)
+            css = locator["css"]
             self._play(typing.plan(text[-1], self.rng))
         else:
             self._play(plan)
@@ -271,7 +303,8 @@ class Pointer:
                 raise RuntimeError(f"input did not stick in {css} (secret field; values withheld)")
             raise RuntimeError(f"input did not stick: expected {text!r}, got {value!r}")
         return {"value": "<hidden>" if secret else value, "events": len(plan),
-                "search": bool(field.get("search")) and not secret, "field": field.get("name", "")}
+                "search": bool(field.get("search")) and not secret, "field": field.get("name", ""),
+                **({"refound": 1} if locator.get("refound") else {})}
 
     def _play(self, plan) -> None:
         start = _T()
@@ -357,9 +390,10 @@ class Pointer:
         r = self._move(start, (info["x"], info["y"]), min(info["w"], info["h"]))
         return {"x": info["x"], "y": info["y"], "from": start, **r}
 
-    def click(self, css: str, button: str = "left") -> dict:
+    def click(self, css: str, button: str = "left", _locator=None) -> dict:
         self._guard()
-        info = self.target(css)
+        locator = _locator if _locator is not None else {"css": css, "find": lambda: css}
+        info = self._locate(locator)
         _safety.require(info.get("name", ""), info.get("role", ""), self._mapped(info.get("name", "")))
         start = self._start(info)
         end = (info["x"], info["y"])
@@ -377,4 +411,5 @@ class Pointer:
         return {"x": round(end[0], 1), "y": round(end[1], 1), "from": [round(v, 1) for v in start],
                 "size": [round(info["w"]), round(info["h"])], "dwell_ms": round(dwell),
                 "hold_ms": round(hold), "style": "quick" if quick else ("learned" if self.model.learned else "synthetic"),
-                "role": info.get("role", ""), "name": info.get("name", ""), **r}
+                "role": info.get("role", ""), "name": info.get("name", ""), **r,
+                **({"refound": 1} if locator.get("refound") else {})}
