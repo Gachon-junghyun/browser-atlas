@@ -345,7 +345,7 @@ def _score(target: str, texts: list[str]) -> float:
 
 
 def _targets(con, host: str, target: str) -> list[tuple[float, str]]:
-    """Pages of `host` that match the target, best first: (match 0..1, path)."""
+    """Pages of `host` that match the target, best first: (match with identity bonus, path)."""
     if "://" in target or target.startswith("/"):
         want = path_of(target if "://" in target else "https://" + host + target)
         return [(1.0, want)] if con.execute("select 1 from g_pages where host=? and path=?", (host, want)).fetchone() \
@@ -365,6 +365,12 @@ def _targets(con, host: str, target: str) -> list[tuple[float, str]]:
         hits[e["dst"]] = max(hits.get(e["dst"], 0.0), 0.9 * _score(target, [lab]))
     for c in con.execute("select path, name from g_controls where host=?", (host,)):
         hits[c["path"]] = max(hits.get(c["path"], 0.0), 0.6 * _score(target, [c["name"]]))
+    # Identity values are page words too; preserve case and match whole values.
+    # type=10-Q distinguishes the filtered list even when CIK switches as well.
+    for path in hits:
+        values = {v for _, v in parse_qsl(path.partition("?")[2]) if len(v) >= 2}
+        hits[path] += 0.6 * sum(bool(re.search(r"(?<![0-9A-Za-z])" + re.escape(v) +
+                                             r"(?![0-9A-Za-z])", target)) for v in values)
     return sorted(((s, p) for p, s in hits.items() if s >= 0.35), reverse=True)[:12]
 
 
@@ -607,7 +613,9 @@ def plan(start_url: str, target: str, host: str | None = None, con=None, picks=N
         return out
     end = out["page"]
     texts = " ".join((end, out["title"], target)).casefold()
-    fresh = picks.get("fresh", 120 if FILINGS.search(texts) else 14 if DATED_LIST.search(texts) else 0)
+    # a quarterly-filings list is current for months: the fourth quarter brings an annual report instead,
+    # so the newest 10-Q can be six months old (observed: 181 days, and the list was the right answer)
+    fresh = picks.get("fresh", 200 if FILINGS.search(texts) else 14 if DATED_LIST.search(texts) else 0)
     if fresh:
         out["checks"] = {"fresh_days": fresh}
     controls = con.execute("select path, role, name, used, seen from g_controls where host=?"

@@ -44,6 +44,22 @@ class GraphTest(unittest.TestCase):
         self.assertEqual(sorted(groups[0]["things"]), ["MSFT", "NVDA"])
         self.assertIn("CIK={thing}", groups[0]["template"])
 
+    def test_named_query_filter_wins_while_switching_company(self):
+        base = "https://sec.gov/cgi-bin/browse-edgar?CIK={}&action=getcompany&count=40&owner=include"
+        for company in ("MSFT", "NVDA"):
+            for suffix in ("", "&type=10-Q", "&type=10-K"):
+                _graph.page(base.format(company) + suffix, "EDGAR Search Results", direct=True)
+        for company in ("NVDA", "MSFT"):
+            with self.subTest(company=company):
+                plan = _graph.plan(base.format(company), "MSFT 10-Q filings")
+                want = base.format("MSFT") + "&type=10-Q"
+                self.assertEqual(plan["page"], _graph.path_of(want))
+                self.assertEqual(plan["steps"], [["goto", want]])
+                self.assertNotIn("choose", plan)
+        scores = {p: score for score, p in _graph._targets(_graph.connect(), "sec.gov", "MSFT 10-q filings")}
+        self.assertEqual(scores[_graph.path_of(base.format("MSFT") + "&type=10-Q")],
+                         scores[_graph.path_of(base.format("MSFT") + "&type=10-K")])
+
     def test_query_rebase_preserves_other_url_values(self):
         start = "/filings?CIK=MSFT&count=40"
         other = "/filings?CIK=NVDA&count=40"
@@ -320,12 +336,12 @@ class GraphTest(unittest.TestCase):
         for word in ("filing", "filings", "공시", "10-Q", "10-K", "8-K", "EDGAR"):
             with self.subTest(word=word):
                 _graph.page(H + "/list", word, direct=True)
-                self.assertEqual(_graph.plan(H + "/", "/list")["checks"], {"fresh_days": 120})
+                self.assertEqual(_graph.plan(H + "/", "/list")["checks"], {"fresh_days": 200})
                 self.assertEqual(_graph.plan(H + "/", "/list", picks={"fresh": 14})["checks"],
                                  {"fresh_days": 14})
                 self.assertNotIn("checks", _graph.plan(H + "/", "/list", picks={"fresh": 0}))
                 _graph.page(H + "/list", "List", direct=True)
-                self.assertEqual(_graph.plan(H + "/", word + " List")["checks"], {"fresh_days": 120})
+                self.assertEqual(_graph.plan(H + "/", word + " List")["checks"], {"fresh_days": 200})
 
     def test_popup_edge_names_a_query_thing_from_search(self):
         start = "https://kosis.kr/search/search.do"

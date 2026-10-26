@@ -365,7 +365,7 @@ def _wait_js(args: dict) -> str | None:
     if args.get("wait_css"):
         return "!!document.querySelector(%s)" % json.dumps(args["wait_css"])
     if args.get("wait_text"):
-        return "((document.body||{}).innerText||'').includes(%s)" % json.dumps(args["wait_text"])
+        return "(%s).includes(%s)" % (_cdp.text_js(), json.dumps(args["wait_text"]))
     return None
 
 
@@ -471,7 +471,7 @@ def _read(c, args: dict) -> dict:
     else:
         src = ("(%s).innerText||''" % _MAIN_JS.strip()) if args.get("scope") == "main" \
             else "(document.body||{}).innerText||''"
-        whole = c.eval(src) or ""
+        whole = c.eval(_cdp.text_js(src)) or ""
         offset = int(args.get("offset", 0))
         text = whole[offset:]
         if find:

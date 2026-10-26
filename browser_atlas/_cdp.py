@@ -25,6 +25,31 @@ _T = time.perf_counter
 
 
 # ── launching (no websocket needed) ──────────────────────────────────
+# Reads and waits share this same-origin traversal. Inaccessible frames are skipped.
+_TEXT_JS = r"""(topText => {
+  const parts = [topText];
+  function visit(doc, depth) {
+    if (depth >= 3) return;
+    for (const frame of doc.querySelectorAll('iframe,frame')) {
+      try {
+        const child = frame.contentDocument;
+        if (!child) continue;
+        const label = frame.name || new URL(frame.src || 'about:blank', doc.baseURI).pathname;
+        parts.push('--- frame: ' + label + ' ---', (child.body || {}).innerText || '');
+        visit(child, depth + 1);
+      } catch (_) {} // cross-origin or detached; continue with the next sibling
+    }
+  }
+  visit(document, 0);
+  return parts.join('\n');
+})"""
+
+
+def text_js(top: str = "(document.body||{}).innerText||''") -> str:
+    """Top document first, then same-origin frame text in depth-first DOM order."""
+    return _TEXT_JS + "(" + top + ")"
+
+
 def status(port: int = DEFAULT_PORT, timeout: float = 2.0) -> dict:
     out = {"ok": False, "browser": "", "error": ""}
     try:
