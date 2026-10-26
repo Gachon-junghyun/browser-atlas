@@ -49,6 +49,7 @@ CONTROLS_PER_READ = 150
 LINKS_PER_READ = 200
 GENERIC = {"닫기", "close", "x", "×", "확인", "취소", "ok", "cancel", "닫기 버튼", "팝업 닫기",
            "오늘 하루 보지 않기", "다시 보지 않기", "오늘 그만 보기", "dismiss", "got it", "no thanks"}
+DATED_LIST_WORDS = ("news", "뉴스", "공시", "기사", "filing", "filings", "press", "보도")
 # Controls that change the page in place instead of leaving it.
 TOGGLES = {"radio", "tab", "checkbox", "switch", "option", "menuitemradio", "menuitemcheckbox"}
 
@@ -207,7 +208,7 @@ def miss(src_url: str, label, dst_path: str, con=None) -> None:
         return
     con = connect(con)
     lab = label if isinstance(label, str) else json.dumps(list(label), ensure_ascii=False)
-    con.execute("update g_edges set fail=fail+1, last=? where host=? and src=? and kind='click' and label=? and dst=?",
+    con.execute("update g_edges set fail=fail+1, last=? where host=? and src=? and kind in ('click', 'popup') and label=? and dst=?",
                 (time.time(), host_of(src_url), path_of(src_url), lab[:200], dst_path))
     con.commit()
 
@@ -230,20 +231,27 @@ def observe(tool: str, args: dict, result, before: str, con=None) -> dict:
         if not landed and _web(asked):
             page(asked, direct=False, visit=False, con=con)   # asked for it, got sent elsewhere (a login wall)
     elif tool in ("browser_click", "browser_type"):
+        popup = r.get("new_tab") if tool == "browser_click" else None
+        if popup and popup.get("url"):
+            new["pages"] += page(str(popup["url"]), con=con)
         role, name = args.get("role"), args.get("name")
         via = ""
         if not (role and name) and r.get("role") and r.get("name"):
             role, name, via = r["role"], r["name"], "css"  # clicked by css: keep what the element really is
         if role and name and before:
             new["controls"] += control(before, role, name, used=True, via=via, con=con)
-            if tool == "browser_click" and after and _web(after):
-                moved = path_of(after) != path_of(before) or host_of(after) != host_of(before)
-                if moved:
-                    new["pages"] += page(after, con=con)
+            if tool == "browser_click":
+                destination = str((popup or {}).get("url") or after)
+                moved = destination and (path_of(destination) != path_of(before)
+                                         or host_of(destination) != host_of(before))
+                if _web(destination) and (popup or moved):
+                    if not popup:
+                        new["pages"] += page(destination, con=con)
                     idx = args.get("index")
                     if idx is None and (r.get("same_name_controls") or 0) > 1:
                         idx = 0                       # the first of several with this name was the one pressed
-                    edge(before, "click", [role, name] + ([int(idx)] if idx is not None else []), after, True, con=con)
+                    edge(before, "popup" if popup else "click",
+                         [role, name] + ([int(idx)] if idx is not None else []), destination, True, con=con)
     elif tool == "browser_read" and after:
         data = r.get("untrusted_page_content")
         mode = args.get("mode", "controls")
@@ -281,7 +289,8 @@ def host_map(host: str, con=None, limit: int = 40) -> dict:
                                  for c in ctrls]})
     n = {t: con.execute(f"select count(*) from {t} where host=?", (host,)).fetchone()[0]
          for t in ("g_pages", "g_controls", "g_edges")}
-    return {"host": host, "pages": n["g_pages"], "controls": n["g_controls"], "edges": n["g_edges"], "top": out}
+    return {"host": host, "pages": n["g_pages"], "controls": n["g_controls"], "edges": n["g_edges"], "top": out,
+            "kinds": kinds(host, con=con)}
 
 
 def _score(target: str, texts: list[str]) -> float:
@@ -319,7 +328,7 @@ def _targets(con, host: str, target: str) -> list[tuple[float, str]]:
     return sorted(((s, p) for p, s in hits.items() if s >= 0.35), reverse=True)[:12]
 
 
-def plan(start_url: str, target: str, host: str | None = None, con=None) -> dict:
+def _plan(start_url: str, target: str, host: str | None = None, con=None, picks=None) -> dict:
     """The cheapest known steps from `start_url` to a page matching `target`, for browser_run.
 
     Costs: a goto that landed directly before = 1 (plus a penalty for redirects seen), a click taken
@@ -345,6 +354,12 @@ def plan(start_url: str, target: str, host: str | None = None, con=None) -> dict
                 "steps": [["goto", target]], "others": [], **({} if row else {"known": False})}
     pages = {r["path"]: dict(r) for r in con.execute("select * from g_pages where host=?", (host,))}
     slot = _slot(start, pages) if start else None
+    if slot:
+        i, prefix, _ = slot
+        known = sorted({_segs(p)[i] for p in pages if len(_segs(p)) > i + 1 and _segs(p)[:i] == prefix})
+        named = next((v for v in known if _named(v, picks.get("thing", target))), None)
+        if named:
+            slot = (i, prefix, named)
     rb = (lambda p: _rebase_path(p, slot)) if slot else (lambda p: p)
     rbu = (lambda u: _rebase_url(u, slot)) if slot else (lambda u: u)
     targets = _targets(con, host, target)
@@ -382,12 +397,13 @@ def plan(start_url: str, target: str, host: str | None = None, con=None) -> dict
     for e in con.execute("select * from g_edges where host=?", (host,)):
         if e["kind"] == "link":
             cost, step = 1.5, ["goto", rbu(e["example"])]
-        elif e["kind"] == "click":
+        elif e["kind"] in ("click", "popup"):
             lab = json.loads(e["label"])
             cost, step = 1.0 + 2.0 * e["fail"] / max(1, e["ok"] + e["fail"]), ["click", *lab[:3]]
         else:
             continue
-        adj.setdefault(rb(e["src"]), []).append((cost, rb(e["dst"]), step))
+        route = [step, ["tab", "new"]] if e["kind"] == "popup" else [step]
+        adj.setdefault(rb(e["src"]), []).append((cost, rb(e["dst"]), route))
     # a virtual start: from anywhere, a page that took a direct goto before is one goto away
     dist, prev = {"*": 0.0}, {}
     heap = [(0.0, "*")]
@@ -403,11 +419,11 @@ def plan(start_url: str, target: str, host: str | None = None, con=None) -> dict
                 ex = json.loads(r["examples"])
                 fail = r["direct_fail"] / max(1, r["direct_ok"] + r["direct_fail"])
                 if r["direct_ok"]:
-                    nxt.append((1.0 + 3.0 * fail, p, ["goto", ex[0]]))
+                    nxt.append((1.0 + 3.0 * fail, p, [["goto", ex[0]]]))
                 elif r["visits"] == 0 and ex and not r["direct_fail"]:
                     # only seen as a link: its address is a goto too (pages reached by a click are not:
                     # their URLs may carry a one-time token, so the click path is kept for them)
-                    nxt.append((1.5, p, ["goto", ex[0]]))
+                    nxt.append((1.5, p, [["goto", ex[0]]]))
         for cost, dst, step in nxt:
             nd = d + cost
             if nd < dist.get(dst, 1e9):
@@ -426,12 +442,12 @@ def plan(start_url: str, target: str, host: str | None = None, con=None) -> dict
         th = _things(end, [p for _, p in reach])
         if th:
             seg, by = th
-            named = [p for v, p in by.items() if _named(v, target)]
+            named = [p for v, p in by.items() if _named(v, picks.get("thing", target))]
             here = _segs(start) if start else []
-            if len(here) > seg + 1 and here[:seg] == _segs(end)[:seg] and here[seg] in by:
-                end = by[here[seg]]                   # the tab is on that thing's other page (/stock/JPM/price)
-            elif named:
+            if named:
                 end = min((dist[p] - 2.0 * goal[p], p) for p in named)[1]
+            elif len(here) > seg + 1 and here[:seg] == _segs(end)[:seg] and here[seg] in by:
+                end = by[here[seg]]                   # the tab is on that thing's other page (/stock/JPM/price)
             else:
                 ambiguous = {"segment": seg, "picked": _segs(end)[seg], "candidates": sorted(by)[:8],
                              "hint": "the start page names no thing; name it in the target ('JPM quarterly') "
@@ -441,7 +457,7 @@ def plan(start_url: str, target: str, host: str | None = None, con=None) -> dict
         node, step = prev[node]
         if step:
             steps.append(step)
-    steps.reverse()
+    steps = [st for route in reversed(steps) for st in route]
     for st in steps:
         if st[0] == "goto" and isinstance(st[1], str) and host_of(st[1]) != host:
             return {"found": False, "host": host, "target": target, "hint": "path left the host; refused"}
@@ -468,7 +484,7 @@ def plan(start_url: str, target: str, host: str | None = None, con=None) -> dict
             if c["role"] in TOGGLES and len(n) >= 2 and n in t:
                 s = max(s, 0.8)                       # "NVDA quarterly": the toggle is named inside the target
             best = max(best, (s, (c["role"], c["name"])), key=lambda x: x[0])
-    if best[0] >= 0.8:
+    if best[0] >= 0.8 and "toggle" not in picks:
         steps.append(["click", *best[1]])
     return out
 
@@ -513,3 +529,80 @@ def _search_or_nothing(con, host: str, target: str) -> dict:
     return {"found": False, "host": host, "target": target,
             "hint": "no page on this host matches; known pages are listed (visit it once and the graph learns it)",
             "known_pages": known[:15]}
+
+
+def plan(start_url: str, target: str, host: str | None = None, con=None, picks=None) -> dict:
+    """Keep uncertain choices explicit before replaying a remembered path."""
+    picks = picks or {}
+    con = connect(con)
+    out = _plan(start_url, target, host, con, picks)
+    if not out.get("found"):
+        return out
+    end = out["page"]
+    texts = " ".join((end, out["title"], target)).casefold()
+    fresh = picks.get("fresh", 14 if any(w in texts for w in DATED_LIST_WORDS) else 0)
+    if fresh:
+        out["checks"] = {"fresh_days": fresh}
+    controls = con.execute("select path, role, name, used, seen from g_controls where host=?"
+                           " order by used desc, seen desc, role, name", (out["host"],)).fetchall()
+    slot = _slot(end, [r[0] for r in con.execute("select path from g_pages where host=?", (out["host"],))])
+    toggles = [c for c in controls if c["role"] in TOGGLES
+               and (_rebase_path(c["path"], slot) if slot else c["path"]) == end]
+    t = " ".join(target.split()).casefold()
+    named = any(_score(target, [c["name"]]) >= 0.8
+                or (len(n := " ".join(c["name"].split()).casefold()) >= 2 and n in t) for c in toggles)
+    if "toggle" in picks and picks["toggle"]:
+        chosen = next((c for c in toggles if c["name"] == picks["toggle"]), None)
+        if chosen:
+            out["steps"].append(["click", chosen["role"], chosen["name"]])
+    if out.get("ambiguous"):
+        a = out["ambiguous"]
+        out["choose"] = {"kind": "thing", "at": 0, "candidates": a["candidates"], "picked": a["picked"],
+                         "read": "the target and the page: which thing is meant",
+                         "answer": 'picks={"thing": "<name>"}'}
+    elif any(c["used"] > 0 for c in toggles) and not named and "toggle" not in picks:
+        out["choose"] = {"kind": "toggle", "at": len(out["steps"]),
+                         "candidates": [list(c) for c in dict.fromkeys((c["role"], c["name"]) for c in toggles)][:8],
+                         "picked": None,
+                         "read": "the page's toggles: which one answers the target",
+                         "answer": 'picks={"toggle": "<name>"} or {"toggle": ""} to keep the default'}
+    return out
+
+
+def kinds(host: str, con=None) -> list[dict]:
+    """Fold observed paths into screen kinds without storing another map."""
+    con = connect(con)
+    host = host.lower().removeprefix("www.")
+    pages = con.execute("select path, title from g_pages where host=? order by path", (host,)).fetchall()
+    paths = [p["path"] for p in pages]
+    templates, groups = {}, {}
+    for p in pages:
+        path = p["path"]
+        th = _things(path, paths)
+        template = path
+        if th:
+            base, sep, query = path.partition("?")
+            segments = _segs(base)
+            segments[th[0]] = "{thing}"
+            template = "/" + "/".join(segments) + sep + query
+        templates[path] = template
+        group = groups.setdefault(template, {"template": template, "things": [], "title": p["title"] or "",
+                                             "next": [], "toggles": []})
+        if not group["title"]:
+            group["title"] = p["title"] or ""
+        if th and _segs(path)[th[0]] not in group["things"]:
+            group["things"].append(_segs(path)[th[0]])
+    for e in con.execute("select * from g_edges where host=? order by src, dst, kind, label", (host,)):
+        if e["kind"] in ("click", "link", "popup") and e["src"] in templates and e["dst"] in templates:
+            item = {"template": templates[e["dst"]], "via": e["kind"],
+                    "label": e["label"] if e["kind"] == "link" else json.loads(e["label"])}
+            onward = groups[templates[e["src"]]]["next"]
+            if item not in onward:
+                onward.append(item)
+    for c in con.execute("select * from g_controls where host=? order by used desc, seen desc, role, name", (host,)):
+        if c["path"] in templates and c["role"] in TOGGLES:
+            toggles = groups[templates[c["path"]]]["toggles"]
+            item = [c["role"], c["name"]]
+            if item not in toggles:
+                toggles.append(item)
+    return [groups[t] for t in sorted(groups)]

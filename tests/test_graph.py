@@ -210,6 +210,126 @@ class GraphTest(unittest.TestCase):
         self.assertFalse(p["found"])
         self.assertEqual(p["known_pages"], ["/"])
 
+    def test_thing_choose_and_explicit_pick(self):
+        for thing in ("NVDA.O", "JPM"):
+            _graph.page(H + f"/stock/{thing}/finance", "Financials", direct=True)
+        p = _graph.plan(H + "/", "financials")
+        self.assertEqual(p["choose"]["kind"], "thing")
+        self.assertEqual(p["choose"]["at"], 0)
+        self.assertEqual(p["choose"]["candidates"], ["JPM", "NVDA.O"])
+        self.assertEqual(p["choose"]["picked"], p["ambiguous"]["picked"])
+        self.assertEqual(set(p["choose"]), {"kind", "at", "candidates", "picked", "read", "answer"})
+        p = _graph.plan(H + "/", "financials", picks={"thing": "NVDA"})
+        self.assertEqual(p["page"], "/stock/NVDA.O/finance")
+        self.assertNotIn("choose", p)
+        self.assertNotIn("ambiguous", p)
+
+    def test_toggle_choose_lists_seen_controls_with_used_first(self):
+        _graph.page(H + "/fin", "Financials", direct=True)
+        _graph.control(H + "/fin", "radio", "Annual")
+        _graph.control(H + "/fin", "radio", "Quarterly", used=True)
+        p = _graph.plan(H + "/", "financials")
+        self.assertEqual(p["choose"], {
+            "kind": "toggle", "at": 1, "candidates": [["radio", "Quarterly"], ["radio", "Annual"]],
+            "picked": None, "read": "the page's toggles: which one answers the target",
+            "answer": 'picks={"toggle": "<name>"} or {"toggle": ""} to keep the default'})
+        self.assertEqual(p["steps"], [["goto", H + "/fin"]])
+        self.assertNotIn("choose", _graph.plan(H + "/", "Quarterly"))
+
+    def test_toggle_pick_and_keep_default(self):
+        _graph.page(H + "/fin", "Financials", direct=True)
+        _graph.control(H + "/fin", "radio", "Annual")
+        _graph.control(H + "/fin", "radio", "Quarterly", used=True)
+        for name, extra in (("Annual", [["click", "radio", "Annual"]]), ("", [])):
+            with self.subTest(name=name):
+                p = _graph.plan(H + "/", "financials", picks={"toggle": name})
+                self.assertEqual(p["steps"], [["goto", H + "/fin"]] + extra)
+                self.assertNotIn("choose", p)
+        p = _graph.plan(H + "/", "Quarterly", picks={"toggle": ""})
+        self.assertEqual(p["steps"], [["goto", H + "/fin"]])
+
+    def test_unused_toggles_do_not_require_a_choice(self):
+        _graph.page(H + "/fin", "Financials", direct=True)
+        _graph.control(H + "/fin", "tab", "Quarterly")
+        self.assertNotIn("choose", _graph.plan(H + "/", "financials"))
+
+    def test_news_checks_and_fresh_overrides(self):
+        _graph.page(H + "/news", "Headlines", direct=True)
+        self.assertEqual(_graph.plan(H + "/", "Headlines")["checks"], {"fresh_days": 14})
+        self.assertEqual(_graph.plan(H + "/", "Headlines", picks={"fresh": 3})["checks"], {"fresh_days": 3})
+        self.assertNotIn("checks", _graph.plan(H + "/", "Headlines", picks={"fresh": 0}))
+        self.assertEqual(_graph.plan(H + "/", H + "/news")["checks"], {"fresh_days": 14})
+        _graph.page(H + "/fin", "Financials", direct=True)
+        self.assertNotIn("checks", _graph.plan(H + "/", "Financials"))
+        self.assertEqual(_graph.plan(H + "/", "Financials", picks={"fresh": 7})["checks"], {"fresh_days": 7})
+
+    def test_dated_list_words_in_titles_and_targets(self):
+        for word in ("news", "뉴스", "공시", "기사", "filing", "filings", "press", "보도"):
+            with self.subTest(word=word):
+                _graph.page(H + "/list", word, direct=True)
+                self.assertEqual(_graph.plan(H + "/", "/list")["checks"], {"fresh_days": 14})
+                _graph.page(H + "/list", "List", direct=True)
+                self.assertEqual(_graph.plan(H + "/", word + " List")["checks"], {"fresh_days": 14})
+
+    def test_named_other_thing_beats_start_rebase(self):
+        for thing in ("AMD.O", "NVDA.O"):
+            _graph.page(H + f"/stock/{thing}/price", "Price", direct=True)
+        _graph.page(H + "/stock/NVDA.O/news", "NVDA news", direct=True)
+        p = _graph.plan(H + "/stock/AMD.O/price", "NVDA news")
+        self.assertEqual(p["page"], "/stock/NVDA.O/news")
+        self.assertEqual(p["steps"], [["goto", H + "/stock/NVDA.O/news"]])
+        self.assertNotIn("choose", p)
+        p = _graph.plan(H + "/stock/AMD.O/price", "news", picks={"thing": "NVDA"})
+        self.assertEqual(p["page"], "/stock/NVDA.O/news")
+
+    def test_popup_observe_and_plan_expansion_and_failure_cost(self):
+        _graph.page(H + "/search", "Search", direct=True)
+        r = _graph.observe("browser_click", {"role": "link", "name": "Table", "index": 1},
+                           {"url": H + "/search", "new_tab": {"tab": "N", "url": H + "/table"}}, H + "/search")
+        self.assertEqual(r["pages"], 1)
+        p = _graph.plan(H + "/search", "/table")
+        self.assertEqual(p["steps"], [["click", "link", "Table", 1], ["tab", "new"]])
+        self.assertEqual(p["cost"], 1.0)
+        _graph.miss(H + "/search", ["link", "Table", 1], "/table")
+        self.assertEqual(_graph.plan(H + "/search", "/table")["cost"], 2.0)
+        _graph.observe("browser_click", {"role": "link", "name": "Continue"},
+                       {"url": H + "/end"}, H + "/table")
+        self.assertEqual(_graph.plan(H + "/search", "/end")["steps"],
+                         [["click", "link", "Table", 1], ["tab", "new"], ["click", "link", "Continue"]])
+
+    def test_popup_cross_host_records_page_without_edge(self):
+        _graph.observe("browser_click", {"role": "button", "name": "Open"},
+                       {"new_tab": {"tab": "N", "url": "https://elsewhere.org/table"}}, H + "/search")
+        self.assertEqual(_graph.host_map("elsewhere.org")["pages"], 1)
+        self.assertEqual(_graph.host_map("lms.example.org")["edges"], 0)
+
+    def test_kinds_fold_pages_edges_and_toggles_without_writes(self):
+        import sqlite3
+        con = sqlite3.connect(":memory:")
+        con.row_factory = sqlite3.Row
+        self.addCleanup(con.close)
+        for thing in ("NVDA.O", "JPM"):
+            for suffix in ("price", "news"):
+                _graph.page(H + f"/stock/{thing}/{suffix}", suffix.title(), con=con)
+            _graph.edge(H + f"/stock/{thing}/price", "click", ["link", "News"],
+                        H + f"/stock/{thing}/news", True, con=con)
+            _graph.control(H + f"/stock/{thing}/price", "tab", "Daily", used=True, con=con)
+        _graph.page(H + "/search", "Search", con=con)
+        _graph.edge(H + "/search", "popup", ["button", "Open"], H + "/stock/JPM/price", True, con=con)
+        _graph.edge(H + "/search", "link", "News", H + "/stock/JPM/news", None, con=con)
+        before = list(con.iterdump())
+        result = _graph.kinds("www.lms.example.org", con=con)
+        by = {k["template"]: k for k in result}
+        self.assertEqual(by["/stock/{thing}/price"], {
+            "template": "/stock/{thing}/price", "things": ["JPM", "NVDA.O"], "title": "Price",
+            "next": [{"template": "/stock/{thing}/news", "via": "click", "label": ["link", "News"]}],
+            "toggles": [["tab", "Daily"]]})
+        self.assertEqual(by["/search"]["things"], [])
+        self.assertEqual({n["via"] for n in by["/search"]["next"]}, {"link", "popup"})
+        self.assertEqual(_graph.host_map("lms.example.org", con=con)["kinds"], result)
+        self.assertEqual(list(con.iterdump()), before)
+        self.assertEqual(_graph.kinds("unknown.org", con=con), [])
+
 
 class FakeTab:
     def __init__(self):
