@@ -856,6 +856,27 @@ def _here(tab: str) -> str:
     return _FULL_URL.get(tab) or REC.current_url(tab)
 
 
+def _pause(seconds: float, reason: str, waits: dict | None = None) -> None:
+    """Account actual wall time, including scheduler delay, rather than requested sleep time."""
+    import time
+    start = time.monotonic()
+    time.sleep(seconds)
+    if waits is not None:
+        waits[reason] += (time.monotonic() - start) * 1000
+
+
+def _poll_page(tab: str, reason: str, waits: dict | None, wait_text: str | None = None,
+               timeout: float = 0.2):
+    import time
+    start = time.monotonic()
+    try:
+        return _tracked("browser_wait", {"tab": tab, "timeout": timeout,
+                                         **({"wait_text": wait_text} if wait_text else {"wait_css": "body"})})
+    finally:
+        if waits is not None:
+            waits[reason] += (time.monotonic() - start) * 1000
+
+
 def _run(args: dict) -> dict:
     out: list = []
     run = {"tab": args["tab"]}                        # the tab steps act in; a ["tab", ...] step moves it
@@ -976,7 +997,8 @@ def _newest_date(text: str, today) -> date | None:
     return max(found, default=None)
 
 
-def _check_arrival(tab: str, p: dict, wait: str | None, picks: dict | None) -> tuple[dict, dict | None]:
+def _check_arrival(tab: str, p: dict, wait: str | None, picks: dict | None, waits: dict | None = None,
+                   timings: dict | None = None) -> tuple[dict, dict | None]:
     """After the address matched: is what we came for on the page, and is it recent? The right address
     with an empty frame or a year-old list reads like an answer; failing here sends the agent to
     another source instead. Returns (checked, failure)."""
@@ -984,10 +1006,14 @@ def _check_arrival(tab: str, p: dict, wait: str | None, picks: dict | None) -> t
     checked: dict = {"fresh": None, "wait": None}
     others = p.get("others") or []
     if wait:
+        started = time.monotonic()
         try:
             w = _tracked("browser_wait", {"tab": tab, "wait_text": wait})
         except TimeoutError:
             w = {"met": False}
+        finally:
+            if timings is not None:
+                timings["wait"] = round((time.monotonic() - started) * 1000, 3)
         if isinstance(w, dict) and w.get("met") is False:
             return checked, {"why": "missing", "wait": wait, "page": p.get("page"), "others": others,
                              "next": "site_rank"}
@@ -996,9 +1022,10 @@ def _check_arrival(tab: str, p: dict, wait: str | None, picks: dict | None) -> t
     if fresh:
         now = datetime.now()
         newest, source, previous = None, "text", None
+        deadline, slept = time.monotonic() + 6.0, 0.0
         try:
             # News lists can draw two seconds after the stock header has arrived.
-            for attempt in range(13):
+            for attempt in range(21):
                 r = _tracked("browser_read", {"tab": tab, "mode": "text", "max_chars": 60000,
                                                "list_dates": True})
                 body = r.get("untrusted_page_content")
@@ -1007,11 +1034,15 @@ def _check_arrival(tab: str, p: dict, wait: str | None, picks: dict | None) -> t
                 source = "list" if rows else "text"
                 newest = _newest_date("\n".join(rows) if rows else text, now)
                 size = r.get("total_chars", len(text))
-                if newest is not None and previous == size and (rows or attempt >= 4):
+                if newest is not None and previous == size:
                     break
                 previous = size
-                if attempt < 12:
-                    time.sleep(0.5)
+                remaining = min(deadline - time.monotonic(), 6.0 - slept)
+                if remaining < 1e-6:
+                    break
+                delay = min(0.3 if newest is not None else 0.5, remaining)
+                _pause(delay, "fresh_poll", waits)
+                slept += delay
         except Exception:
             newest = None
         checked["from"] = source
@@ -1026,48 +1057,55 @@ def _check_arrival(tab: str, p: dict, wait: str | None, picks: dict | None) -> t
     return checked, None
 
 
-def _arrived(tab: str, p: dict) -> bool:
-    """Whether the tab is on the page a plan was for. A late client-side navigation gets a moment."""
-    import time
-    for attempt in range(2):
+def _arrived(tab: str, p: dict, waits: dict | None = None) -> bool:
+    """Whether the tab is on the planned page; poll late client-side navigation for 1.5 s."""
+    for attempt in range(9):
         here = _here(tab)
         if _graph.host_of(here) == p["host"] and _graph.path_of(here) == p["page"]:
             return True
-        if attempt == 0:
-            time.sleep(1.5)
+        if attempt < 8:
+            _pause(0.2 if attempt < 7 else 0.1, "arrive", waits)
             try:
-                _tracked("browser_wait", {"tab": tab, "wait_css": "body", "timeout": 2})   # refreshes where the tab is
+                _poll_page(tab, "arrive", waits)
             except Exception:
-                return False
+                pass
     return False
 
 
 REDIRECT_WAIT = 4.0
-STABLE_LOOKS = 3                          # looks 0.5 s apart the planned address must hold for
+STABLE_LOOKS = 3                          # looks 0.25 s apart: at least 0.5 s of stability
 
 
-def _popup_arrival(tab: str, p: dict, wait: str | None) -> str | None:
+def _popup_arrival(tab: str, p: dict, wait: str | None, waits: dict | None = None) -> str | None:
     """Where a popup a go followed has landed, if it is the page: the address the popup was opened at
     only teaches the graph its path. Within REDIRECT_WAIT the planned address must hold for STABLE_LOOKS
     looks (a popup sits on its opening address before redirecting), or else the wait text must be on the
     page it ends on (observed: a statistics table popup opens at one address and settles on another).
     None means it ended elsewhere (a login page)."""
     import time
-    same = 0
-    for attempt in range(int(REDIRECT_WAIT / 0.5) + 1):
+    previous, stable = None, 0
+    for attempt in range(int(REDIRECT_WAIT / 0.25) + 1):
         if attempt:
-            time.sleep(0.5)
+            _pause(0.25, "popup_settle", waits)
             try:
-                _tracked("browser_wait", {"tab": tab, "wait_css": "body", "timeout": 2})   # refreshes where it is
+                _poll_page(tab, "popup_settle", waits)   # refreshes where it is
             except Exception:
                 pass
         here = _here(tab)
-        same = same + 1 if _graph.host_of(here) == p["host"] and _graph.path_of(here) == p["page"] else 0
-        if same >= STABLE_LOOKS:
+        stable = stable + 1 if here == previous else 1
+        previous = here
+        if stable >= STABLE_LOOKS and _graph.host_of(here) == p["host"] and _graph.path_of(here) == p["page"]:
             return here
+        if wait and stable >= STABLE_LOOKS:
+            try:
+                w = _poll_page(tab, "popup_settle", waits, wait)
+                if not (isinstance(w, dict) and w.get("met") is False):
+                    return _here(tab)
+            except TimeoutError:
+                pass
     if wait:
         try:
-            w = _tracked("browser_wait", {"tab": tab, "wait_text": wait, "timeout": 5})
+            w = _poll_page(tab, "popup_settle", waits, wait, timeout=5)
             if not (isinstance(w, dict) and w.get("met") is False):
                 return _here(tab)
         except TimeoutError:
@@ -1083,6 +1121,11 @@ def _steps(run: dict, pace: str, steps: list, out: list, prefix: str, depth: int
     for i, st in enumerate(steps, first):
         op, a = (st[0], st[1:]) if isinstance(st, list) and st else ("?", [])
         label = f"{prefix}{i}" if prefix else i
+        start, offset = time.monotonic(), len(out)
+        waits = ({key: 0.0 for key in ("arrive", "popup_settle", "fresh_poll", "retry", "pace")}
+                 if op == "go" else run.get("waits"))
+        parent_waits = run.get("waits")
+        run["waits"] = waits
         try:
             if op in ("go", "each_link", "if_text"):
                 if depth >= 3:
@@ -1108,12 +1151,26 @@ def _steps(run: dict, pace: str, steps: list, out: list, prefix: str, depth: int
                         src = _here(run["tab"])
                         if not _steps(run, pace, [sub_step], out, f"{label}.", depth + 1, first=k):
                             # right after a goto the page may still be drawing (a loader on top, the
-                            # control not there yet; observed on a finance site): one more try
+                            # control not there yet; observed on a finance site): retry while it draws
                             if sub_step[0] != "click" or not re.search(r"covered|no control", out[-1].get("error", "")):
                                 return False
-                            out.pop()
-                            time.sleep(2.0)
-                            if not _steps(run, pace, [sub_step], out, f"{label}.", depth + 1, first=k):
+                            failed_ms = out[-1]["ms"]
+                            retry_start = time.monotonic()
+                            deadline = retry_start + 2.0
+                            for retry in range(10):
+                                out.pop()
+                                _pause(min(0.2, max(0, deadline - time.monotonic())), "retry", waits)
+                                run["retrying"] = True
+                                try:
+                                    retried = _steps(run, pace, [sub_step], out, f"{label}.", depth + 1, first=k)
+                                finally:
+                                    run.pop("retrying", None)
+                                out[-1]["ms"] = round(failed_ms + (time.monotonic() - retry_start) * 1000, 3)
+                                if retried:
+                                    break
+                                if time.monotonic() >= deadline or not re.search(r"covered|no control", out[-1].get("error", "")):
+                                    return False
+                            else:
                                 return False
                     stop = {"target": p.get("target", a[0]), "choose": choose,
                             **({"ambiguous": p["ambiguous"]} if p.get("ambiguous") else {})}
@@ -1121,14 +1178,14 @@ def _steps(run: dict, pace: str, steps: list, out: list, prefix: str, depth: int
                         run["choose"] = choose               # stopped short: the agent reads, then answers with picks
                         return _stop(out, label, "choose", stop)
                     if p["steps"] and p["steps"][-1][0] == "tab":
-                        landed = _popup_arrival(run["tab"], p, wait)
+                        landed = _popup_arrival(run["tab"], p, wait, waits)
                         if not landed:
                             return _stop(out, label, "arrived_but", {
                                 "why": "elsewhere", "url": _here(run["tab"]), "page": p["page"],
                                 "others": p.get("others") or [], "next": "site_rank"})
                         if _graph.path_of(landed) != p["page"]:
                             entry["result"]["landed"] = landed
-                    elif not _arrived(run["tab"], p):
+                    elif not _arrived(run["tab"], p, waits):
                         last = p["steps"][-1] if p["steps"] else None
                         if last and last[0] == "click":
                             _graph.miss(src, last[1:], p["page"])   # that click goes elsewhere; plan around it next time
@@ -1136,9 +1193,11 @@ def _steps(run: dict, pace: str, steps: list, out: list, prefix: str, depth: int
                     if choose:                               # walked the whole way; the choice is on this page
                         run["choose"] = choose
                         return _stop(out, label, "choose", stop)
-                    checked, failure = _check_arrival(run["tab"], p, wait, picks)
+                    timings = {}
+                    checked, failure = _check_arrival(run["tab"], p, wait, picks, waits, timings)
                     if checked["wait"]:
-                        out.append({"step": f"{label}.wait", "op": "wait_text", "ok": True, "result": {"met": True}})
+                        out.append({"step": f"{label}.wait", "op": "wait_text", "ok": True,
+                                    "ms": timings["wait"], "result": {"met": True}})
                     entry["result"]["checked"] = checked
                     if failure:
                         return _stop(out, label, "arrived_but", failure)
@@ -1187,6 +1246,9 @@ def _steps(run: dict, pace: str, steps: list, out: list, prefix: str, depth: int
                     "dismiss": ("browser_dismiss", lambda: {}),
                     "back": ("browser_back", lambda: {}),
                 }[op]
+                if op in ("goto", "click", "click_css", "type", "type_css"):
+                    if run.get("started") and pace == "human" and not run.get("retrying"):
+                        _pause(_r.uniform(0.15, 0.45), "pace", waits)
                 res = _tracked(name, {"tab": run["tab"], "pace": pace, **sub()})
                 if name == "browser_click":           # only the latest click's tab is "new"
                     run["opened"] = res.get("new_tab") if isinstance(res, dict) else None
@@ -1197,6 +1259,18 @@ def _steps(run: dict, pace: str, steps: list, out: list, prefix: str, depth: int
         except Exception as e:
             out.append({"step": label, "op": op, "ok": False, "error": f"{type(e).__name__}: {e}"[:600]})
             return False
+        finally:
+            elapsed = round((time.monotonic() - start) * 1000, 3)
+            for entry in out[offset:]:
+                if entry["step"] == label:
+                    entry["ms"] = elapsed
+                    if op == "go":
+                        entry["waits_ms"] = {key: round(value, 3) for key, value in waits.items()}
+            if op == "go" and parent_waits is not None:
+                for key, value in waits.items():
+                    parent_waits[key] += value
+            run["waits"] = parent_waits
+            run["started"] = True
     return True
 
 

@@ -532,5 +532,116 @@ class ClickTest(unittest.TestCase):
                 mcp_server._late_tab("T", 9555)
 
 
+class TimingTest(unittest.TestCase):
+    def setUp(self):
+        self.clock = 0.0
+        self.sleeps = []
+        for patch in (mock.patch("time.monotonic", side_effect=lambda: self.clock),
+                      mock.patch("time.sleep", side_effect=self.sleep),
+                      mock.patch("random.uniform", return_value=0.25)):
+            patch.start()
+            self.addCleanup(patch.stop)
+
+    def sleep(self, seconds):
+        self.sleeps.append(seconds)
+        self.clock += seconds
+
+    def run_plan(self, plan, tracked, steps=None):
+        with mock.patch.object(mcp_server, "_tracked", side_effect=tracked), \
+                mock.patch.object(mcp_server, "_here", return_value=H + "/"), \
+                mock.patch.object(mcp_server._graph, "plan", return_value=plan):
+            return mcp_server._run({"tab": "T", "steps": steps or [["go", "x"]]})
+
+    def test_timing_and_only_interactions_get_one_pace(self):
+        def tracked(name, args):
+            self.clock += 0.05
+            return {}
+        plan = _plan("/", [["goto", H + "/"], ["read"], ["wait_css", "body"],
+                           ["type", "textbox", "Search", "x"], ["click", "button", "Search"]])
+        result = self.run_plan(plan, tracked, [["go", "x"], ["read"]])
+        self.assertEqual(self.sleeps, [0.25, 0.25])
+        self.assertEqual(result["steps"][0]["ms"], 750)
+        self.assertEqual(result["steps"][0]["waits_ms"],
+                         dict(arrive=0, popup_settle=0, fresh_poll=0, retry=0, pace=500))
+        self.assertEqual([row["ms"] for row in result["steps"][1:]], [50, 50, 50, 300, 300, 50])
+
+    def test_arrival_exits_on_first_matching_poll(self):
+        addresses = iter([H + "/", H + "/", H + "/table"])
+        with mock.patch.object(mcp_server, "_here", side_effect=lambda tab: next(addresses)), \
+                mock.patch.object(mcp_server, "_tracked") as tracked:
+            self.assertTrue(mcp_server._arrived("T", _plan("/table", [])))
+        self.assertEqual(self.sleeps, [0.2, 0.2])
+        self.assertEqual(tracked.call_count, 2)
+
+    def test_popup_redirect_resets_half_second_stability(self):
+        addresses = iter([H + "/start.jsp", H + "/sso", H + "/statHtml.do",
+                          H + "/statHtml.do", H + "/statHtml.do", H + "/statHtml.do"])
+        with mock.patch.object(mcp_server, "_here", side_effect=lambda tab: next(addresses)), \
+                mock.patch.object(mcp_server, "_tracked", return_value={"met": True}):
+            landed = mcp_server._popup_arrival("T", _plan("/start.jsp", []), "Table")
+        self.assertEqual(landed, H + "/statHtml.do")
+        self.assertEqual(self.clock, 1.0)
+
+    def test_fresh_dates_need_only_two_looks_three_tenths_apart(self):
+        reads = []
+        waits = dict(arrive=0, popup_settle=0, fresh_poll=0, retry=0, pace=0)
+        def tracked(name, args):
+            reads.append(self.clock)
+            return {"untrusted_page_content": date.today().isoformat()}
+        with mock.patch.object(mcp_server, "_tracked", side_effect=tracked):
+            checked, failure = mcp_server._check_arrival("T", {"checks": {"fresh_days": 14}}, None, None, waits)
+        self.assertIsNone(failure)
+        self.assertEqual(reads, [0, 0.3])
+        self.assertEqual(waits["fresh_poll"], 300)
+
+    def test_retry_polls_without_stacking_pace(self):
+        clicks = []
+        def tracked(name, args):
+            if name == "browser_click":
+                clicks.append(self.clock)
+                if len(clicks) < 3:
+                    raise RuntimeError("no control")
+            return {}
+        plan = _plan("/", [["goto", H + "/"], ["click", "button", "Table"]])
+        result = self.run_plan(plan, tracked)
+        self.assertTrue(all(row["ok"] for row in result["steps"]))
+        self.assertEqual(clicks, [0.25, 0.45, 0.65])
+        self.assertEqual(result["steps"][-1]["ms"], 650)
+        self.assertEqual(result["steps"][0]["waits_ms"]["retry"], 400)
+        self.assertEqual(result["steps"][0]["waits_ms"]["pace"], 250)
+
+    def test_reads_and_tab_switches_do_not_sleep_but_later_action_does(self):
+        with mock.patch.object(mcp_server, "_switch", return_value={"tab": "T"}):
+            result = self.run_plan({}, lambda *a: {}, [["read"], ["tab", "T"], ["goto", H]])
+        self.assertTrue(all(row["ok"] for row in result["steps"]))
+        self.assertEqual(self.sleeps, [0.25])
+
+    def test_freshness_keeps_six_second_cap_while_dated_text_changes(self):
+        reads = []
+        def tracked(name, args):
+            reads.append(self.clock)
+            return {"untrusted_page_content": date.today().isoformat(), "total_chars": len(reads)}
+        with mock.patch.object(mcp_server, "_tracked", side_effect=tracked):
+            mcp_server._check_arrival("T", {"checks": {"fresh_days": 14}}, None, None)
+        self.assertAlmostEqual(self.clock, 6.0)
+        self.assertEqual(len(reads), 21)
+
+    def test_synthetic_wait_step_records_its_own_wall_time(self):
+        def tracked(name, args):
+            self.clock += 0.1 if name == "browser_wait" else 0.05
+            return {"met": True}
+        result = self.run_plan(_plan("/", [["goto", H]]), tracked, [["go", "x", "Table"]])
+        self.assertEqual(result["steps"][0]["ms"], 150)
+        self.assertEqual(result["steps"][-1]["ms"], 100)
+
+    def test_failed_and_choice_steps_have_timing(self):
+        result = self.run_plan(_plan("/", [], choose={"kind": "thing", "at": 0}), lambda *a: {})
+        self.assertIn("ms", result["steps"][0])
+        self.assertEqual(set(result["steps"][0]["waits_ms"]),
+                         {"arrive", "popup_settle", "fresh_poll", "retry", "pace"})
+        result = self.run_plan({}, lambda *a: {}, [["unknown"]])
+        self.assertIn("ms", result["steps"][0])
+
+
 if __name__ == "__main__":
     unittest.main()
