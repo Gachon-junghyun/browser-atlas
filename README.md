@@ -65,6 +65,18 @@ Atlas tools (`atlas_find`, `atlas_site`, `atlas_guard`), experience tools (`memo
 `memory_record` after it, `memory_rate`, `memory_stats`) and browser tools (`browser_open`, `browser_read`,
 `browser_click`, `browser_type`, `browser_screenshot`, `browser_tabs`, `browser_close`, `browser_launch`).
 
+## Research: several engines, outline first
+
+`browser_search(query)` asks naver, google, bing, daum and duckduckgo at once and interleaves their
+results, one engine at a time and one result per domain, so a single engine's ranking does not decide
+what gets read. Each result says which engines listed it and how often you already used that domain
+(`familiar`); engines showing a captcha are reported and skipped. Engine furniture (shopping, dictionaries,
+site maps) and ad redirects are dropped; click trackers are unwrapped.
+
+Long pages start with `browser_read(mode="outline")`: total characters, the main article's size, headings
+with their offsets and how many chunks it takes. Then read the article body with `scope="main"` and
+`offset`, or a window around a phrase with `find`, instead of a cut prefix.
+
 ## Safety, in code
 
 - `blocked` sites are refused, including after a redirect.
