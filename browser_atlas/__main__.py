@@ -1,5 +1,7 @@
 """CLI.
 
+  python -m browser_atlas atlas validate [PATH] [--json]
+  python -m browser_atlas atlas merge IN.json [--into PATH] [--dry-run] [--replace KEY ...] [--json]
   python -m browser_atlas launch [--port N]
   python -m browser_atlas tabs   [--port N]
   python -m browser_atlas guard  <URL>                  # is this URL allowed?
@@ -90,6 +92,9 @@ def main(argv: list[str]) -> int:
     if not argv or argv[0] in ("-h", "--help", "help"):
         print(__doc__)
         return 0
+    if argv[0] == "atlas":
+        from . import _validate
+        return _validate.cli(argv[1:])
     port = int(_opt(argv, "--port", _cdp.DEFAULT_PORT))
     tab = _opt(argv, "--tab")
     cmd, rest = argv[0], argv[1:]

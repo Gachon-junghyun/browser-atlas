@@ -55,7 +55,7 @@ an accessibility-tree snapshot returns, so an agent can find them without guessi
 
 | Control field | Required | Meaning |
 |---|---|---|
-| `role` | yes | ARIA role as Chrome exposes it: `button`, `link`, `textbox`, `searchbox`, `combobox`, `checkbox`, `radio`, `tab`, `menuitem`, `option`. |
+| `role` | yes | ARIA role as Chrome exposes it: `button`, `link`, `textbox`, `searchbox`, `combobox`, `checkbox`, `radio`, `tab`, `menuitem`, `option`, `spinbutton` (a number box such as "go to page"). |
 | `name` | yes | Accessible name, exactly as exposed (aria-label, then visible text, then title/alt/placeholder). |
 | `where` | yes | Position in words a person would use. |
 | `act` | yes | What kind of action, from a closed list: `navigate` `search` `filter` `sort` `paginate` `tab` `expand` `open_detail` `download` `input` `login` `submit` `pay` `send` `delete` `apply` `publish`. |
@@ -90,3 +90,38 @@ injection for every user at once. Describing instead of commanding is not enough
 4. **One writer.** The repository map changes through reviewed pull requests. The shared database is
    written by maintainers only (row-level security) and limits the shape of every row; readers never write.
    What each machine learns applies to that machine at once and is shared only when its owner asks.
+
+
+## Offline validation and merging
+
+Run `python -m browser_atlas atlas validate [PATH] [--json]` before reviewing map changes.
+The default path follows `BROWSER_ATLAS_MAP`, otherwise `atlas/sites.json`. Findings contain
+`level`, `site`, `path` and `msg`; errors exit 1, warnings alone exit 0. No browser is opened.
+Validation checks duplicate JSON keys, closed roles/actions, hosts and URLs, required fields,
+irreversible actions, duplicate controls and personal traces. Unknown fields, unstable CSS,
+variable names, page sizes and invalid verification dates produce warnings. Only the roles
+listed above are allowed; add a role here and in `_validate.ROLES` when a site really exposes it.
+Known optional fields besides the tables above: `source` on a site (where the entry came from),
+`act_inferred` on a control (the `act` was assigned from its name, not watched), `dynamic`, `unnamed`.
+Use `unnamed: true` with a stable `css` for unnamed controls; use `dynamic: true` and a `<...>`
+placeholder for variable accessible names. Even dynamic duplicates retain all safety checks.
+Optional `atlas/.trace_words` adds private, case-insensitive forbidden words, one per line,
+with `#` comments; keep real personal words out of version control. Built-in trace words are
+`DOMAIN.md`, `HANDOVER`, `users/` and `module_`. Detection is heuristic and does not replace review.
+
+Preview additions with:
+
+```bash
+python -m browser_atlas atlas merge incoming.json --dry-run
+python -m browser_atlas atlas merge incoming.json --into atlas/sites.json --replace example other --json
+```
+
+Merge validates input first, skips existing keys unless explicitly replaced, and appends new
+keys in input order. Comment entries are ignored. Host overlaps and renamed controls matching
+an old role/position or CSS are reported as soft conflicts, with old and new values. The merged
+map must also pass validation before any write; existing errors can be repaired by replacement.
+`--dry-run` never writes. JSON output includes findings, conflicts, additions/replacements,
+format information and whether anything was written. Files use UTF-8 without BOM, a trailing
+newline and the destination's detected indentation and line endings. The format report says
+whether the unchanged destination round-trips byte-for-byte; otherwise merge uses the closest
+stable JSON serialization and explicitly reports that formatting may change.
