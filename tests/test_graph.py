@@ -17,6 +17,51 @@ class GraphTest(unittest.TestCase):
         os.environ.pop("BROWSER_ATLAS_MAP", None)
         mcp_server.REC.open.clear()
 
+    def test_identity_query_values_select_and_keep_the_thing(self):
+        base = "https://sec.gov/cgi-bin/browse-edgar?CIK={}&action=getcompany&count=40&owner=include&type=10-Q"
+        urls = {v: base.format(v) for v in ("NVDA", "MSFT")}
+        for url in urls.values():
+            _graph.page(url, "EDGAR Search Results", direct=True)
+        for target, picks, want in [("NVDA EDGAR filings", None, "NVDA"),
+                                     ("EDGAR", None, "MSFT"),
+                                     ("EDGAR", {"thing": "NVDA"}, "NVDA"),
+                                     ("nvda EDGAR", None, "MSFT")]:
+            with self.subTest(target=target, picks=picks):
+                plan = _graph.plan(urls["MSFT"], target, picks=picks)
+                self.assertTrue(plan["found"], plan)
+                self.assertEqual(plan["page"], _graph.path_of(urls[want]))
+                self.assertNotIn("choose", plan)
+                for step in plan["steps"]:
+                    if step[0] == "goto":
+                        self.assertEqual(_graph.path_of(step[1]), _graph.path_of(urls[want]))
+        plan = _graph.plan("https://sec.gov/", "EDGAR")
+        self.assertEqual(plan["choose"]["kind"], "thing")
+        self.assertEqual(plan["choose"]["candidates"], ["MSFT", "NVDA"])
+        plan = _graph.plan("https://sec.gov/", "EDGAR", picks={"thing": "NVDA"})
+        self.assertEqual(plan["page"], _graph.path_of(urls["NVDA"]))
+        groups = _graph.kinds("sec.gov")
+        self.assertEqual(len(groups), 1)
+        self.assertEqual(sorted(groups[0]["things"]), ["MSFT", "NVDA"])
+        self.assertIn("CIK={thing}", groups[0]["template"])
+
+    def test_query_rebase_preserves_other_url_values(self):
+        start = "/filings?CIK=MSFT&count=40"
+        other = "/filings?CIK=NVDA&count=40"
+        slot = _graph._slot(start, [other])
+        url = "https://sec.gov/filings?count=40&q=&CIK=NVDA&token=example#results"
+        rebased = _graph._rebase_url(url, slot)
+        self.assertEqual(rebased, "https://sec.gov/filings?count=40&q=&CIK=MSFT&token=example#results")
+        self.assertIsNone(_graph._slot(start, ["/filings?CIK=NVDA&count=10"]))
+        self.assertIsNone(_graph._slot(_graph.path_of("https://sec.gov/filings?q=MSFT"),
+                                      [_graph.path_of("https://sec.gov/filings?q=NVDA")]))
+
+    def test_path_thing_rebase_keeps_queries_and_last_segment_rule(self):
+        start = "/stock/MSFT/news?count=10"
+        other = "/stock/NVDA/news?count=40"
+        slot = _graph._slot(start, [other])
+        self.assertEqual(_graph._rebase_path(other, slot), "/stock/MSFT/news?count=40")
+        self.assertIsNone(_graph._slot("/stock/MSFT/news", ["/stock/MSFT/price"]))
+
     def test_a_goto_records_the_page_and_a_redirect_marks_the_asked_page(self):
         _graph.observe("browser_goto", {"url": H + "/calendar/view.php?view=day"},
                        {"url": H + "/calendar/view.php?view=day", "title": "Calendar"}, "")

@@ -94,36 +94,66 @@ def with_search(url: str, words: str) -> str | None:
 
 
 def _segs(path: str) -> list[str]:
-    return path.split("?")[0].strip("/").split("/")
+    """Include query keys as boundaries so only their values can be things."""
+    base, _, query = path.partition("?")
+    return base.strip("/").split("/") + [part for k, v in parse_qsl(query) for part in ("?" + k, v)] + [""]
+
+
+def _identity(path: str, i: int) -> bool:
+    """Keep the last path segment a screen name; query values can name things."""
+    n = len(path.split("?")[0].strip("/").split("/"))
+    return i < n - 1 or (i > n and (i - n) % 2 == 1)
+
+
+def _difference(start: str, other: str) -> int | None:
+    """Preserve path families even when their examples carry different queries."""
+    s, q = (p.split("?")[0].strip("/").split("/") for p in (start, other))
+    if len(s) != len(q):
+        return None
+    if s != q:
+        diff = [i for i in range(len(s)) if s[i] != q[i]]
+    else:
+        s, q = _segs(start), _segs(other)
+        if len(s) != len(q):
+            return None
+        diff = [i for i in range(len(s)) if s[i] != q[i]]
+    return diff[0] if len(diff) == 1 and _identity(start, diff[0]) else None
 
 
 def _slot(start: str, paths) -> tuple[int, list[str], str] | None:
-    """A path segment that names a thing (a ticker, an item, a course): another known page has the same
-    path as `start` except in that one segment, and it is not the last one (/price and /news are two
-    pages; NVDA.O/price and AMD.O/price are one page about two things). Returns (index, prefix, value)."""
+    """Find a thing shared by otherwise identical screens, including identity queries."""
     s = _segs(start)
     for p in paths:
-        q = _segs(p)
-        if len(q) == len(s) and q != s:
-            diff = [i for i in range(len(s)) if s[i] != q[i]]
-            if len(diff) == 1 and diff[0] < len(s) - 1:
-                return diff[0], s[:diff[0]], s[diff[0]]
+        i = _difference(start, p)
+        if i is not None:
+            return i, s[:i], s[i]
     return None
 
 
 def _rebase_path(path: str, slot) -> str:
     i, prefix, value = slot
-    base, sep, q = path.partition("?")
-    segs = base.strip("/").split("/")
+    segs = _segs(path)
     if len(segs) > i and segs[:i] == prefix and segs[i] != value:
         segs[i] = value
-        return "/" + "/".join(segs) + sep + q
+        n = len(path.split("?")[0].strip("/").split("/"))
+        if i < n:
+            _, sep, query = path.partition("?")
+            return "/" + "/".join(segs[:n]) + sep + query
+        query = urlencode([(segs[j][1:], segs[j + 1]) for j in range(n, len(segs) - 1, 2)])
+        return "/" + "/".join(segs[:n]) + ("?" + query if query else "")
     return path
 
 
 def _rebase_url(url: str, slot) -> str:
     u = urlparse(url)
-    return urlunparse(u._replace(path=_rebase_path(u.path, slot)))
+    i, prefix, value = slot
+    if i < len(u.path.strip("/").split("/")):
+        return urlunparse(u._replace(path=_rebase_path(u.path, slot)))
+    if _rebase_path(path_of(url), slot) == path_of(url):
+        return url
+    key = prefix[-1][1:]
+    query = urlencode([(k, value if k == key else v) for k, v in parse_qsl(u.query, keep_blank_values=True)])
+    return urlunparse(u._replace(query=query))
 
 
 def _bare(url: str) -> str:
@@ -320,8 +350,15 @@ def _targets(con, host: str, target: str) -> list[tuple[float, str]]:
         return [(1.0, want)] if con.execute("select 1 from g_pages where host=? and path=?", (host, want)).fetchone() \
             else []
     hits: dict[str, float] = {}
-    for p in con.execute("select path, title from g_pages where host=?", (host,)):
+    pages = con.execute("select path, title from g_pages where host=?", (host,)).fetchall()
+    paths = [p["path"] for p in pages]
+    for p in pages:
         hits[p["path"]] = _score(target, [p["title"], p["path"]])
+        # EDGAR titles omit the company; its identity lives only in CIK.
+        th = _things(p["path"], paths)
+        if th and th[0] > len(p["path"].split("?")[0].strip("/").split("/")) \
+                and _named(_segs(p["path"])[th[0]], target):
+            hits[p["path"]] = max(hits[p["path"]], 0.8)
     for e in con.execute("select dst, kind, label from g_edges where host=?", (host,)):
         lab = e["label"] if e["kind"] == "link" else " ".join(json.loads(e["label"])[1:2])
         hits[e["dst"]] = max(hits.get(e["dst"], 0.0), 0.9 * _score(target, [lab]))
@@ -377,6 +414,8 @@ def _plan(start_url: str, target: str, host: str | None = None, con=None, picks=
         for e in con.execute("select src, dst, kind, label from g_edges where host=?", (host,)):
             if rb(e["src"]) != start:
                 continue
+            if slot and slot[0] > len(start.split("?")[0].strip("/").split("/")) and e["src"] != start:
+                continue                              # course query ids have their own board links
             lab = e["label"] if e["kind"] == "link" else " ".join(json.loads(e["label"])[1:2])
             s = _score(target, [lab])
             if s >= 0.35:
@@ -503,11 +542,9 @@ def _things(end: str, paths) -> tuple[int, dict[str, str]] | None:
     e, idx, by = _segs(end), None, {}
     for p in paths:
         q = _segs(p)
-        if len(q) != len(e) or q == e:
-            continue
-        diff = [i for i in range(len(e)) if e[i] != q[i]]
-        if len(diff) == 1 and diff[0] < len(e) - 1 and idx in (None, diff[0]):
-            idx = diff[0]
+        i = _difference(end, p)
+        if i is not None and idx in (None, i):
+            idx = i
             by[q[idx]] = p
     if idx is None:
         return None
@@ -619,10 +656,8 @@ def kinds(host: str, con=None) -> list[dict]:
         th = _things(path, paths)
         template = path
         if th:
-            base, sep, query = path.partition("?")
-            segments = _segs(base)
-            segments[th[0]] = "{thing}"
-            template = "/" + "/".join(segments) + sep + query
+            template = _rebase_path(path, (th[0], _segs(path)[:th[0]], "{thing}"))
+            template = template.replace("%7Bthing%7D", "{thing}")
         templates[path] = template
         group = groups.setdefault(template, {"template": template, "things": [], "title": p["title"] or "",
                                              "next": [], "toggles": []})

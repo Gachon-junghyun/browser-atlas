@@ -222,6 +222,54 @@ class GoTest(unittest.TestCase):
                           "next": "site_rank"})
         self.assertEqual(r["completed"], 0)
 
+    def test_delayed_news_rows_override_the_stock_header(self):
+        header = "배당 2026. 10. 31.\n2026. 10. 15. 기준\n2026.09. / 2026.10.\n미국 10. 26. 12:15 실시간\n한국 10. 27. 01:15"
+        rows = ["2025. 01. 06.", "2024. 07. 10.", "2024. 04. 10."]
+        items = [f"가상 소식 {i}\n{d}\n새로운 사업에 관한 예시 요약.\n예시 통신" for i, d in enumerate(rows)]
+        samples = ["Loading", "Loading", header, header + "\n" + "\n".join(items)]
+        reads = []
+        browser = _Browser()
+
+        def read(name, args):
+            if name != "browser_read":
+                return browser(name, args)
+            index = min(len(reads), len(samples) - 1)
+            reads.append(args)
+            return {"untrusted_page_content": samples[index], "list_dates": rows if index == 3 else []}
+
+        plan = _plan("/news", [["goto", H + "/news"]], checks={"fresh_days": 14})
+        class Clock(datetime):
+            @classmethod
+            def now(cls):
+                return cls(2026, 10, 27)
+
+        with mock.patch.object(mcp_server, "datetime", Clock):
+            r, _, _ = self._go(plan, [["go", "news"]], read)
+        payload = json.loads(r["steps"][-1]["error"][len("arrived_but: "):])
+        self.assertEqual((payload["why"], payload["newest"]), ("stale", "2025-01-06"))
+        self.assertEqual(r["steps"][0]["result"]["checked"],
+                         {"fresh": "2025-01-06", "from": "list", "wait": None})
+        self.assertEqual(len(reads), 5)
+
+    def test_freshness_polling_is_bounded_without_dates(self):
+        r, b, _ = self._go(_plan("/news", [["goto", H + "/news"]], checks={"fresh_days": 14}), [["go", "news"]])
+        self.assertEqual(sum(c[0] == "browser_read" for c in b.calls), 13)
+
+    def test_text_read_passes_list_dates_to_the_arrival_check(self):
+        rows = ["2025. 01. 06.", "2024. 07. 10.", "2024. 04. 10."]
+        c = mock.Mock()
+        c.eval.side_effect = ["Example news list", H + "/news", rows]
+        result = mcp_server._read(c, {"mode": "text", "list_dates": True})
+        self.assertEqual(result["list_dates"], rows)
+        self.assertEqual(c.eval.call_args, mock.call(mcp_server._LIST_DATES_JS))
+
+    def test_recent_rows_report_list_as_the_source(self):
+        with mock.patch.object(mcp_server, "_tracked", return_value={
+                "untrusted_page_content": "News", "list_dates": [f"{date.today():%Y-%m-%d}"]}):
+            checked, failure = mcp_server._check_arrival("T", {"checks": {"fresh_days": 14}}, None, None)
+        self.assertIsNone(failure)
+        self.assertEqual(checked, {"fresh": date.today().isoformat(), "from": "list", "wait": None})
+
     def test_an_old_dated_list_is_arrived_but_stale(self):
         b = _Browser(texts={H + "/news": "Notices\n2024.01.14 Holiday hours\n2023.12.02 Moved"})
         plan = _plan("/news", [["goto", H + "/news"]], checks={"fresh_days": 14})
@@ -236,14 +284,14 @@ class GoTest(unittest.TestCase):
         plan = _plan("/news", [["goto", H + "/news"]], checks={"fresh_days": 14})
         r, _, _ = self._go(plan, [["go", "news"]], b)
         self.assertTrue(all(s["ok"] for s in r["steps"]))
-        self.assertEqual(r["steps"][0]["result"]["checked"], {"fresh": "unknown", "wait": None})
+        self.assertEqual(r["steps"][0]["result"]["checked"], {"fresh": "unknown", "from": "text", "wait": None})
 
     def test_a_recent_list_passes_and_picks_fresh_zero_turns_the_check_off(self):
         today = date.today()
         b = _Browser(texts={H + "/news": f"Notices {today:%Y.%m.%d} Opening {today - timedelta(days=40):%Y.%m.%d}"})
         plan = _plan("/news", [["goto", H + "/news"]], checks={"fresh_days": 14})
         r, _, _ = self._go(plan, [["go", "news", "Notices"]], b)
-        self.assertEqual(r["steps"][0]["result"]["checked"], {"fresh": today.isoformat(), "wait": True})
+        self.assertEqual(r["steps"][0]["result"]["checked"], {"fresh": today.isoformat(), "from": "text", "wait": True})
         b = _Browser(texts={H + "/news": "2001.01.01 Founded"})
         r, _, _ = self._go(plan, [["go", "news", {"fresh": 0}]], b)
         self.assertEqual(r["steps"][0]["result"]["checked"], {"fresh": None, "wait": None})
@@ -251,6 +299,10 @@ class GoTest(unittest.TestCase):
 
 class NewestDateTest(unittest.TestCase):
     D = date(2026, 10, 27)
+
+    def test_header_clocks_consensus_and_future_dates_are_ignored(self):
+        text = "2026. 10. 31. 배당\n2026. 10. 15. 기준\n미국 10. 26. 12:15 실시간\n한국 10. 27. 01:15\n2025. 01. 06. 가상 뉴스"
+        self.assertEqual(mcp_server._newest_date(text, self.D), date(2025, 1, 6))
 
     def test_formats(self):
         for text, want in [("2026.10.21", date(2026, 10, 21)), ("2026-10-21", date(2026, 10, 21)),

@@ -417,6 +417,29 @@ _OUTLINE_JS = r"""(() => {
 })()""" % _MAIN_JS.strip()
 
 
+_LIST_DATES_JS = r"""(() => {
+  const date = /(?:\d{4}\s*[.\-/년]\s*\d{1,2}\s*[.\-/월]\s*\d{1,2}|\d{1,2}\.\s*\d{1,2}\.|\d+\s*(?:분|시간|일)\s*전|어제|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2}|\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec))/i;
+  const groups = new Map();
+  for (const el of document.querySelectorAll('body *')) {
+    if (!el.innerText || !date.test(el.innerText) ||
+        Array.from(el.children).some(c => date.test(c.innerText || ''))) continue;
+    for (let row = el; row && row.parentElement; row = row.parentElement) {
+      if (!['LI', 'ARTICLE', 'DIV'].includes(row.tagName)) continue;
+      const peers = Array.from(row.parentElement.children).filter(c =>
+        c.tagName === row.tagName && c.className === row.className);
+      if (peers.length < 3) continue;
+      const dated = peers.filter(c => date.test(c.innerText || ''));
+      if (dated.length >= 3) {
+        if (!groups.has(row.parentElement)) groups.set(row.parentElement, new Set());
+        groups.get(row.parentElement).add(el.innerText);
+        break;
+      }
+    }
+  }
+  return Array.from(groups.values()).flatMap(g => Array.from(g));
+})()"""
+
+
 def _read(c, args: dict) -> dict:
     mode, limit = args.get("mode", "controls"), int(args.get("max_chars", 6000))
     find = (args.get("find") or "").casefold()
@@ -485,6 +508,8 @@ def _read(c, args: dict) -> dict:
     out = {"url": c.eval("location.href"), "untrusted_page_content": data, "truncated": truncated}
     if mode == "text":
         out["total_chars"] = len(whole)
+        if args.get("list_dates"):
+            out["list_dates"] = c.eval(_LIST_DATES_JS) or []
         if not find and truncated:
             out["next_offset"] = offset + limit
     return out
@@ -890,7 +915,7 @@ _MON = r"(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?"
 _DATES = [
     (re.compile(r"(?<!\d)(\d{4})\s*[.\-/]\s*(\d{1,2})\s*[.\-/]\s*(\d{1,2})(?!\d)"), "ymd"),
     (re.compile(r"(\d{4})\s*년\s*(\d{1,2})\s*월\s*(\d{1,2})\s*일"), "ymd"),
-    (re.compile(r"(?<![\d.])(\d{1,2})\.(\d{1,2})\.(?!\d)"), "md"),
+    (re.compile(r"(?<![\d.])(\d{1,2})\.\s*(\d{1,2})\.?(?!\d)"), "md"),
     (re.compile(_MON + r"\s+(\d{1,2}),?\s+(\d{4})(?!\d)", re.I), "mdy"),
     (re.compile(r"(?<!\d)(\d{1,2})\s+" + _MON + r",?\s+(\d{4})(?!\d)", re.I), "dmy"),
 ]
@@ -907,6 +932,12 @@ def _newest_date(text: str, today) -> date | None:
     day, found, text = now.date(), [], text or ""
     for rx, order in _DATES:
         for m in rx.finditer(text):
+            # Stock headers mix consensus dates and live clocks with old news rows.
+            before, after = text[max(0, m.start() - 12):m.start()], text[m.end():m.end() + 20]
+            if re.match(r"[.\s]*(?:기준|실시간)", after) or re.search(r"(?:기준|실시간)\s*$", before):
+                continue
+            if order == "md" and re.match(r"\s*\d{1,2}:\d{2}", after):
+                continue
             g = m.groups()
             if order == "ymd":
                 y, mo, d = g
@@ -944,6 +975,7 @@ def _check_arrival(tab: str, p: dict, wait: str | None, picks: dict | None) -> t
     """After the address matched: is what we came for on the page, and is it recent? The right address
     with an empty frame or a year-old list reads like an answer; failing here sends the agent to
     another source instead. Returns (checked, failure)."""
+    import time
     checked: dict = {"fresh": None, "wait": None}
     others = p.get("others") or []
     if wait:
@@ -958,12 +990,27 @@ def _check_arrival(tab: str, p: dict, wait: str | None, picks: dict | None) -> t
     fresh = (picks or {}).get("fresh", (p.get("checks") or {}).get("fresh_days"))
     if fresh:
         now = datetime.now()
+        newest, source, previous = None, "text", None
         try:
-            r = _tracked("browser_read", {"tab": tab, "mode": "text", "max_chars": 60000})
-            body = r.get("untrusted_page_content")
-            newest = _newest_date(body if isinstance(body, str) else " ".join(map(str, body or [])), now)
+            # News lists can draw two seconds after the stock header has arrived.
+            for attempt in range(13):
+                r = _tracked("browser_read", {"tab": tab, "mode": "text", "max_chars": 60000,
+                                               "list_dates": True})
+                body = r.get("untrusted_page_content")
+                text = body if isinstance(body, str) else " ".join(map(str, body or []))
+                rows = r.get("list_dates") or []
+                source = "list" if rows else "text"
+                newest = _newest_date("\n".join(rows) if rows else text, now)
+                size = r.get("total_chars", len(text))
+                if newest is not None and previous == size and (rows or attempt >= 4):
+                    break
+                previous = size
+                if attempt < 12:
+                    time.sleep(0.5)
         except Exception:
             newest = None
+        checked["from"] = source
+        checked["fresh"] = newest.isoformat() if newest else "unknown"
         if newest is None:
             checked["fresh"] = "unknown"                # no date on the page: say so, do not guess
         elif (now.date() - newest).days > int(fresh):
@@ -1087,9 +1134,9 @@ def _steps(run: dict, pace: str, steps: list, out: list, prefix: str, depth: int
                     checked, failure = _check_arrival(run["tab"], p, wait, picks)
                     if checked["wait"]:
                         out.append({"step": f"{label}.wait", "op": "wait_text", "ok": True, "result": {"met": True}})
+                    entry["result"]["checked"] = checked
                     if failure:
                         return _stop(out, label, "arrived_but", failure)
-                    entry["result"]["checked"] = checked
                     continue
                 if op == "if_text":
                     r = _tracked("browser_read", {"tab": run["tab"], "mode": "text", "find": str(a[0])})
