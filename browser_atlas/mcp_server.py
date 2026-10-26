@@ -184,12 +184,14 @@ TOOLS += [
      "description": "Close every tab this server opened (on a port, or all ports it used).",
      "inputSchema": {"type": "object", "properties": {"port": _PORT}}},
     {"name": "lesson_record",
-     "description": "After a task: record a pitfall you hit on a mapped site, in one plain sentence with what "
+     "description": "After a task: record a pitfall you hit on a site, in one plain sentence with what "
                     "worked (e.g. 'Typing into the topics box drops the last letter; type it separately'). "
                     "Stays on this machine and shows up from the next browser_open on that page (map_traps). "
+                    "For a site not in the atlas yet, pass its hostname as site. "
                     "Describe the page, never a person; no personal data.",
      "inputSchema": {"type": "object", "properties": {
-         "site": {"type": "string", "description": "atlas site key (atlas_find / atlas_site)"},
+         "site": {"type": "string", "description": "atlas site key (atlas_find / atlas_site), or the hostname "
+                                                   "of a site not in the atlas yet"},
          "page": {"type": "string", "description": "page key from the site's button map, if the pitfall is on one page"},
          "text": {"type": "string", "description": "one sentence, 5 to 200 characters"}},
          "required": ["site", "text"]}},

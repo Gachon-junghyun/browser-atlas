@@ -130,10 +130,11 @@ def main(argv: list[str]) -> int:
                 what = f"{p['from']!r} -> {p['to']!r}" if p["kind"] == "rename" else repr(p["name"])
                 role = p.get("role", "")
             shared = "submitted" if p.get("shared") else "local"
-            print(f"[{i}] {p['kind']:6s} {p['site']:18s} {role:9s} {what}  (seen {p['seen']}x, {p['last']}, {shared})")
+            print(f"[{i}] {p['kind']:6s} {p['site'] or p.get('host', ''):18s} {role:9s} {what}  "
+                  f"(seen {p['seen']}x, {p['last']}, {shared})")
         return 0
     if cmd == "lesson":
-        # a pitfall in one sentence, on a mapped site: lesson <site> [--page KEY] "<text>"
+        # a pitfall in one sentence: lesson <site key or hostname> [--page KEY] "<text>"
         from . import _episodes
         page = _opt(rest, "--page")
         if len(rest) != 2:

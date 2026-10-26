@@ -53,6 +53,37 @@ class EpisodeTest(unittest.TestCase):
         self.assertEqual(ep["outcome"], "blocked")
         self.assertEqual(ep["quality"], 0.0)
 
+    def test_policy_text_about_rate_limits_is_not_a_block(self):
+        policy = "Fair use policy. " + "You must not exceed the rate limit of 1,500 requests. " * 60
+        for result in ({"untrusted_page_content": policy[:6000], "total_chars": len(policy)},
+                       {"untrusted_page_content": ["... exceeding the rate limit or a captcha ..."]},   # find= excerpts
+                       {"untrusted_page_content": {"title": "Usage Policy", "total_chars": 9000}}):
+            _, ep = self.run_episode([{"tool": "browser_read", "ok": True, "result": result}])
+            self.assertEqual(ep["outcome"], "success", result)
+
+    def test_challenge_pages_are_blocked(self):
+        for result in ({"untrusted_page_content": "Just a moment...\nVerifying you are human.", "total_chars": 60},
+                       {"untrusted_page_content": "Too many requests", "total_chars": 17},
+                       {"untrusted_page_content": [["checkbox", "I'm not a robot"], ["link", "Privacy"]]},
+                       {"untrusted_page_content": {"title": "Attention Required! | Cloudflare", "total_chars": 300}}):
+            _, ep = self.run_episode([{"tool": "browser_read", "ok": True, "result": result}])
+            self.assertEqual(ep["outcome"], "blocked", result)
+
+    def test_lesson_on_a_site_not_in_the_map_attaches_to_its_host(self):
+        from browser_atlas import _atlas
+        r = _episodes.record_lesson("https://docs.newsite.example.org/a", "The cookie banner covers the search box")
+        self.assertEqual((r["site"], r["host"]), (None, "docs.newsite.example.org"))
+        self.assertIn("The cookie banner covers the search box",
+                      _atlas.traps_for("https://docs.newsite.example.org/b")[0])
+        self.assertEqual(_atlas.traps_for("https://other.example.org/"), [])
+        r = _episodes.record_lesson("shop.example.com", "Results appear after the spinner")   # mapped host
+        self.assertEqual(r["site"], "shop")
+        for bad in ("nowhere", "not a host"):
+            with self.assertRaises(ValueError):
+                _episodes.record_lesson(bad, "some lesson here")
+        with self.assertRaises(ValueError):
+            _episodes.record_lesson("newsite.example.org", "some lesson here", page="search")
+
     def test_blocked_error_and_no_reads(self):
         _, ep = self.run_episode([{"tool": "browser_click", "ok": False, "error": Blocked("x")}])
         self.assertEqual(ep["outcome"], "blocked")

@@ -150,7 +150,7 @@ Every run leaves something behind, and the next run starts from it:
 - **Routes** are recorded by the server itself; `browser_open` hands back the ones that worked on that site.
 - **Lessons** are one-sentence pitfalls (`lesson_record`, or `browser-atlas lesson <site> "..."`). The server's
   instructions ask the agent to leave one whenever something tripped it up, and `browser_open` returns the
-  page's `map_traps` before the next attempt.
+  page's `map_traps` before the next attempt. A site that is not in the map yet takes its hostname instead of a key.
 - **Renamed or new buttons** found while working are applied to your own map at once.
 
 All of it stays on your machine. When you say "share it", `share_upload` sends a sanitized copy to a

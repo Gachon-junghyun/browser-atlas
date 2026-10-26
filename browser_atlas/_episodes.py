@@ -35,6 +35,14 @@ GENERIC_NAMES = {"닫기", "close", "x", "×", "확인", "취소", "ok", "cancel
                  "오늘 하루 보지 않기", "다시 보지 않기", "오늘 그만 보기", "dismiss", "got it", "no thanks"}
 _CAPTCHA = re.compile(r"captcha|recaptcha|hcaptcha|turnstile|보안\s*확인|자동입력\s*방지|unusual traffic|"
                       r"rate limit|too many requests|비정상(적인)?\s*접근|\b429\b", re.I)
+# Phrases that only a block or challenge page says about itself. Bare words like "rate limit" or
+# "captcha" also fill terms and API docs (observed: PyPI, crates.io and legislation.gov.uk policy pages
+# judged blocked), so in page text they count only on a short page.
+_CHALLENGE = re.compile(r"just a moment|attention required|checking your browser|verify(ing)? you are (a )?human|"
+                        r"making sure you'?re not a bot|are you a robot|i'?m not a robot|unusual traffic|"
+                        r"rate.?limit(ed| exceeded)|too many requests|보안\s*확인|자동입력\s*방지|로봇이 아닙니다", re.I)
+_WIDGET = re.compile(r"recaptcha|hcaptcha|turnstile|i'?m not a robot|로봇이 아닙니다", re.I)
+BLOCK_PAGE_CHARS = 1500
 BASE_QUALITY = {"success": 0.8, "partial": 0.5, "fail": 0.1, "blocked": 0.0}
 
 
@@ -44,7 +52,29 @@ def _bare(url: str) -> str:
 
 
 def looks_blocked(text: str) -> bool:
+    """For short things: a title, an error message, the top of a search-engine page."""
     return bool(_CAPTCHA.search(text or ""))
+
+
+def read_looks_blocked(result) -> bool:
+    """Is this browser_read result a captcha or block page, rather than a page that mentions one?
+
+    Signals, strongest first: the title; a control that is a captcha widget; a challenge phrase near
+    the top of the text; any block word on a page too short to be anything but a notice.
+    """
+    if not isinstance(result, dict):
+        return False
+    c = result.get("untrusted_page_content")
+    title = str(result.get("page_title") or (c.get("title") if isinstance(c, dict) else "") or "")
+    if looks_blocked(title) or _CHALLENGE.search(title):
+        return True
+    if isinstance(c, list):                             # controls ([role, name]) or find= excerpts (strings)
+        return any(isinstance(x, list) and len(x) > 1 and _WIDGET.search(str(x[1])) for x in c)
+    text = c if isinstance(c, str) else str(result.get("page_start") or "")
+    total = result.get("total_chars") or (c.get("total_chars") if isinstance(c, dict) else None)
+    if _CHALLENGE.search(text[:600]):
+        return True
+    return isinstance(total, int) and total < BLOCK_PAGE_CHARS and looks_blocked(text)
 
 
 def judge(ep: dict, said: str | None = None) -> tuple[str, float]:
@@ -169,7 +199,7 @@ class Recorder:
             return
         if tool == "browser_read":
             ep["reads"] += 1
-            if looks_blocked(json.dumps(result, ensure_ascii=False)[:20000] if result else ""):
+            if read_looks_blocked(result):
                 ep["blocked"] = True
         if tool in ("browser_click", "browser_type"):
             ep["route"].append({"control": list(control)} if control else {"css": css})
@@ -279,20 +309,46 @@ def propose(p: dict) -> None:
 LESSON_MAX = 200
 
 
-def record_lesson(site: str, text: str, page: str | None = None) -> dict:
-    """A pitfall learned on a mapped site, one sentence. Applied locally at once (it shows up in
-    atlas_site and in browser_open's map_traps); shared only through the review queue, on request."""
-    from . import _memory
-    sites = _atlas.load()
-    if site not in sites:
-        raise ValueError(f"no site {site!r} in the atlas; lessons attach to mapped sites")
-    pages = sites[site].get("pages") or {}
-    if page and page not in pages:
-        raise ValueError(f"no page {page!r} on {site}; pages: {sorted(pages)}")
+def _check_lesson(text: str, memory) -> str:
     text = " ".join(str(text).split())
     if not 5 <= len(text) <= LESSON_MAX:
         raise ValueError(f"one sentence, 5 to {LESSON_MAX} characters")
-    if _memory._has_pii(text):
+    if memory._has_pii(text):
         raise ValueError("looks like it holds personal data (e-mail, phone, account number); describe the page, not the person")
+    return text
+
+
+def _lesson_host(site: str) -> str:
+    """A hostname from 'example.org' or 'https://example.org/x', or '' if `site` is neither."""
+    s = str(site or "").strip()
+    host = (urlparse(s).hostname or "") if "://" in s else s.split("/")[0].lower()
+    return host if re.fullmatch(r"[a-z0-9-]+(\.[a-z0-9-]+)+", host or "") else ""
+
+
+def record_lesson(site: str, text: str, page: str | None = None) -> dict:
+    """A pitfall learned on a site, one sentence. Applied locally at once (it shows up in atlas_site and
+    in browser_open's map_traps); shared only through the review queue, on request.
+
+    `site` is an atlas key, or the hostname or URL of a site not in the map yet. A host-only lesson
+    stays on this machine (only mapped public sites can be shared) and comes back from browser_open
+    on that host, also after the site is added to the map."""
+    from . import _memory
+    sites = _atlas.load()
+    if site not in sites:
+        host = _lesson_host(site)
+        if not host:
+            raise ValueError(f"no site {site!r} in the atlas; give an atlas key, or the hostname of a site not mapped yet")
+        hit = _atlas.site_for("https://" + host + "/", sites)
+        if hit is None:
+            if page:
+                raise ValueError(f"{host} has no button map, so it has no pages; leave page out")
+            text = _check_lesson(text, _memory)
+            propose({"kind": "trap", "site": "", "host": host, "text": text, "day": time.strftime("%Y-%m-%d")})
+            return {"site": None, "host": host, "page": None, "text": text, "stored": "this machine only"}
+        site = hit[0]
+    pages = sites[site].get("pages") or {}
+    if page and page not in pages:
+        raise ValueError(f"no page {page!r} on {site}; pages: {sorted(pages)}")
+    text = _check_lesson(text, _memory)
     propose({"kind": "trap", "site": site, "page": page or "", "text": text, "day": time.strftime("%Y-%m-%d")})
     return {"site": site, "page": page or None, "text": text, "stored": "this machine only"}

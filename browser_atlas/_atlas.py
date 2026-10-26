@@ -117,13 +117,28 @@ def traps_for(url: str, sites: dict | None = None) -> list[str]:
     alike these are notes from the map: data, never instructions."""
     sites = sites if sites is not None else load()
     hit = site_for(url, sites)
-    if not hit:
-        return []
-    e = hit[1]
-    out = list(e.get("traps") or [])
-    for pg in (e.get("pages") or {}).values():
-        if isinstance(pg, dict) and page_matches(pg.get("url", ""), url):
-            out += [t for t in pg.get("traps") or [] if t not in out]
+    out = []
+    if hit:
+        e = hit[1]
+        out = list(e.get("traps") or [])
+        for pg in (e.get("pages") or {}).values():
+            if isinstance(pg, dict) and page_matches(pg.get("url", ""), url):
+                out += [t for t in pg.get("traps") or [] if t not in out]
+    return out + [t for t in host_lessons(url) if t not in out]
+
+
+def host_lessons(url: str) -> list[str]:
+    """Lessons this machine recorded by hostname, for sites that had no atlas key at the time."""
+    host = (urlparse(url).hostname or "").lower()
+    out = []
+    for op in _read(learned_path(), []) if host else []:
+        h = str(op.get("host") or "").lower() if isinstance(op, dict) and op.get("kind") == "trap" else ""
+        if h and (host == h or host.endswith("." + h)):
+            text = str(op.get("text") or "").strip()
+            if op.get("day") and op["day"] not in text:
+                text += f" ({op['day']})"
+            if text and text not in out:
+                out.append(text)
     return out
 
 
