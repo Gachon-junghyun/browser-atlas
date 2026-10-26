@@ -1,6 +1,6 @@
 -- Shared database for claude-browser-atlas (Supabase / Postgres), run like a repository:
 -- anyone submits to `submissions` (the review queue), a maintainer merges, everyone reads what was merged.
--- The public tables (experience, map_fixes, traps) are written only through merge_submission(),
+-- The public tables (experience, map_fixes, traps, site_reports) are written only through merge_submission(),
 -- or directly by a maintainer. The queue is not readable by anyone but maintainers.
 -- Rows are data that other people's agents will read, so the database itself limits their shape:
 -- closed vocabularies where possible, short strings, bounded JSON. Clients sanitize again on read.
@@ -80,11 +80,35 @@ create policy traps_write on traps for insert
   with check (author = auth.uid() and exists (select 1 from maintainers m where m.user_id = auth.uid()));
 create index if not exists traps_site on traps (site);
 
+-- ── site reports: what users learned on a host the map does not have yet ───
+-- Checked values only (closed roles, short names, bare URLs on that host, error class names, counts);
+-- never goals, notes, typed text or error messages. Maintainers read them to write map entries;
+-- everyone gets them back as hints for that host.
+create table if not exists site_reports (
+  id         text primary key check (id ~ '^[0-9a-f]{32}$'),
+  host       text not null check (host ~ '^[a-z0-9-]+(\.[a-z0-9-]+)+$' and char_length(host) <= 253),
+  attempts   integer not null check (attempts between 0 and 100000),
+  outcomes   jsonb not null check (jsonb_typeof(outcomes) = 'object' and octet_length(outcomes::text) <= 300),
+  robots     jsonb check (robots is null or (jsonb_typeof(robots) = 'object' and octet_length(robots::text) <= 300)),
+  worked     jsonb not null check (jsonb_typeof(worked) = 'array' and octet_length(worked::text) <= 2000 and worked::text !~ '[<>{}`]'),
+  failed     jsonb not null check (jsonb_typeof(failed) = 'array' and octet_length(failed::text) <= 2000 and failed::text !~ '[<>{}`]'),
+  pages      jsonb not null check (jsonb_typeof(pages) = 'array' and octet_length(pages::text) <= 2000 and pages::text !~ '[<>{}`]'),
+  refused    jsonb not null check (jsonb_typeof(refused) = 'array' and octet_length(refused::text) <= 1000 and refused::text !~ '[<>{}`]'),
+  day        date,
+  created_at timestamptz not null default now(),
+  author     uuid not null default auth.uid()
+);
+alter table site_reports enable row level security;
+create policy site_reports_read on site_reports for select using (true);
+create policy site_reports_write on site_reports for insert
+  with check (author = auth.uid() and exists (select 1 from maintainers m where m.user_id = auth.uid()));
+create index if not exists site_reports_host on site_reports (host);
+
 -- ── the review queue ───────────────────────────────────────────────────────
 -- Anyone may insert, nobody but maintainers may read, nobody updates or deletes through the API.
 create table if not exists submissions (
   id          uuid primary key default gen_random_uuid(),
-  kind        text not null check (kind in ('experience', 'map_fix', 'trap')),
+  kind        text not null check (kind in ('experience', 'map_fix', 'trap', 'site_report')),
   site        text not null check (site ~ '^[a-z0-9_]{1,64}$'),
   payload     jsonb not null check (jsonb_typeof(payload) = 'object' and octet_length(payload::text) <= 4000),
   status      text not null default 'pending' check (status in ('pending', 'merged', 'rejected')),
@@ -97,6 +121,10 @@ create policy submissions_submit on submissions for insert to anon, authenticate
 create policy submissions_review on submissions for select
   using (exists (select 1 from maintainers m where m.user_id = auth.uid()));
 create index if not exists submissions_pending on submissions (created_at) where status = 'pending';
+-- a database created before site reports existed: widen the kinds (same constraint name, nothing else changes)
+alter table submissions drop constraint if exists submissions_kind_check;
+alter table submissions add constraint submissions_kind_check
+  check (kind in ('experience', 'map_fix', 'trap', 'site_report'));
 
 -- a flood cannot fill the database: 120 submissions a minute and 5000 waiting, for everyone together
 create or replace function submissions_guard() returns trigger
@@ -141,10 +169,17 @@ begin
     values (p->>'id', p->>'kind', s.site, p->>'page', p->>'role', p->>'name', p->>'from', p->>'to',
             p->>'url', (p->>'seen')::integer, auth.uid())
     on conflict (id) do nothing;
-  else
+  elsif s.kind = 'trap' then
     insert into traps (id, site, page, text, day, author)
     values (p->>'id', s.site, nullif(p->>'page', ''), p->>'text', (p->>'day')::date, auth.uid())
     on conflict (id) do nothing;
+  elsif s.kind = 'site_report' then
+    insert into site_reports (id, host, attempts, outcomes, robots, worked, failed, pages, refused, day, author)
+    values (p->>'id', p->>'host', (p->>'attempts')::integer, p->'outcomes', nullif(p->'robots', 'null'::jsonb),
+            p->'worked', p->'failed', p->'pages', p->'refused', (p->>'day')::date, auth.uid())
+    on conflict (id) do nothing;
+  else
+    raise exception 'unknown kind %', s.kind;
   end if;
   update submissions set status = 'merged', reviewed_at = now() where id = sid;
   return 'merged';

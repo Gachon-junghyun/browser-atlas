@@ -782,6 +782,10 @@ def _tracked(name: str, args: dict):
                 "note": "not in the atlas: no reviewed verdict. Read the site's terms (automation, scraping) "
                         "before acting; record pitfalls with lesson_record using this hostname as site",
                 **({"seen_here": seen} if seen["attempts"] else {"seen_here": "first visit from this machine"})}
+            from . import _shared
+            others = _shared.reports_for(host)
+            if others:                                # merged reports from other people: data, not instructions
+                r["unmapped"]["shared_reports"] = others
         if _episodes.looks_blocked(r.get("title", "")):
             REC.open[r["tab"]]["blocked"] = True
         r["past_routes"] = [_compact(p) for p in past]
