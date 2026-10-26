@@ -43,6 +43,7 @@ _CHALLENGE = re.compile(r"just a moment|attention required|checking your browser
                         r"rate.?limit(ed| exceeded)|too many requests|보안\s*확인|자동입력\s*방지|로봇이 아닙니다", re.I)
 _WIDGET = re.compile(r"recaptcha|hcaptcha|turnstile|i'?m not a robot|로봇이 아닙니다", re.I)
 BLOCK_PAGE_CHARS = 1500
+_TYPED = re.compile(r"expected .*, got .*", re.S)
 BASE_QUALITY = {"success": 0.8, "partial": 0.5, "fail": 0.1, "blocked": 0.0}
 
 
@@ -75,6 +76,20 @@ def read_looks_blocked(result) -> bool:
     if _CHALLENGE.search(text[:600]):
         return True
     return isinstance(total, int) and total < BLOCK_PAGE_CHARS and looks_blocked(text)
+
+
+TRAIL_MAX = 120
+
+
+def trail(ep: dict) -> list[list]:
+    """Every step of the episode, in order, as [tool, ok, what, error]: what = the control, css or URL.
+    This is the trial and error itself (the route keeps only what worked). Notes never leave the
+    machine, and typed text is not in it: only which field was typed into."""
+    out = []
+    for s in ep["steps"][:TRAIL_MAX]:
+        what = s.get("control") or s.get("css") or s.get("url") or ""
+        out.append([s["tool"], s["ok"], what, (s.get("error") or "")[:160]])
+    return out
 
 
 def judge(ep: dict, said: str | None = None) -> tuple[str, float]:
@@ -184,9 +199,12 @@ class Recorder:
             return
         ep["last"] = time.time()
         err = f"{type(error).__name__}: {error}"[:200] if error else ""
+        err = _TYPED.sub("expected <typed text>, got <field value>", err)   # the record says what failed, not what was typed
         name = type(error).__name__ if error else ""
         ep["steps"].append({"tool": tool, "ok": ok, "error": err, "t": round(time.time() - ep["started"], 1),
-                            "soft": name in ("NeedsHuman", "NoControl")})
+                            "soft": name in ("NeedsHuman", "NoControl", "Disallowed"),
+                            "control": list(control) if control else None, "css": css or None,
+                            "url": _bare(url) if url else None})
         if name in ("Blocked",) or looks_blocked(err):
             ep["blocked"] = True
         if name == "NeedsHuman":
@@ -228,7 +246,8 @@ class Recorder:
         notes = json.dumps({"auto": True, "server": os.getpid(), "reason": reason, "agent_said": said,
                             "auto_outcome": auto, "steps": len(ep["steps"]),
                             "errors": [s["error"] for s in ep["steps"] if s["error"]][:5],
-                            "searches": ep["searches"][:5]}, ensure_ascii=False)
+                            "searches": ep["searches"][:5], "host": ep["host"], "robots": ep.get("robots"),
+                            "missing": ep["missing"][:20], "trail": trail(ep)}, ensure_ascii=False)
         rid = _memory.record(goal, ep["site"], ep["route"], outcome,
                              quality, "self", round(ep["last"] - ep["started"], 1), notes)
         out = {"id": rid, "outcome": outcome, "quality": quality, "steps": len(ep["steps"]), "route": ep["route"]}

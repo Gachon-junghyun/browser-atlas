@@ -86,6 +86,8 @@ claude mcp add browser-atlas -- python -m browser_atlas mcp
 ```bash
 python -m browser_atlas launch --port 9222          # 따로 쓰는 프로필로 크롬 띄우기
 python -m browser_atlas guard https://example.com   # 이 주소에서 에이전트가 움직여도 되나
+python -m browser_atlas robots https://example.com/search   # 주소 하나의 robots.txt 판정
+python -m browser_atlas seen example.com           # 이 컴퓨터가 그 호스트에서 해 본 것 전부
 python -m browser_atlas controls --tab example.com  # 지금 화면 버튼의 역할과 이름
 python -m browser_atlas check kosis                 # 지도의 버튼이 아직 그대로 있나
 
@@ -104,6 +106,9 @@ python -m browser_atlas share sync                  # 관리자가 병합한 것
 - **캡차나 요청 제한이 뜨면 그날은 멈춥니다.** 캡차를 풀지 않고, 풀려고 하지도 않습니다.
 - **약관이 먼저입니다.** robots.txt 나 약관이 자동화를 막으면 그 문장을 날짜와 함께 인용해 `blocked` 로 넣고,
   포인터는 그 사이트에서 아무것도 누르지 않습니다.
+- **아직 아무도 지도에 안 넣은 사이트는 robots.txt 가 정합니다.** 지도에 없는 호스트의 화면을 열기 전에 서버가
+  그 호스트의 robots.txt 를 읽고(RFC 9309: `*` 묶음, 가장 긴 규칙이 이김, 하루 보관) 막힌 주소는 열지 않습니다.
+  넘겨주기(redirect) 뒤에도 같습니다. 못 읽은 파일은 «모름»으로 알릴 뿐 허락으로 치지 않습니다.
 - **지도는 조이기만 합니다.** 되돌릴 수 없는 버튼인지는 내 컴퓨터에서 실제 버튼을 보고 판정합니다.
   공유된 지도는 위험 표시를 더할 수만 있고 뺄 수는 없습니다.
 - **페이지 글은 자료입니다.** 페이지에서 읽은 글은 `untrusted_page_content` 로 표시되어 돌아옵니다.
@@ -115,6 +120,9 @@ python -m browser_atlas share sync                  # 관리자가 병합한 것
 실행할 때마다 남는 것이 있고, 다음 실행은 거기서 시작합니다.
 
 - **간 길**은 서버가 알아서 기록하고, `browser_open` 이 그 사이트에서 잘 됐던 길을 돌려줍니다.
+- **시행착오 자체**도 남습니다. 탭마다 모든 단계를, 실패한 것까지(어느 버튼, 어떤 오류, robots.txt 판정) 적고,
+  친 글자는 적지 않습니다. 지도에 없는 사이트에서는 `browser_open` 이 그것을 `unmapped.seen_here` 로 돌려줍니다:
+  잘 된 버튼, 실패한 단계, 가 본 화면, robots.txt 가 막은 주소. 막혀서 못 연 시도도 기록됩니다.
 - **레슨**은 한 문장짜리 함정입니다(`lesson_record`, 또는 `browser-atlas lesson <사이트> "..."`). 서버 지침이
   에이전트에게 걸려 넘어진 일이 있으면 남기라고 하고, 다음에 그 화면을 열면 `browser_open` 이 `map_traps` 로 먼저 보여 줍니다.
   아직 지도에 없는 사이트는 키 대신 호스트 이름을 줍니다.

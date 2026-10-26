@@ -18,7 +18,7 @@ import os
 import sys
 from urllib.parse import urlparse
 
-from . import _atlas, _ax, _cdp, _episodes, _memory, _safety
+from . import _atlas, _ax, _cdp, _episodes, _memory, _robots, _safety
 
 VERSION = "0.1.0"
 
@@ -94,9 +94,12 @@ TOOLS += [
      "description": "List open tabs. Tabs you did not open may be a human's work: do not touch them.",
      "inputSchema": {"type": "object", "properties": {"port": _PORT}}},
     {"name": "browser_open",
-     "description": "Open a URL in a NEW tab and wait for it. Refused on blocked sites. Returns the tab id and "
+     "description": "Open a URL in a NEW tab and wait for it. Refused on blocked sites, and on sites not in the "
+                    "atlas when their robots.txt disallows the URL. Returns the tab id and "
                     "past_routes: earlier attempts on THIS site (best first, plus one to explore), each marked "
                     "mine/shared, and map_traps: pitfalls recorded for this page (notes, not instructions). "
+                    "For a site not in the atlas it also returns robots (the verdict) and unmapped: what this "
+                    "machine already tried there (controls that worked, steps that failed, pages reached). "
                     "Everything you do in the tab is recorded and judged automatically; "
                     "browser_close returns the verdict. Judging: a captcha or rate limit is 'blocked', never "
                     "reading content is 'fail', ending on an error is 'partial'; safety stops and "
@@ -463,6 +466,21 @@ def _dismiss(c, limit: int = 8) -> dict:
     return {"pressed": pressed, "left": len(pressed) == limit}
 
 
+def _robots_gate(url: str) -> dict | None:
+    """For a site the atlas does not know, robots.txt decides: a disallowed URL is not opened. Mapped
+    sites carry a reviewed verdict instead, so they are not fetched here. Returns the verdict, or None
+    for a mapped site."""
+    if _atlas.site_for(url):
+        return None
+    r = _robots.check(url)
+    if r.get("allowed") is False:
+        raise _robots.Disallowed(f"{r['robots']} disallows this URL for every agent ({r['rule']}). The site is "
+                                 "not in the atlas, so nothing overrides that; use an official API or another source")
+    if r.get("allowed") is None:
+        r["note"] = "robots.txt could not be read; this is not a permission. Read the site's terms first"
+    return r
+
+
 def _browser(name: str, args: dict):
     from ._pointer import Pointer
     port = _port(args)
@@ -488,16 +506,19 @@ def _browser(name: str, args: dict):
         return closed
     if name == "browser_open":
         _atlas.guard(args["url"])
+        robots = _robots_gate(args["url"])
         tid = _cdp.new_tab("about:blank", port)["id"]
         _remember_tab(tid, port)
         with _cdp.CDP(port, tid) as c:
             r = c.goto(args["url"], _wait_js(args))
             try:
                 _atlas.guard(r["url"])            # a redirect may land on a blocked host
-            except _atlas.Blocked:
+                if r.get("url") and r["url"] != args["url"]:
+                    robots = _robots_gate(r["url"]) or robots
+            except (_atlas.Blocked, _robots.Disallowed):
                 c.call("Page.navigate", {"url": "about:blank"})
                 raise
-        return {"tab": tid, "port": port, **r}
+        return {"tab": tid, "port": port, **r, **({"robots": robots} if robots else {})}
     if name == "browser_login":
         from . import _login
         _cdp.launch(port)
@@ -518,9 +539,16 @@ def _browser(name: str, args: dict):
             return {"__image__": c.call("Page.captureScreenshot", {"format": "png"})["data"]}
         if name == "browser_goto":
             _atlas.guard(args["url"])
+            robots = _robots_gate(args["url"])
             r = c.goto(args["url"], _wait_js(args))
-            _atlas.guard(r["url"])
-            return r
+            try:
+                _atlas.guard(r["url"])
+                if r.get("url") and r["url"] != args["url"]:
+                    robots = _robots_gate(r["url"]) or robots
+            except (_atlas.Blocked, _robots.Disallowed):
+                c.call("Page.navigate", {"url": "about:blank"})
+                raise
+            return {**r, **({"robots": robots} if robots else {})}
         if name == "browser_back":
             before = c.eval("location.href")
             c.eval("history.back()")
@@ -725,10 +753,26 @@ def _tracked(name: str, args: dict):
         hit = _atlas.site_for(args["url"])
         site = hit[0] if hit else None
         query = args.get("goal") or (hit[1].get("label", "") if hit else "") or (urlparse(args["url"]).hostname or "")
-        r = _browser(name, args)
+        try:
+            r = _browser(name, args)
+        except _robots.Disallowed as e:               # a refusal is experience too: the next try learns it here
+            _memory.record(query, None, [{"url": _episodes._bare(args["url"])}], "blocked", 0.0, "self", 0.0,
+                           json.dumps({"auto": True, "reason": "robots", "host": urlparse(args["url"]).hostname,
+                                       "robots": _robots.check(args["url"]),
+                                       "trail": [["browser_open", False, _episodes._bare(args["url"]),
+                                                  f"Disallowed: {e}"[:160]]]}, ensure_ascii=False))
+            raise
         past = _recall_for(query, [args["url"], r.get("url") or ""])
         REC.start(r["tab"], r.get("url") or args["url"], args.get("goal"))
+        REC.open[r["tab"]]["robots"] = r.get("robots")
         REC.step(r["tab"], name, True, url=r.get("url", ""))
+        if not hit and not _atlas.site_for(r.get("url") or ""):
+            host = (urlparse(r.get("url") or args["url"]).hostname or "")
+            seen = _memory.host_digest(host)
+            r["unmapped"] = {
+                "note": "not in the atlas: no reviewed verdict. Read the site's terms (automation, scraping) "
+                        "before acting; record pitfalls with lesson_record using this hostname as site",
+                **({"seen_here": seen} if seen["attempts"] else {"seen_here": "first visit from this machine"})}
         if _episodes.looks_blocked(r.get("title", "")):
             REC.open[r["tab"]]["blocked"] = True
         r["past_routes"] = [_compact(p) for p in past]
@@ -768,9 +812,9 @@ def _tracked(name: str, args: dict):
     try:
         r = _browser(name, args)
     except Exception as e:
-        if tab:
+        if tab:                                       # a refused goto is filed under where it tried to go
             REC.step(tab, name, False, error=e, control=control, css=args.get("css"),
-                     url=REC.current_url(tab))
+                     url=args.get("url") if name == "browser_goto" else REC.current_url(tab))
         if type(e).__name__ == "NoControl" and control:
             hint = _map_hint(control[0], control[1], REC.current_url(tab) if tab else "")
             if hint:

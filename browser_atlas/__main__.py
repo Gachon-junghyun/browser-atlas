@@ -5,6 +5,8 @@
   python -m browser_atlas launch [--port N]
   python -m browser_atlas tabs   [--port N]
   python -m browser_atlas guard  <URL>                  # is this URL allowed?
+  python -m browser_atlas robots <URL> [<URL> ...]      # robots.txt verdict (RFC 9309, cached a day)
+  python -m browser_atlas seen <HOST>                   # everything this machine tried on a host
   python -m browser_atlas click  <CSS> --tab STR [--port N] [--seed N]
   python -m browser_atlas hover  <CSS> --tab STR [--port N]
   python -m browser_atlas type <CSS> <TEXT> --tab STR [--port N] [--clear]
@@ -119,6 +121,17 @@ def main(argv: list[str]) -> int:
         from . import _login
         value = sys.stdin.read().strip() if not sys.stdin.isatty() else getpass.getpass(f"{rest[0]}: ")
         print(f"saved: {_login.set_credential(rest[0], value)}")
+        return 0
+    if cmd == "robots":
+        from . import _robots
+        _dump([{"url": u, **_robots.check(u)} for u in rest])
+        return 0
+    if cmd == "seen":
+        from . import _memory
+        if len(rest) != 1:
+            print("usage: seen <host>", file=sys.stderr)
+            return 2
+        _dump({**_memory.host_digest(rest[0]), "lessons": _atlas.host_lessons("https://" + rest[0] + "/")})
         return 0
     if cmd == "learned":
         # map fixes this machine learned from use; already applied locally

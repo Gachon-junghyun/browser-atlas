@@ -248,6 +248,59 @@ def recall(goal: str, k: int = 5, explore: int = 1, shared: bool = False, site: 
     return [o for o in out if o is not None]
 
 
+def host_digest(host: str, owner: str = "me", con: sqlite3.Connection | None = None) -> dict:
+    """Everything this machine tried on a host, whatever the goal was: how attempts ended, which
+    controls worked, which failed and how, which pages were reached, what robots.txt said.
+
+    `recall()` answers "which route for this goal"; this answers "what do we already know about this
+    site", which is what a site with no atlas entry needs. Own rows only (their notes hold the trail).
+    """
+    con = con or connect()
+    host = (host or "").lower().removeprefix("www.")
+    rows = [r for r in con.execute("select * from experience where owner = ?", (owner,))
+            if _on_host(r["route"], host)]
+    outcomes: dict[str, int] = {}
+    worked: dict[tuple, int] = {}
+    failed: dict[tuple, int] = {}
+    pages: dict[str, int] = {}
+    refused: dict[str, int] = {}
+    robots, last = None, 0.0
+    for r in rows:
+        outcomes[r["outcome"]] = outcomes.get(r["outcome"], 0) + 1
+        last = max(last, r["created"])
+        try:
+            notes = json.loads(r["notes"] or "{}")
+        except ValueError:
+            notes = {}
+        robots = notes.get("robots") or robots
+        for step in json.loads(r["route"]):
+            if isinstance(step, dict) and step.get("url"):
+                into = refused if notes.get("reason") == "robots" else pages   # refused before opening
+                into[step["url"]] = into.get(step["url"], 0) + 1
+            elif isinstance(step, dict) and step.get("control") and r["outcome"] in ("success", "partial"):
+                k = tuple(step["control"][:2])
+                worked[k] = worked.get(k, 0) + 1
+        for tool, ok, what, err in notes.get("trail") or []:
+            if not ok and str(err).startswith("Disallowed") and isinstance(what, str) and notes.get("reason") != "robots":
+                refused[what] = refused.get(what, 0) + 1
+        for tool, ok, what, err in notes.get("trail") or []:
+            if not ok:
+                kind = (err.split(":", 1)[0] or "error") if err else "error"
+                k = (tool, json.dumps(what, ensure_ascii=False) if isinstance(what, list) else str(what), kind)
+                failed[k] = failed.get(k, 0) + 1
+
+    def top(d: dict, n: int) -> list:
+        return sorted(d.items(), key=lambda kv: -kv[1])[:n]
+
+    return {"host": host, "attempts": len(rows), "outcomes": outcomes,
+            "last_seen": time.strftime("%Y-%m-%d", time.localtime(last)) if last else None,
+            "robots": robots,
+            "worked_controls": [[*k, n] for k, n in top(worked, 15)],
+            "failed_steps": [[*k, n] for k, n in top(failed, 10)],
+            "pages_reached": [[u, n] for u, n in top(pages, 10)],
+            "refused_by_robots": [[u, n] for u, n in top(refused, 10)]}
+
+
 def _public(p: dict, owner: str) -> dict | None:
     r = p["row"]
     mine = r["owner"] == owner

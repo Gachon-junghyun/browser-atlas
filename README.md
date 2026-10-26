@@ -113,6 +113,8 @@ your everyday browser is never touched. When a site needs a login, sign in by ha
 ```bash
 python -m browser_atlas launch --port 9222          # Chrome with its own profile
 python -m browser_atlas guard https://example.com   # may an agent act here?
+python -m browser_atlas robots https://example.com/search   # robots.txt verdict for one URL
+python -m browser_atlas seen example.com           # everything this machine tried on a host
 python -m browser_atlas controls --tab example.com  # role and name of what is on screen
 python -m browser_atlas check kosis                 # are the mapped controls still there?
 
@@ -135,6 +137,10 @@ python -m browser_atlas mouse plot                  # grey: yours, blue: generat
 - **A captcha or a rate limit means stop for the day.** It does not solve captchas and never will.
 - **Terms first.** A site whose robots.txt or terms forbid automation goes in as `blocked`, with the
   sentence quoted and dated, and the pointer will not act there at all.
+- **A site nobody mapped yet: robots.txt decides.** Before opening a page on a host the atlas does not know,
+  the server reads that host's robots.txt (RFC 9309: the `*` group, longest rule wins, cached for a day) and
+  will not open a disallowed URL, after a redirect too. A file it cannot read is reported as unknown, not as
+  permission.
 - **The map can only tighten.** Whether a control is irreversible is decided on your machine from the
   live control. Shared map text can mark more things dangerous, never fewer.
   [Why shared text must not become instructions](docs/SCHEMA.md#trust-model-shared-text-must-not-become-instructions)
@@ -148,6 +154,10 @@ python -m browser_atlas mouse plot                  # grey: yours, blue: generat
 Every run leaves something behind, and the next run starts from it:
 
 - **Routes** are recorded by the server itself; `browser_open` hands back the ones that worked on that site.
+- **The trial and error itself** is kept too: every step of every tab, failed ones included (which control,
+  which error, what robots.txt said), never what was typed. On a site that is not in the atlas, `browser_open`
+  returns it as `unmapped.seen_here`: controls that worked, steps that failed, pages reached, URLs robots.txt
+  refused. A refused open is recorded as well.
 - **Lessons** are one-sentence pitfalls (`lesson_record`, or `browser-atlas lesson <site> "..."`). The server's
   instructions ask the agent to leave one whenever something tripped it up, and `browser_open` returns the
   page's `map_traps` before the next attempt. A site that is not in the map yet takes its hostname instead of a key.
