@@ -432,11 +432,12 @@ _LIST_DATES_JS = r"""(() => {
     const rows = Array.from(table.rows);
     const data = rows.filter(row => Array.from(row.cells).some(cell =>
       cell.tagName === 'TD' && date.test(cell.innerText || '')));
-    const metric = data.length && data.every(row => row.cells.length === 2 &&
-      (row.cells[0].innerText || '').trim().length <= 24 &&
-      !date.test(row.cells[0].innerText || ''));
-    const regular = data.filter(row => !pinned(row));
-    if (!metric && regular.length >= 3) {
+    const regular = data.filter(row => !pinned(row) &&
+      Array.from(row.querySelectorAll('a[href]')).some(a => {
+        const href = (a.getAttribute('href') || '').trim();
+        return href && href !== '#' && !/^javascript:/i.test(href);
+      }));
+    if (regular.length >= 3) {
       groups.set(table, new Set(regular.flatMap(row => Array.from(row.cells)
         .filter(cell => date.test(cell.innerText || '')).map(cell => cell.innerText))));
     }
@@ -1063,7 +1064,6 @@ def _check_arrival(tab: str, p: dict, wait: str | None, picks: dict | None, wait
         now = datetime.now()
         newest, source, previous = None, "text", None
         deadline, slept = time.monotonic() + 6.0, 0.0
-        stable_since, stable_looks = 0.0, 0
         try:
             # News lists can draw two seconds after the stock header has arrived.
             for attempt in range(21):
@@ -1078,13 +1078,6 @@ def _check_arrival(tab: str, p: dict, wait: str | None, picks: dict | None, wait
                 dates = frozenset(m.group(0) for rx, _ in _DATES for m in rx.finditer(text))
                 dates |= frozenset(m.group(0) for m in _AGO.finditer(text))
                 signature = ("list", frozenset(rows)) if rows else ("text", size, dates)
-                if previous != signature:
-                    stable_since, stable_looks = slept, 0
-                stable_looks += 1
-                if (not rows and stable_looks >= 3 and slept - stable_since >= 1.2 - 1e-6
-                        and r.get("ready_state") == "complete"
-                        and not re.search(r"loading|\uB85C\uB529|\uBD88\uB7EC\uC624\uB294\s*\uC911|spinner", text, re.I)):
-                    break
                 if newest is not None and previous == signature and (rows or "list_dates" not in r):
                     break
                 previous = signature

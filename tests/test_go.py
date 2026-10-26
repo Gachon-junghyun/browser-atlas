@@ -637,27 +637,43 @@ class TimingTest(unittest.TestCase):
 const nodes = [];
 function el(tagName, text = '', children = []) {
   const node = {tagName, className: '', children,
-    innerText: text || children.map(c => c.innerText).join('\n')};
+    innerText: text || children.map(c => c.innerText).join('\n'),
+    getAttribute: name => name === 'href' ? text : '',
+    querySelectorAll: selector => selector === 'a[href]' ? children.flatMap(c =>
+      c.tagName === 'A' ? [c] : c.querySelectorAll(selector)) : []};
   for (const child of children) child.parentElement = node;
   if (tagName === 'TR') node.cells = children;
   if (tagName === 'TABLE') node.rows = children;
   nodes.push(node);
   return node;
 }
-function row(parts) { return el('TR', '', parts.map(t => el('TD', t))); }
+function row(parts) {
+  const cells = parts.map(t => el('TD', t));
+  if (LINK !== null) cells[0].children.push(el('A', LINK));
+  return el('TR', '', cells);
+}
 const dates = ['2025-01-01', '2025-01-02', '2025-01-03'];
 const table = el('TABLE', '', dates.map(d => row(PARTS)));
 const news = dates.map(d => el('DIV', '', [
   el('DIV', 'Fictional company reports research results with a detailed account of progress.'),
   el('DIV', d)]));
-if (METRIC) el('DIV', '', news);
+if (NEWS) el('DIV', '', news);
 const document = {querySelectorAll: () => nodes};
 """
-        for metric in (False, True):
-            with self.subTest(metric=metric):
-                script = fixture.replace('PARTS', "['As of', '2026-10-27']" if metric else
-                                         "['10-Q', 'Quarterly report', d, '001-12345']")
-                script = script.replace('METRIC', str(metric).lower())
+        cases = [
+            ("['10-Q', 'Quarterly report', d, '001-12345']", '/documents/report', False),
+            ("[['Results', 'Acquisition', 'Dividend'][dates.indexOf(d)], d]", '/news/item', False),
+            ("['As of', '2026-10-27']", None, True),
+            ("['2026-10-27', '100']", None, True),
+            ("['2026-10-27', 'Research meeting']", None, True),
+            ("['Price', '100', '2026-10-27']", None, True),
+        ]
+        cases += [("['Results', '2026-10-27']", href, True)
+                  for href in ('', '#', 'javascript:void(0)', '  JaVaScRiPt:open()')]
+        for parts, href, news in cases:
+            with self.subTest(parts=parts, href=href):
+                script = fixture.replace('PARTS', parts).replace('LINK', json.dumps(href))
+                script = script.replace('NEWS', str(news).lower())
                 result = subprocess.run([shutil.which("node"), "-e", script +
                                          "console.log(JSON.stringify(" + mcp_server._LIST_DATES_JS + "));"],
                                         check=True, capture_output=True, encoding="utf-8")
@@ -675,7 +691,7 @@ const document = {querySelectorAll: () => nodes};
                 self.assertEqual(checked["from"], "list")
                 self.assertEqual(failure["why"], "stale")
 
-    def test_complete_text_fallback_waits_for_three_stable_looks(self):
+    def test_complete_text_fallback_waits_to_cap(self):
         reads = []
         def tracked(name, args):
             reads.append(self.clock)
@@ -684,19 +700,19 @@ const document = {querySelectorAll: () => nodes};
         with mock.patch.object(mcp_server, "_tracked", side_effect=tracked):
             checked, failure = mcp_server._check_arrival(
                 "T", {"checks": {"fresh_days": 14}}, None, None)
-        self.assertAlmostEqual(reads[-1], 1.2)
+        self.assertAlmostEqual(reads[-1], 6.0)
         self.assertGreaterEqual(len(reads), 3)
         self.assertEqual(checked["from"], "text")
         self.assertEqual(failure["why"], "stale")
 
-    def test_text_fallback_restarts_when_dates_change_at_same_length(self):
+    def test_text_fallback_uses_dates_at_cap(self):
         def tracked(name, args):
             return {"untrusted_page_content": "2025-01-01" if self.clock < 0.9 else "2025-01-02",
                     "list_dates": [], "ready_state": "complete"}
         with mock.patch.object(mcp_server, "_tracked", side_effect=tracked):
             checked, failure = mcp_server._check_arrival(
                 "T", {"checks": {"fresh_days": 14}}, None, None)
-        self.assertGreaterEqual(self.clock, 2.1)
+        self.assertAlmostEqual(self.clock, 6.0)
         self.assertEqual(checked["fresh"], "2025-01-02")
         self.assertEqual(failure["why"], "stale")
 
@@ -719,6 +735,23 @@ const document = {querySelectorAll: () => nodes};
                         "list_dates": [], "ready_state": state}):
                     mcp_server._check_arrival("T", {"checks": {"fresh_days": 14}}, None, None)
                 self.assertAlmostEqual(self.clock, 6.0)
+
+    def test_complete_header_waits_for_late_injected_list(self):
+        reads = []
+        def tracked(name, args):
+            reads.append(self.clock)
+            return {"untrusted_page_content": date.today().isoformat(),
+                    "ready_state": "complete",
+                    "list_dates": ["2025-01-01", "2025-01-02", "2025-01-03"]
+                    if self.clock >= 2 else []}
+        with mock.patch.object(mcp_server, "_tracked", side_effect=tracked):
+            checked, failure = mcp_server._check_arrival(
+                "T", {"checks": {"fresh_days": 14}}, None, None)
+        self.assertGreaterEqual(reads[-1], 2.3)
+        self.assertLess(reads[-1], 6.0)
+        self.assertEqual(checked["from"], "list")
+        self.assertEqual(checked["fresh"], "2025-01-03")
+        self.assertEqual(failure["why"], "stale")
 
     def test_loading_header_waits_for_stable_dated_rows(self):
         reads = []
