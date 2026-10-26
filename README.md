@@ -115,6 +115,7 @@ python -m browser_atlas launch --port 9222          # Chrome with its own profil
 python -m browser_atlas guard https://example.com   # may an agent act here?
 python -m browser_atlas robots https://example.com/search   # robots.txt verdict for one URL
 python -m browser_atlas seen example.com           # everything this machine tried on a host
+python -m browser_atlas rank "inflation tables"     # which site for this task: map + past attempts, with reasons
 python -m browser_atlas controls --tab example.com  # role and name of what is on screen
 python -m browser_atlas check kosis                 # are the mapped controls still there?
 
