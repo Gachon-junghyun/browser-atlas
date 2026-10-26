@@ -67,7 +67,10 @@ _PORT = {"type": "integer", "description": "Chrome debug port. Give it to browse
                                           "tab tools find the port from the tab. Never 9222/9223 unless the "
                                           "human said so: those are people's logged-in profiles."}
 _TAB = {"type": "string", "description": "tab id returned by browser_open"}
-_WHICH = {"role": {"type": "string"}, "name": {"type": "string"},
+_PACE = {"type": "string", "enum": ["human", "quick"],
+         "description": "human (default): moves and types like a person. quick: same random point and safety "
+                        "rules, but jumps to it and types fast; for bulk work nobody watches"}
+_WHICH = {"role": {"type": "string"}, "name": {"type": "string"}, "pace": _PACE,
           "index": {"type": "integer", "description": "0-based, when several controls share role and name "
                                                       "(results report same_name_controls)"},
           "css": {"type": "string", "description": "use role+name when you can; css as a fallback"}}
@@ -88,15 +91,32 @@ TOOLS += [
                     "'no control' answers cost nothing.",
      "inputSchema": {"type": "object", "properties": {"url": {"type": "string"},
                                                       "goal": {"type": "string", "description": "what you are trying to do, in a few words; past routes for it come back, and this attempt is remembered under it"},
-                                                      "until": {"type": "string", "description": "JS, truthy when ready"},
+"wait_css": {"type": "string", "description": "wait until this CSS selector exists"},
+                                                      "wait_text": {"type": "string", "description": "wait until the page text contains this"},
                                                       "port": _PORT}, "required": ["url"]}},
     {"name": "browser_goto",
      "description": "Go to a URL in the same tab (same episode). Refused on blocked sites.",
      "inputSchema": {"type": "object", "properties": {"tab": _TAB, "url": {"type": "string"},
-                                                      "until": {"type": "string"}}, "required": ["tab", "url"]}},
+                                                      "wait_css": {"type": "string", "description": "wait until this CSS selector exists"},
+                                                      "wait_text": {"type": "string", "description": "wait until the page text contains this"},}, "required": ["tab", "url"]}},
     {"name": "browser_back",
      "description": "Go back one page in the tab's history. moved=false means there was nowhere to go back to.",
      "inputSchema": {"type": "object", "properties": {"tab": _TAB}, "required": ["tab"]}},
+    {"name": "browser_run",
+     "description": "Several steps in ONE call (one round trip instead of many; use it whenever you already "
+                    "know the next steps). Runs in order in the tab, stops at the first error and returns what "
+                    "it got so far. Every step is recorded and checked like the single tools. Steps: "
+                    "[\"goto\", url] [\"wait_css\", selector] [\"wait_text\", text] "
+                    "[\"read\", mode, find?] [\"click\", role, name, index?] [\"click_css\", selector] "
+                    "[\"type\", role, name, text] [\"type_css\", selector, text] [\"dismiss\"] [\"back\"] "
+                    "[\"sleep\", lo_seconds, hi_seconds].",
+     "inputSchema": {"type": "object", "properties": {"tab": _TAB, "steps": {"type": "array", "items": {"type": "array"}},
+                                                      "pace": _PACE}, "required": ["tab", "steps"]}},
+    {"name": "browser_wait",
+     "description": "Wait until a CSS selector exists or the page text contains something.",
+     "inputSchema": {"type": "object", "properties": {"tab": _TAB, "wait_css": {"type": "string"},
+                                                      "wait_text": {"type": "string"}, "timeout": {"type": "number"}},
+                     "required": ["tab"]}},
     {"name": "browser_dismiss",
      "description": "Close popups and overlays covering the page (presses visible 닫기/close/× and "
                     "'do not show today' controls, one after another). Use it when a click reports 'covered'.",
@@ -247,19 +267,32 @@ def _remember_tab(tid: str, port: int | None = None, add: bool = True) -> None:
         f.unlink()
 
 
-def _settle(c, before: str, wait: float = 3.0) -> str:
-    """After an action: if the page is navigating, wait for it to land, then report where it is."""
+def _wait_js(args: dict) -> str | None:
+    """Turn wait_css / wait_text into the expression we evaluate. The agent never sends JS: an
+    'until' expression could click a pay button and walk past every safety rule."""
+    if args.get("wait_css"):
+        return "!!document.querySelector(%s)" % json.dumps(args["wait_css"])
+    if args.get("wait_text"):
+        return "((document.body||{}).innerText||'').includes(%s)" % json.dumps(args["wait_text"])
+    return None
+
+
+def _settle(c, before: str, grace: float = 0.25, wait: float = 5.0) -> str:
+    """After an action: give a navigation a moment to start, wait only while a document is loading,
+    then report where the tab is. A click that changes nothing returns after the grace period
+    (it used to wait the whole timeout: 3 s lost on every click and every typed field)."""
     import time
-    t0 = time.time()
+    time.sleep(grace)
     url = before
+    t0 = time.time()
     while time.time() - t0 < wait:
         try:
             url = c.eval("location.href", timeout=3) or url
-            if url != before and c.eval("document.readyState", timeout=3) == "complete":
+            if c.eval("document.readyState", timeout=3) == "complete":
                 return url
-        except Exception:
+        except Exception:                             # the old document went away mid-navigation
             pass
-        time.sleep(0.15)
+        time.sleep(0.1)
     return url
 
 
@@ -368,7 +401,7 @@ def _browser(name: str, args: dict):
         tid = _cdp.new_tab("about:blank", port)["id"]
         _remember_tab(tid, port)
         with _cdp.CDP(port, tid) as c:
-            r = c.goto(args["url"], args.get("until"))
+            r = c.goto(args["url"], _wait_js(args))
             try:
                 _atlas.guard(r["url"])            # a redirect may land on a blocked host
             except _atlas.Blocked:
@@ -395,7 +428,7 @@ def _browser(name: str, args: dict):
             return {"__image__": c.call("Page.captureScreenshot", {"format": "png"})["data"]}
         if name == "browser_goto":
             _atlas.guard(args["url"])
-            r = c.goto(args["url"], args.get("until"))
+            r = c.goto(args["url"], _wait_js(args))
             _atlas.guard(r["url"])
             return r
         if name == "browser_back":
@@ -405,7 +438,12 @@ def _browser(name: str, args: dict):
             return {"url": after, "moved": after != before}
         if name == "browser_dismiss":
             return _dismiss(c)
-        p = Pointer(c)
+        if name == "browser_wait":
+            js = _wait_js(args)
+            if not js:
+                raise ValueError("give wait_css or wait_text")
+            return {"met": bool(c.until(js, timeout=float(args.get("timeout", 15)))), "url": c.eval("location.href")}
+        p = Pointer(c, pace=args.get("pace", "human"))
         which = (args.get("role"), args.get("name"))
         idx = args.get("index")
         before = c.eval("location.href") or ""
@@ -494,6 +532,45 @@ def _map_hint(role: str, name: str, url: str) -> str:
     return ""
 
 
+def _run(args: dict) -> dict:
+    import random as _r
+    import time
+    tab, pace = args["tab"], args.get("pace", "human")
+    out = []
+    for i, st in enumerate(args.get("steps") or []):
+        op, a = (st[0], st[1:]) if isinstance(st, list) and st else ("?", [])
+        try:
+            if op == "sleep":
+                lo = float(a[0]) if a else 1.0
+                secs = _r.uniform(lo, float(a[1])) if len(a) > 1 else lo
+                time.sleep(min(secs, 30))
+                res = round(secs, 2)
+            else:
+                name, sub = {
+                    "goto": ("browser_goto", lambda: {"url": a[0], **({"wait_css": a[1]} if len(a) > 1 else {})}),
+                    "wait_css": ("browser_wait", lambda: {"wait_css": a[0]}),
+                    "wait_text": ("browser_wait", lambda: {"wait_text": a[0]}),
+                    "read": ("browser_read", lambda: {"mode": a[0] if a else "text",
+                                                      **({"find": a[1]} if len(a) > 1 else {})}),
+                    "click": ("browser_click", lambda: {"role": a[0], "name": a[1],
+                                                        **({"index": a[2]} if len(a) > 2 else {})}),
+                    "click_css": ("browser_click", lambda: {"css": a[0]}),
+                    "type": ("browser_type", lambda: {"role": a[0], "name": a[1], "text": a[2]}),
+                    "type_css": ("browser_type", lambda: {"css": a[0], "text": a[1]}),
+                    "dismiss": ("browser_dismiss", lambda: {}),
+                    "back": ("browser_back", lambda: {}),
+                }[op]
+                res = _tracked(name, {"tab": tab, "pace": pace, **sub()})
+            out.append({"step": i, "op": op, "ok": True, "result": res})
+        except KeyError:
+            out.append({"step": i, "op": op, "ok": False, "error": f"unknown step {op!r}"})
+            break
+        except Exception as e:
+            out.append({"step": i, "op": op, "ok": False, "error": f"{type(e).__name__}: {e}"[:600]})
+            break
+    return {"steps": out, "completed": sum(1 for x in out if x["ok"]), "of": len(args.get("steps") or [])}
+
+
 def _tracked(name: str, args: dict):
     REC.sweep()
     if name == "browser_open":
@@ -512,6 +589,8 @@ def _tracked(name: str, args: dict):
         if not args.get("goal"):
             r["hint"] = "pass goal= to browser_open so this attempt is remembered under what you were doing"
         return r
+    if name == "browser_run":
+        return _run(args)
     if name == "browser_login":
         r = _browser(name, args)
         REC.start(r["tab"], r.get("url", "") or "about:blank", f"login {args['site']}")

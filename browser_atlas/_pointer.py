@@ -122,12 +122,22 @@ def _save_state(st: dict) -> None:
         pass
 
 
+QUICK_TYPING = TypingModel(interval_ms=25, hold_ms=15, spread=0.1, space_pause_ms=0,
+                           punctuation_pause_ms=0, word_pause_ms=0)
+
+
 class Pointer:
-    def __init__(self, cdp, model: Model | None = None, seed: int | None = None, hz: int = 125):
+    """`pace="human"` (default) moves and types like a person. `pace="quick"` keeps the random
+    verified point, the events and every safety rule, but jumps to the point and types fast:
+    for bulk reading where nobody is watching the cursor."""
+
+    def __init__(self, cdp, model: Model | None = None, seed: int | None = None, hz: int = 125,
+                 pace: str = "human"):
         self.c = cdp
         self.model = model if model is not None else Model.load()
         self.rng = random.Random(seed)
         self.hz = hz
+        self.pace = pace
         self._tid = cdp.target.get("id", "")
         xy = _load_state().get(self._tid)
         self.pos: tuple[float, float] | None = tuple(xy) if xy else None
@@ -214,7 +224,8 @@ class Pointer:
                 self.c.call("Input.dispatchKeyEvent", {"type": kind, **params, "modifiers": modifiers})
             for method, params in key_events("Backspace"):
                 self.c.call(method, params)
-        plan = (model if model is not None else TypingModel()).plan(text, self.rng)
+        default = QUICK_TYPING if self.pace == "quick" else TypingModel()
+        plan = (model if model is not None else default).plan(text, self.rng)
         start = _T()
         for due, method, params in plan:
             time.sleep(max(0.0, due / 1000 - (_T() - start)))
@@ -244,6 +255,12 @@ class Pointer:
         _save_state(st)
 
     def _move(self, start, end, width: float) -> dict:
+        if self.pace == "quick":                        # one move event straight to the point
+            self.c.call("Input.dispatchMouseEvent",
+                        {"type": "mouseMoved", "x": end[0], "y": end[1], "button": "none", "buttons": 0})
+            self.pos = (float(end[0]), float(end[1]))
+            self._remember()
+            return {"points": 1, "planned_ms": 0, "moved_ms": 0}
         path = self.model.plan(start, end, width=width, hz=self.hz, rng=self.rng)
         ts = [p[0] for p in path]
         xs = [p[1] for p in path]
@@ -283,8 +300,9 @@ class Pointer:
         start = self._start(info)
         end = (info["x"], info["y"])
         r = self._move(start, end, min(info["w"], info["h"]))
-        dwell = self.model.sample_dwell(self.rng)
-        hold = self.model.sample_hold(self.rng)
+        quick = self.pace == "quick"
+        dwell = self.rng.uniform(15, 40) if quick else self.model.sample_dwell(self.rng)
+        hold = self.rng.uniform(20, 45) if quick else self.model.sample_hold(self.rng)
         time.sleep(dwell / 1000)
         mask = {"left": 1, "right": 2, "middle": 4}[button]
         self.c.call("Input.dispatchMouseEvent", {"type": "mousePressed", "x": end[0], "y": end[1],
@@ -294,4 +312,5 @@ class Pointer:
                                                  "button": button, "buttons": 0, "clickCount": 1})
         return {"x": round(end[0], 1), "y": round(end[1], 1), "from": [round(v, 1) for v in start],
                 "size": [round(info["w"]), round(info["h"])], "dwell_ms": round(dwell),
-                "hold_ms": round(hold), "style": "learned" if self.model.learned else "synthetic", **r}
+                "hold_ms": round(hold), "style": "quick" if quick else ("learned" if self.model.learned else "synthetic"),
+                **r}
