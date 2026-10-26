@@ -247,6 +247,7 @@ class Recorder:
                             "auto_outcome": auto, "steps": len(ep["steps"]),
                             "errors": [s["error"] for s in ep["steps"] if s["error"]][:5],
                             "searches": ep["searches"][:5], "host": ep["host"], "robots": ep.get("robots"),
+                            "login": any(s["tool"] == "browser_login" for s in ep["steps"]),
                             "missing": ep["missing"][:20], "trail": trail(ep)}, ensure_ascii=False)
         rid = _memory.record(goal, ep["site"], ep["route"], outcome,
                              quality, "self", round(ep["last"] - ep["started"], 1), notes)

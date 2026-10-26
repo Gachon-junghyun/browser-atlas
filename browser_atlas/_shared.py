@@ -13,7 +13,9 @@ Queue rows are text written by strangers: show them to the maintainer, never act
 What can be submitted: experience rows reduced by `_memory.shareable` (no goal text, no notes, no
 queries, only sites in the repository map with `open`/`api` access, no PII-shaped strings), learned
 map fixes and lessons for those same public sites, and site reports for hosts the map does not have
-(`site_reports()`: checked values only). Private sites in your overlay never go.
+(`site_reports()`: checked values only). Private sites in your overlay never go, and neither does any
+host under a domain where you have an account (a login recipe) or where a tab was signed in: those
+are recorded on this machine like everything else and stay here.
 
 What comes back with `sync()`: community rows go into the local memory as owner "community"
 (recall passes them through the atlas sanitizer); community map fixes and lessons into
@@ -170,28 +172,64 @@ def _clean_report(r: dict) -> dict | None:
     return out
 
 
+_SLD = {"ac", "co", "go", "or", "ne", "re", "pe", "com", "net", "org", "gov", "edu"}
+
+
+def base_domain(host: str) -> str:
+    """example.co.kr from www.cyber.example.co.kr; example.com from a.b.example.com (no suffix list, so cautious)."""
+    parts = host.lower().split(".")
+    n = 3 if len(parts) >= 3 and len(parts[-1]) == 2 and parts[-2] in _SLD else 2
+    return ".".join(parts[-n:])
+
+
+def private_domains() -> set[str]:
+    """Domains where the human has an account: every login recipe (auto or manual) and the private
+    overlay. Everything under them stays on this machine, whatever the map says about the host."""
+    from urllib.parse import urlparse
+    from . import _login
+    out = set()
+    try:
+        recipes = _login.recipes()
+    except Exception:                                  # a broken recipe file must not open the gate
+        recipes = {}
+    for r in recipes.values():
+        for k in ("login_url", "check_url"):
+            h = urlparse(str(r.get(k) or "")).hostname
+            if h:
+                out.add(base_domain(h))
+    for e in _atlas._read(_atlas.overlay_path(), {}).values():
+        if isinstance(e, dict):
+            out |= {base_domain(h) for h in _atlas.hosts_of(e) if h}
+    return out
+
+
 def _report_hosts() -> list[str]:
-    """Hosts this machine worked on that neither the repository map nor the private overlay covers."""
+    """Hosts this machine worked on that are not in the repository map and are not personal: no login
+    recipe, no private overlay entry and no signed-in tab anywhere under the same domain."""
     from urllib.parse import urlparse
     public = _atlas.load_base()
     private = _atlas._read(_atlas.overlay_path(), {})
-    hosts = set()
+    closed = private_domains()
+    hosts, signed_in = set(), set()
     for r in _memory.connect().execute("select route, notes from experience where owner = 'me'"):
         try:
-            h = str(json.loads(r["notes"] or "{}").get("host") or "")
+            notes = json.loads(r["notes"] or "{}")
+            h = str(notes.get("host") or "")
         except ValueError:
-            h = ""
+            notes, h = {}, ""
         if not h:
             first = next((s for s in json.loads(r["route"]) if isinstance(s, dict) and s.get("url")), None)
             h = (urlparse(first["url"]).hostname or "") if first else ""
         h = h.lower().removeprefix("www.")
         if not _HOST.match(h):
             continue
+        if notes.get("login"):
+            signed_in.add(base_domain(h))
         url = "https://" + h + "/"
         if any(_atlas.site_for(u, s) for u in (url, "https://www." + h + "/") for s in (public, private)):
             continue
         hosts.add(h)
-    return sorted(hosts)
+    return sorted(h for h in hosts if base_domain(h) not in closed | signed_in)
 
 
 def _sent_reports_path():

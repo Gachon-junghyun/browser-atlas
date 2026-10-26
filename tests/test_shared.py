@@ -11,6 +11,7 @@ class SharedTest(unittest.TestCase):
     def setUp(self):
         self.home = tempfile.mkdtemp()
         os.environ["BROWSER_ATLAS_HOME"] = self.home
+        os.environ["BROWSER_ATLAS_CREDS"] = tempfile.mkdtemp()   # not this machine's login recipes
         base = {"shop": {"label": "Example Shop 검색", "access": "open", "hosts": ["shop.example.com"],
                          "pages": {"search": {"url": "https://shop.example.com/search", "controls": [
                              {"role": "button", "name": "Search", "where": "", "act": "search", "does": ""}]}}},
@@ -26,6 +27,7 @@ class SharedTest(unittest.TestCase):
 
     def tearDown(self):
         os.environ.pop("BROWSER_ATLAS_MAP", None)
+        os.environ.pop("BROWSER_ATLAS_CREDS", None)
 
     def seed(self):
         _memory.record("shop 검색 lamp", "shop", [{"url": "https://shop.example.com/search"},
@@ -98,6 +100,26 @@ class SharedTest(unittest.TestCase):
         self.assertEqual([x["kind"] for x in sent[1]], ["site_report"])            # sent apart from the rest
         self.assertEqual(sent[1][0]["site"], "docs_newsite_example_org")
         self.assertEqual(_shared.preview()["site_reports"], [])                    # the same report goes once
+
+    def test_personal_sites_never_become_reports(self):
+        self.seed()
+        self.unmapped_episode()                                  # docs.newsite.example.org
+        from browser_atlas import _login
+        recipe = {"portal": {"mode": "auto", "login_url": "https://portal.newsite.example.org/login", "steps": []}}
+        with patch.object(_login, "recipes", return_value=recipe):
+            self.assertEqual(_shared.preview()["site_reports"], [])        # same domain as a login recipe
+        self.assertEqual(len(_shared.preview()["site_reports"]), 1)
+        rec = _episodes.Recorder(recover=False)                            # a signed-in tab on another domain
+        rec.start("t2", "https://cyber.school.example.ac.kr/", "login school")
+        rec.step("t2", "browser_login", True, url="https://cyber.school.example.ac.kr/")
+        rec.step("t2", "browser_read", True, result={"untrusted_page_content": "my courses"})
+        rec.finish("t2", said="success")
+        rec.start("t3", "https://lms.school.example.ac.kr/calendar", "deadlines")
+        rec.step("t3", "browser_read", True, result={"untrusted_page_content": "due today"})
+        rec.finish("t3", said="success")
+        hosts = [r["host"] for r in _shared.preview()["site_reports"]]
+        self.assertEqual(hosts, ["docs.newsite.example.org"])            # nothing under school.example.ac.kr
+        self.assertEqual(_memory.host_digest("lms.school.example.ac.kr")["attempts"], 1)   # still kept locally
 
     def test_a_server_without_site_reports_still_takes_the_rest(self):
         self.seed()
