@@ -96,6 +96,39 @@ class KeysTest(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "input did not stick: expected 'abc', got 'wrong'"):
                 p.type("input", "abc")
 
+    def test_inline_autocomplete_selection_is_dropped(self):
+        # GitHub topics: the suggestion for "claude-cod" lands after the last key and selects our "e"
+        class InlineCDP(FakeCDP):
+            def __init__(self, states):
+                super().__init__("")
+                self.states = states
+
+            def eval(self, js):
+                if "aria-autocomplete" in js:
+                    return self.states.pop(0) if len(self.states) > 1 else self.states[0]
+                return self.states[-1][0]
+
+        cases = (
+            ([["claude-code", 11, 11, "both"], ["claude-code", 10, 11, "both"], ["claude-code", 11, 11, "both"]],
+             ["Delete", "e"]),                                   # our own last letter was selected: retype it
+            ([["claude-code", 11, 11, "both"], ["claude-code-plugin", 11, 18, "both"], ["claude-code", 11, 11, "both"]],
+             ["Delete"]),                                        # an extra suggestion: just drop it
+            ([["claude-code", 11, 11, "list"]], []),             # no inline completion: nothing extra
+        )
+        for states, expected in cases:
+            c = InlineCDP(states)
+            inline = states[0][3] == "both"
+            with patch("browser_atlas._pointer._load_state", return_value={}):
+                p = Pointer(c, model=Model())
+            with patch.object(p, "click") as click, patch("browser_atlas._pointer.time.sleep"), \
+                    patch.object(p, "target", return_value={"search": False, "name": "Add topics"}):
+                p.type("input", "claude-code")
+            downs = [params["key"] for method, params in c.calls
+                     if method == "Input.dispatchKeyEvent" and params["type"] == "keyDown"]
+            self.assertEqual(downs[len("claude-code"):], expected)
+            # inline widgets: prefix, click back in, last letter (keeps the widget's copy in step)
+            self.assertEqual(click.call_count, 2 if inline else 1)
+
 
 if __name__ == "__main__":
     unittest.main()

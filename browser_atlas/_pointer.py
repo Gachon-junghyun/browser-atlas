@@ -124,6 +124,7 @@ def _save_state(st: dict) -> None:
 
 QUICK_TYPING = TypingModel(interval_ms=25, hold_ms=15, spread=0.1, space_pause_ms=0,
                            punctuation_pause_ms=0, word_pause_ms=0)
+INLINE_SETTLE_S = 0.8          # inline autocomplete suggestions arrive after a fetch; give them time to land
 
 
 class Pointer:
@@ -224,12 +225,23 @@ class Pointer:
                 self.c.call("Input.dispatchKeyEvent", {"type": kind, **params, "modifiers": modifiers})
             for method, params in key_events("Backspace"):
                 self.c.call(method, params)
-        default = QUICK_TYPING if self.pace == "quick" else TypingModel()
-        plan = (model if model is not None else default).plan(text, self.rng)
-        start = _T()
-        for due, method, params in plan:
-            time.sleep(max(0.0, due / 1000 - (_T() - start)))
-            self.c.call(method, params)
+        typing = model if model is not None else (QUICK_TYPING if self.pace == "quick" else TypingModel())
+        plan = typing.plan(text, self.rng)
+        sel = self._selection(css) if "\n" not in text and "\r" not in text else None
+        inline = bool(sel) and sel[3] in ("inline", "both")
+        if inline and len(text) > 1:
+            # typed straight through, the widget's own copy of "what was typed" ends one letter short of the
+            # box, and the next click or comma puts that copy back (GitHub topics: 'web-crawler' -> 'web-crawle').
+            # Typing the prefix, letting the suggestion land, clicking back in and typing the last letter is
+            # what a person does and what keeps the two in step (2026-10-26)
+            self._play(typing.plan(text[:-1], self.rng))
+            time.sleep(INLINE_SETTLE_S)
+            self.click(css)
+            self._play(typing.plan(text[-1], self.rng))
+        else:
+            self._play(plan)
+        if inline:
+            self._settle_inline(css, text, typing)
         value = self.c.eval("(() => { const e = document.querySelector(" + json.dumps(css) +
                             "); return e ? (e.matches('input, textarea') ? e.value : "
                             "e.isContentEditable ? e.innerText : null) : null; })()")
@@ -242,6 +254,40 @@ class Pointer:
             raise RuntimeError(f"input did not stick: expected {text!r}, got {value!r}")
         return {"value": "<hidden>" if secret else value, "events": len(plan),
                 "search": bool(field.get("search")) and not secret, "field": field.get("name", "")}
+
+    def _play(self, plan) -> None:
+        start = _T()
+        for due, method, params in plan:
+            time.sleep(max(0.0, due / 1000 - (_T() - start)))
+            self.c.call(method, params)
+
+    def _selection(self, css):
+        r = self.c.eval("(() => { const e = document.querySelector(" + json.dumps(css) + "); "
+                        "if (!e || !e.matches('input, textarea')) return null; let s = null, f = null; "
+                        "try { s = e.selectionStart; f = e.selectionEnd; } catch (x) {} "
+                        "return [e.value, s, f, e.getAttribute('aria-autocomplete') || '']; })()")
+        return r if isinstance(r, list) and len(r) == 4 else None
+
+    def _settle_inline(self, css, text, typing) -> None:
+        """Inline autocomplete (aria-autocomplete inline/both, e.g. GitHub topics) fills in the rest of
+        a suggestion and selects it, often after the last key, sometimes over our own last letters.
+        Committing then keeps only the unselected part, so 'claude-code' became 'claude-cod'.
+        Wait for the suggestion, drop the selected tail and retype whatever of ours it covered."""
+        for _ in range(3):
+            time.sleep(INLINE_SETTLE_S)
+            sel = self._selection(css)
+            if not sel:
+                return
+            value, start, end, _ = sel
+            if not isinstance(value, str) or start is None or end is None or start >= end or end != len(value):
+                return
+            typed = value[:start]
+            for method, params in key_events("Delete"):
+                self.c.call(method, params)
+            covered = next(j for j in range(len(text), -1, -1) if typed.endswith(text[:j]))
+            if covered == len(text):
+                continue
+            self._play(typing.plan(text[covered:], self.rng))
 
     def _start(self, info: dict) -> tuple[float, float]:
         if self.pos is not None:

@@ -45,7 +45,7 @@ def compositions(char: str) -> list[str]:
 
 def key_events(char: str) -> list[tuple[str, dict]]:
     special = {"\n": ("Enter", 13), "Enter": ("Enter", 13), "\t": ("Tab", 9),
-               "Tab": ("Tab", 9), "Backspace": ("Backspace", 8)}
+               "Tab": ("Tab", 9), "Backspace": ("Backspace", 8), "Delete": ("Delete", 46)}
     shift = char in SHIFTED or (char.isupper() and len(char) == 1)
     base = SHIFTED.get(char, char.lower())
     if char in special:
