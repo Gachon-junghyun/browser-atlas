@@ -107,6 +107,17 @@ class Wave2(unittest.TestCase):
         r = m._read(C(), {"mode": "text", "find": "stardew"})
         self.assertEqual(len(r["untrusted_page_content"]), 1)
 
+    def test_read_find_on_a_word_in_every_row_is_cut_not_dropped(self):
+        from browser_atlas import mcp_server as m
+
+        class C:
+            def eval(self, js, timeout=30):
+                return "u" if js == "location.href" else "10-Q filed 2026-08-26\n" * 300
+
+        r = m._read(C(), {"mode": "text", "find": "10-Q", "max_chars": 1200})
+        self.assertTrue(r["truncated"])
+        self.assertTrue(r["untrusted_page_content"][0].startswith("10-Q filed 2026-08-26"))
+
     def test_atlas_site_by_host_and_hint(self):
         from browser_atlas import mcp_server as m
         self.assertEqual(m._site("poly.example")["site"], "poly")

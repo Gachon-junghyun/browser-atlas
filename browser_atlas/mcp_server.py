@@ -15,6 +15,7 @@ from __future__ import annotations
 import atexit
 import json
 import os
+import re
 import sys
 from urllib.parse import urlparse
 
@@ -134,8 +135,9 @@ TOOLS += [
                     "[\"read\", mode, find?] [\"click\", role, name, index?] [\"click_css\", selector] "
                     "[\"type\", role, name, text] [\"type_css\", selector, text] [\"dismiss\"] [\"back\"] "
                     "[\"sleep\", lo_seconds, hi_seconds]. "
-                    "Planned and repeated steps: [\"go\", target] walks the local page graph to a page matching "
-                    "target (see browser_plan); [\"each_link\", find, [steps], max?] runs the steps once per link "
+                    "Planned and repeated steps: [\"go\", target, wait_text?] walks the local page graph to a page "
+                    "matching target (see browser_plan), fails if the tab lands elsewhere, then waits for wait_text "
+                    "(pages that draw their content late show an empty frame first); [\"each_link\", find, [steps], max?] runs the steps once per link "
                     "on this page whose text or URL contains find (same host only, at most 30), with {url} in the "
                     "steps replaced by that link; [\"if_text\", text, [steps]] runs the steps only if the page "
                     "text contains text.",
@@ -196,7 +198,11 @@ TOOLS += [
      "description": "Steps to a page, from this machine's local page graph (every address, button and link met "
                     "before, on any host, mapped or not). target: a URL, a path, or words from the page's title, "
                     "a link text or a control name. Returns steps for browser_run (or use [\"go\", target] inside "
-                    "browser_run). found=false lists the pages this host has.",
+                    "browser_run). A full URL is a goto to it, on any host. From a page about one thing "
+                    "(/stock/AMD/price) pages learned about another (/stock/NVDA/finance) are planned for this one "
+                    "(rebased); a search page is planned with the target words (searched). From a page about no "
+                    "thing (/news) the target must name it ('JPM quarterly'), else ambiguous lists the candidates "
+                    "and go refuses. found=false lists the pages this host has.",
      "inputSchema": {"type": "object", "properties": {"target": {"type": "string"}, "tab": _TAB,
                                                       "url": {"type": "string", "description": "start here instead of a tab"}},
                      "required": ["target"]}},
@@ -454,10 +460,15 @@ def _read(c, args: dict) -> dict:
     else:                                             # lists: keep whole items up to the budget
         kept, size = [], 0
         for item in data:
-            size += len(json.dumps(item, ensure_ascii=False))
-            if size > limit:
+            n = len(json.dumps(item, ensure_ascii=False))
+            if size + n > limit:
                 truncated = True
+                if isinstance(item, str) and limit - size > 100:
+                    # a find window too long for the budget is cut, not dropped (observed: a word on every
+                    # row merged the windows into one page-long item, and the answer came back empty)
+                    kept.append(item[:limit - size])
                 break
+            size += n
             kept.append(item)
         data = kept
     out = {"url": c.eval("location.href"), "untrusted_page_content": data, "truncated": truncated}
@@ -745,15 +756,34 @@ def _here(tab: str) -> str:
 def _run(args: dict) -> dict:
     out: list = []
     tab, pace = args["tab"], args.get("pace", "human")
-    _steps(tab, pace, args.get("steps") or [], out, "")
-    return {"steps": out, "completed": sum(1 for x in out if x["ok"]), "of": len(args.get("steps") or [])}
+    steps = args.get("steps") or []
+    done = _steps(tab, pace, steps, out, "")
+    # top-level steps finished: a go whose planned clicks failed is not finished (observed: "11 of 11" on a stop)
+    failed = next((str(x["step"]).split(".")[0] for x in reversed(out) if not x["ok"]), None)
+    return {"steps": out, "completed": len(steps) if done or failed is None else int(failed), "of": len(steps)}
 
 
-def _steps(tab: str, pace: str, steps: list, out: list, prefix: str, depth: int = 0) -> bool:
+def _arrived(tab: str, p: dict) -> bool:
+    """Whether the tab is on the page a plan was for. A late client-side navigation gets a moment."""
+    import time
+    for attempt in range(2):
+        here = _here(tab)
+        if _graph.host_of(here) == p["host"] and _graph.path_of(here) == p["page"]:
+            return True
+        if attempt == 0:
+            time.sleep(1.5)
+            try:
+                _tracked("browser_wait", {"tab": tab, "wait_css": "body", "timeout": 2})   # refreshes where the tab is
+            except Exception:
+                return False
+    return False
+
+
+def _steps(tab: str, pace: str, steps: list, out: list, prefix: str, depth: int = 0, first: int = 0) -> bool:
     """Run steps in order; False at the first error (already in out). Nested steps report as 2.0, 2.1..."""
     import random as _r
     import time
-    for i, st in enumerate(steps):
+    for i, st in enumerate(steps, first):
         op, a = (st[0], st[1:]) if isinstance(st, list) and st else ("?", [])
         label = f"{prefix}{i}" if prefix else i
         try:
@@ -764,10 +794,32 @@ def _steps(tab: str, pace: str, steps: list, out: list, prefix: str, depth: int 
                     p = _graph.plan(_here(tab), str(a[0]))
                     if not p.get("found"):
                         raise LookupError(json.dumps({k: p[k] for k in p if k != "found"}, ensure_ascii=False)[:500])
+                    if p.get("ambiguous"):           # a wrong thing's page reads like the right one: ask, never guess
+                        raise LookupError(json.dumps({"target": p["target"], "ambiguous": p["ambiguous"]},
+                                                     ensure_ascii=False)[:500])
                     out.append({"step": label, "op": op, "ok": True,
-                                "result": {"page": p["page"], "title": p.get("title"), "planned": p["steps"]}})
-                    if not _steps(tab, pace, p["steps"], out, f"{label}.", depth + 1):
-                        return False
+                                "result": {"page": p["page"], "title": p.get("title"), "planned": p["steps"],
+                                           **{k: p[k] for k in ("rebased", "searched") if k in p}}})
+                    src = ""
+                    for k, sub_step in enumerate(p["steps"]):
+                        src = _here(tab)
+                        if not _steps(tab, pace, [sub_step], out, f"{label}.", depth + 1, first=k):
+                            # right after a goto the page may still be drawing (a loader on top, the
+                            # control not there yet; observed on a finance site): one more try
+                            if sub_step[0] != "click" or not re.search(r"covered|no control", out[-1].get("error", "")):
+                                return False
+                            out.pop()
+                            time.sleep(2.0)
+                            if not _steps(tab, pace, [sub_step], out, f"{label}.", depth + 1, first=k):
+                                return False
+                    if not _arrived(tab, p):
+                        last = p["steps"][-1] if p["steps"] else None
+                        if last and last[0] == "click":
+                            _graph.miss(src, last[1:], p["page"])   # that click goes elsewhere; plan around it next time
+                        raise LookupError(f"landed on {_here(tab)}, planned {p['page']} on {p['host']}")
+                    if len(a) > 1 and a[1]:
+                        w = _tracked("browser_wait", {"tab": tab, "wait_text": str(a[1])})
+                        out.append({"step": f"{label}.wait", "op": "wait_text", "ok": True, "result": w})
                     continue
                 if op == "if_text":
                     r = _tracked("browser_read", {"tab": tab, "mode": "text", "find": str(a[0])})

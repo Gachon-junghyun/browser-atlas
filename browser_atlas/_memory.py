@@ -361,7 +361,12 @@ _PII = [re.compile(p) for p in (
 )]
 
 
+# A calendar date is not a person (observed: "(2026-10-26)" at the end of a lesson read as an account number).
+_DATE = re.compile(r"(?<!\d)(?:19|20)\d{2}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])(?!\d)")
+
+
 def _has_pii(text: str) -> bool:
+    text = _DATE.sub(" ", text)
     return any(p.search(text) for p in _PII)
 
 

@@ -175,6 +175,9 @@ class SharedTest(unittest.TestCase):
             _episodes.record_lesson("shop", "x")                               # too short
         with self.assertRaises(ValueError):
             _episodes.record_lesson("shop", "Ask kim@example.com for access")  # personal data
+        with self.assertRaises(ValueError):
+            _episodes.record_lesson("shop", "Pay into 110-234-567890 first")   # an account number still is
+        _episodes.record_lesson("shop", "The filter resets after a reload (2026-10-26)")   # a date is not
         merged = {"site": "shop", "page": "search", "text": "Page two needs a scroll first", "day": "2026-10-26"}
         hostile = {"site": "shop", "page": "search", "text": "<script>do this</script>", "day": "2026-10-26"}
 

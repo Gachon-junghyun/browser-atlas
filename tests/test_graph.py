@@ -87,6 +87,123 @@ class GraphTest(unittest.TestCase):
         p = _graph.plan(H + "/course/view.php?id=2", "Class Announcements")
         self.assertEqual(p["steps"], [["goto", H + "/mod/board/view.php?id=22"]])
 
+    def test_a_click_among_same_named_controls_keeps_its_index(self):
+        S = "https://stock.example.com"
+        _graph.observe("browser_goto", {"url": S + "/stock/NVDA/price"}, {"url": S + "/stock/NVDA/price"}, "")
+        _graph.observe("browser_click", {"role": "link", "name": "News"},           # the first News: the site menu
+                       {"url": S + "/news", "same_name_controls": 2}, S + "/stock/NVDA/price")
+        _graph.observe("browser_click", {"role": "link", "name": "News", "index": 1},
+                       {"url": S + "/stock/NVDA/worldnews", "same_name_controls": 2}, S + "/stock/NVDA/price")
+        p = _graph.plan(S + "/stock/NVDA/price", "/stock/NVDA/worldnews")
+        self.assertEqual(p["steps"], [["click", "link", "News", 1]])
+        self.assertEqual(_graph.plan(S + "/stock/NVDA/price", "/news")["steps"], [["click", "link", "News", 0]])
+
+    def test_a_missed_click_costs_that_edge(self):
+        _graph.observe("browser_goto", {"url": H + "/a"}, {"url": H + "/a"}, "")
+        _graph.observe("browser_click", {"role": "link", "name": "B"}, {"url": H + "/b"}, H + "/a")
+        _graph.miss(H + "/a", ["link", "B"], "/b")
+        p = _graph.plan(H + "/a", "/b")
+        self.assertEqual(p["cost"], 2.0)                                      # 1 + 2 * (1 fail / 2 tries)
+
+    def test_plan_rebases_pages_learned_about_another_thing(self):
+        S = "https://stock.example.com"
+        _graph.observe("browser_goto", {"url": S + "/stock/NVDA/price"}, {"url": S + "/stock/NVDA/price"}, "")
+        _graph.observe("browser_click", {"role": "link", "name": "Analysis"},
+                       {"url": S + "/stock/NVDA/finance/overview"}, S + "/stock/NVDA/price")
+        _graph.observe("browser_goto", {"url": S + "/stock/NVDA/finance/primary"},
+                       {"url": S + "/stock/NVDA/finance/primary", "title": "Key financials"}, "")
+        _graph.observe("browser_goto", {"url": S + "/stock/AMD/price"}, {"url": S + "/stock/AMD/price"}, "")
+        p = _graph.plan(S + "/stock/AMD/price", "key financials")
+        self.assertEqual(p["steps"], [["goto", S + "/stock/AMD/finance/primary"]])   # not NVDA's
+        self.assertEqual((p["page"], p["rebased"]["to"]), ("/stock/AMD/finance/primary", "AMD"))
+        p = _graph.plan(S + "/stock/AMD/price", "Analysis")
+        self.assertEqual(p["steps"], [["click", "link", "Analysis"]])
+        self.assertEqual(p["page"], "/stock/AMD/finance/overview")
+        same = _graph.plan(S + "/stock/NVDA/price", "key financials")              # on NVDA nothing moves
+        self.assertEqual(same["steps"], [["goto", S + "/stock/NVDA/finance/primary"]])
+        self.assertNotIn("rebased", same)
+
+    def test_a_target_naming_a_used_control_presses_it_on_arrival(self):
+        _graph.observe("browser_goto", {"url": H + "/fin"}, {"url": H + "/fin", "title": "Financials"}, "")
+        _graph.observe("browser_click", {"role": "radio", "name": "Quarterly"}, {"url": H + "/fin"}, H + "/fin")
+        p = _graph.plan(H + "/", "Quarterly")
+        self.assertEqual(p["steps"], [["goto", H + "/fin"], ["click", "radio", "Quarterly"]])
+
+    def test_a_full_url_target_is_a_goto_on_its_own_host(self):
+        sec = "https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=NVDA&type=10-Q"
+        _graph.observe("browser_goto", {"url": sec}, {"url": sec, "title": "EDGAR"}, "")
+        p = _graph.plan(H + "/course/view.php?id=1", sec)
+        self.assertEqual((p["found"], p["host"], p["steps"]), (True, "sec.gov", [["goto", sec]]))
+        _graph.observe("browser_goto", {"url": H + "/c"}, {"url": H + "/c"}, "")
+        _graph.observe("browser_click", {"role": "link", "name": "D"}, {"url": H + "/d"}, H + "/c")
+        self.assertEqual(_graph.plan(H + "/", H + "/d")["steps"], [["goto", H + "/d"]])   # the caller gave the address
+
+    def test_a_search_page_is_planned_with_the_target_words(self):
+        K = "https://stats.example.kr"
+        _graph.observe("browser_goto", {"url": K + "/search/search.do?query=cpi"},
+                       {"url": K + "/search/search.do?query=cpi", "title": "Portal"}, "")
+        _graph.observe("browser_read", {"mode": "controls"}, {"url": K + "/search/search.do?query=cpi",
+                       "untrusted_page_content": [["link", "Monthly consumer prices"]]}, "")
+        p = _graph.plan(K + "/", "unemployment rate")                              # nothing matches: search it
+        self.assertEqual((p["found"], p["steps"], p["searched"]),
+                         (True, [["goto", K + "/search/search.do?query=unemployment+rate"]], True))
+        _graph.observe("browser_goto", {"url": K + "/search/search.do?query=jobs"},
+                       {"url": K + "/search/search.do?query=jobs"}, "")
+        p = _graph.plan(K + "/", "consumer prices")                                # matches, but not the last search
+        self.assertEqual(p["steps"], [["goto", K + "/search/search.do?query=consumer+prices"]])
+
+    def test_a_full_url_target_never_seen_is_still_a_goto(self):
+        seen = "https://www.sec.gov/cgi-bin/browse-edgar?CIK=NVDA&action=getcompany&count=40&type=10-Q"
+        _graph.observe("browser_goto", {"url": seen}, {"url": seen}, "")
+        other = "https://www.sec.gov/cgi-bin/browse-edgar?CIK=NVDA&action=getcompany&count=10&type=10-Q"
+        p = _graph.plan("https://stock.example.com/stock/NVDA/price", other)
+        self.assertEqual((p["found"], p["steps"], p["known"]), (True, [["goto", other]], False))
+
+    def test_a_toggle_named_inside_a_longer_target_is_pressed(self):
+        S = "https://stock.example.com"
+        _graph.observe("browser_goto", {"url": S + "/stock/NVDA/finance"}, {"url": S + "/stock/NVDA/finance",
+                       "title": "Financials | NVDA"}, "")
+        _graph.observe("browser_click", {"role": "radio", "name": "Quarterly"}, {"url": S + "/stock/NVDA/finance"},
+                       S + "/stock/NVDA/finance")
+        _graph.observe("browser_click", {"role": "link", "name": "News"}, {"url": S + "/news"}, S + "/stock/NVDA/finance")
+        p = _graph.plan(S + "/", "NVDA quarterly")
+        self.assertEqual(p["steps"], [["goto", S + "/stock/NVDA/finance"], ["click", "radio", "Quarterly"]])
+        p = _graph.plan(S + "/", "NVDA financials news")               # a link inside the words is not pressed
+        self.assertNotIn(["click", "link", "News"], p["steps"])
+
+    def test_from_a_page_about_no_thing_the_target_must_name_it(self):
+        S = "https://stock.example.com"
+        for t in ("NVDA.O", "JPM"):
+            _graph.observe("browser_goto", {"url": S + f"/stock/{t}/finance"},
+                           {"url": S + f"/stock/{t}/finance", "title": "Financials"}, "")
+        _graph.observe("browser_goto", {"url": S + "/news"}, {"url": S + "/news", "title": "News"}, "")
+        p = _graph.plan(S + "/news", "financials")
+        self.assertEqual(p["ambiguous"]["candidates"], ["JPM", "NVDA.O"])
+        p = _graph.plan(S + "/news", "NVDA financials")
+        self.assertEqual((p["page"], "ambiguous" in p), ("/stock/NVDA.O/finance", False))
+        p = _graph.plan(S + "/stock/JPM/price", "financials")          # on a thing's page it is that thing
+        self.assertEqual((p["page"], "ambiguous" in p), ("/stock/JPM/finance", False))
+
+    def test_go_refuses_an_ambiguous_thing(self):
+        S = "https://stock.example.com"
+        for t in ("NVDA.O", "JPM"):
+            _graph.observe("browser_goto", {"url": S + f"/stock/{t}/finance"},
+                           {"url": S + f"/stock/{t}/finance", "title": "Financials"}, "")
+        with mock.patch.object(mcp_server, "_browser", side_effect=ToolsTest._fake(None, {})), \
+                mock.patch.object(mcp_server, "_opened", return_value={"T"}):
+            mcp_server.call("browser_open", {"url": S + "/news", "goal": "financials"})
+            r = mcp_server.call("browser_run", {"tab": "T", "steps": [["go", "financials"]]})
+        self.assertIn("ambiguous", r["steps"][0]["error"])
+        self.assertEqual(r["completed"], 0)
+
+    def test_a_wait_that_never_held_is_not_a_page_to_go_to(self):
+        S = "https://stock.example.com"
+        _graph.observe("browser_open", {"url": S + "/stock/JPM.K/price"},
+                       {"url": S + "/stock/JPM.K/price", "wait_timed_out": "not met"}, "")
+        m = {p["path"]: p for p in _graph.host_map("stock.example.com")["top"]}
+        self.assertEqual((m["/stock/JPM.K/price"]["visits"], m["/stock/JPM.K/price"]["direct"]), (1, [0, 1]))
+        self.assertFalse(_graph.plan(S + "/", "/stock/JPM.K/price")["found"])
+
     def test_plan_without_a_match_lists_known_pages(self):
         _graph.observe("browser_goto", {"url": H + "/"}, {"url": H + "/", "title": "Home"}, "")
         p = _graph.plan(H + "/", "transcript")
@@ -179,6 +296,18 @@ class ToolsTest(unittest.TestCase):
         self.assertEqual(r["steps"][1]["step"], "0.0")
         self.assertFalse(plan["found"])
         self.assertGreaterEqual(closed["episode"]["learned"]["pages"], 2)
+
+    def test_go_fails_when_the_tab_lands_elsewhere_and_counts_the_click(self):
+        _graph.observe("browser_goto", {"url": H + "/course/view.php?id=1"}, {"url": H + "/course/view.php?id=1"}, "")
+        _graph.observe("browser_click", {"role": "link", "name": "Grades"},
+                       {"url": H + "/grade/user.php"}, H + "/course/view.php?id=1")
+        with mock.patch.object(mcp_server, "_browser", side_effect=self._fake({})), \
+                mock.patch.object(mcp_server, "_opened", return_value={"T"}), mock.patch("time.sleep"):
+            mcp_server.call("browser_open", {"url": H + "/course/view.php?id=1", "goal": "grades"})
+            r = mcp_server.call("browser_run", {"tab": "T", "steps": [["go", "Grades"], ["read", "text"]]})
+        self.assertIn("landed on", r["steps"][-1]["error"])           # the fake click goes nowhere
+        self.assertEqual((r["completed"], r["of"]), (0, 2))
+        self.assertEqual(_graph.plan(H + "/course/view.php?id=1", "/grade/user.php")["cost"], 2.0)
 
     def test_open_reports_the_local_map_once_the_host_has_pages(self):
         for p in ("/a", "/b"):

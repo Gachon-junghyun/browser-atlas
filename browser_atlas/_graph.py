@@ -49,6 +49,8 @@ CONTROLS_PER_READ = 150
 LINKS_PER_READ = 200
 GENERIC = {"닫기", "close", "x", "×", "확인", "취소", "ok", "cancel", "닫기 버튼", "팝업 닫기",
            "오늘 하루 보지 않기", "다시 보지 않기", "오늘 그만 보기", "dismiss", "got it", "no thanks"}
+# Controls that change the page in place instead of leaving it.
+TOGGLES = {"radio", "tab", "checkbox", "switch", "option", "menuitemradio", "menuitemcheckbox"}
 
 
 def connect(con: sqlite3.Connection | None = None) -> sqlite3.Connection:
@@ -73,6 +75,52 @@ def path_of(url: str) -> str:
     u = urlparse(url or "")
     keep = sorted((k, v) for k, v in parse_qsl(u.query) if not _NOT_IDENTITY.match(k) and len(v) <= 24)
     return (u.path.rstrip("/") or "/") + ("?" + urlencode(keep) if keep else "")
+
+
+_SEARCH = re.compile(r"^(q|query|search|keyword|kw|s|term|text|word|srchword)$", re.I)
+
+
+def with_search(url: str, words: str) -> str | None:
+    """The same address with its search box set to `words`, or None if it has no search query key."""
+    u = urlparse(url or "")
+    qs = parse_qsl(u.query, keep_blank_values=True)
+    key = next((k for k, _ in qs if _SEARCH.match(k)), None)
+    if key is None:
+        return None
+    return urlunparse(u._replace(query=urlencode([(k, words if k == key else v) for k, v in qs])))
+
+
+def _segs(path: str) -> list[str]:
+    return path.split("?")[0].strip("/").split("/")
+
+
+def _slot(start: str, paths) -> tuple[int, list[str], str] | None:
+    """A path segment that names a thing (a ticker, an item, a course): another known page has the same
+    path as `start` except in that one segment, and it is not the last one (/price and /news are two
+    pages; NVDA.O/price and AMD.O/price are one page about two things). Returns (index, prefix, value)."""
+    s = _segs(start)
+    for p in paths:
+        q = _segs(p)
+        if len(q) == len(s) and q != s:
+            diff = [i for i in range(len(s)) if s[i] != q[i]]
+            if len(diff) == 1 and diff[0] < len(s) - 1:
+                return diff[0], s[:diff[0]], s[diff[0]]
+    return None
+
+
+def _rebase_path(path: str, slot) -> str:
+    i, prefix, value = slot
+    base, sep, q = path.partition("?")
+    segs = base.strip("/").split("/")
+    if len(segs) > i and segs[:i] == prefix and segs[i] != value:
+        segs[i] = value
+        return "/" + "/".join(segs) + sep + q
+    return path
+
+
+def _rebase_url(url: str, slot) -> str:
+    u = urlparse(url)
+    return urlunparse(u._replace(path=_rebase_path(u.path, slot)))
 
 
 def _bare(url: str) -> str:
@@ -153,6 +201,17 @@ def edge(src_url: str, kind: str, label, dst_url: str, ok: bool | None, con=None
     con.commit()
 
 
+def miss(src_url: str, label, dst_path: str, con=None) -> None:
+    """A planned click from `src_url` did not lead to `dst_path`: count it against that edge."""
+    if not _web(src_url):
+        return
+    con = connect(con)
+    lab = label if isinstance(label, str) else json.dumps(list(label), ensure_ascii=False)
+    con.execute("update g_edges set fail=fail+1, last=? where host=? and src=? and kind='click' and label=? and dst=?",
+                (time.time(), host_of(src_url), path_of(src_url), lab[:200], dst_path))
+    con.commit()
+
+
 def observe(tool: str, args: dict, result, before: str, con=None) -> dict:
     """Learn from one successful browser call. Returns what was new, for the caller to report."""
     r = result if isinstance(result, dict) else {}
@@ -162,6 +221,11 @@ def observe(tool: str, args: dict, result, before: str, con=None) -> dict:
     if tool in ("browser_open", "browser_goto") and after:
         asked = str(args.get("url") or after)
         landed = path_of(asked) == path_of(after) and host_of(asked) == host_of(after)
+        if r.get("wait_timed_out"):
+            # what was waited for never came (observed: a guessed ticker suffix drew an empty frame and
+            # became a page to go to); kept as a visit, never as a direct goto
+            new["pages"] += page(after, str(r.get("title") or ""), direct=False, con=con)
+            return new
         new["pages"] += page(after, str(r.get("title") or ""), direct=True if landed else None, con=con)
         if not landed and _web(asked):
             page(asked, direct=False, visit=False, con=con)   # asked for it, got sent elsewhere (a login wall)
@@ -176,7 +240,10 @@ def observe(tool: str, args: dict, result, before: str, con=None) -> dict:
                 moved = path_of(after) != path_of(before) or host_of(after) != host_of(before)
                 if moved:
                     new["pages"] += page(after, con=con)
-                    edge(before, "click", [role, name], after, True, con=con)
+                    idx = args.get("index")
+                    if idx is None and (r.get("same_name_controls") or 0) > 1:
+                        idx = 0                       # the first of several with this name was the one pressed
+                    edge(before, "click", [role, name] + ([int(idx)] if idx is not None else []), after, True, con=con)
     elif tool == "browser_read" and after:
         data = r.get("untrusted_page_content")
         mode = args.get("mode", "controls")
@@ -258,36 +325,69 @@ def plan(start_url: str, target: str, host: str | None = None, con=None) -> dict
     Costs: a goto that landed directly before = 1 (plus a penalty for redirects seen), a click taken
     before = 1 (plus failures), a link only seen on a page = 1.5. Pages reached only through clicks
     have no direct goto, so the path walks there from where the tab is.
+
+    A full URL as target is a goto to that URL, on whatever host it is (the caller gave the address;
+    walking clicks there picks look-alike links). From a page about one thing (/stock/AMD.O/price)
+    the pages learned about another (/stock/NVDA.O/finance) are planned for this one; observed: from
+    AMD the plan sent the tab to NVDA's financials. A search page is planned with the target words.
     """
     con = connect(con)
+    if "://" in target and host is None and host_of(target):
+        host = host_of(target)
     host = (host or host_of(start_url)).lower().removeprefix("www.")
+    start = path_of(start_url) if host_of(start_url) == host else None
+    if "://" in target and host_of(target) == host and _web(target):
+        # known or not: the caller gave the address (observed: EDGAR with count=10 instead of the
+        # count=40 seen before matched no page and the go failed)
+        row = con.execute("select title from g_pages where host=? and path=?", (host, path_of(target))).fetchone()
+        return {"found": True, "host": host, "target": target, "page": path_of(target),
+                "title": (row["title"] or "") if row else "", "match": 1.0, "cost": 1.0,
+                "steps": [["goto", target]], "others": [], **({} if row else {"known": False})}
+    pages = {r["path"]: dict(r) for r in con.execute("select * from g_pages where host=?", (host,))}
+    slot = _slot(start, pages) if start else None
+    rb = (lambda p: _rebase_path(p, slot)) if slot else (lambda p: p)
+    rbu = (lambda u: _rebase_url(u, slot)) if slot else (lambda u: u)
     targets = _targets(con, host, target)
     if not targets:
-        known = [r["path"] for r in con.execute("select path from g_pages where host=? order by visits desc limit 15", (host,))]
-        return {"found": False, "host": host, "target": target,
-                "hint": "no page on this host matches; known pages are listed (visit it once and the graph learns it)",
-                "known_pages": known}
-    goal = {p: s for s, p in targets}
-    start = path_of(start_url) if host_of(start_url) == host else None
+        return _search_or_nothing(con, host, target)
+    goal: dict[str, float] = {}
+    for s, p in targets:
+        goal[rb(p)] = max(goal.get(rb(p), 0.0), s)
     if start:
         # the same words on several pages (every course has "Class Announcements"): the one linked from
         # where the tab is now is meant (observed: from the database course, plain cost picked another course's board)
-        for e in con.execute("select dst, kind, label from g_edges where host=? and src=?", (host, start)):
+        for e in con.execute("select src, dst, kind, label from g_edges where host=?", (host,)):
+            if rb(e["src"]) != start:
+                continue
             lab = e["label"] if e["kind"] == "link" else " ".join(json.loads(e["label"])[1:2])
             s = _score(target, [lab])
             if s >= 0.35:
-                goal[e["dst"]] = max(goal.get(e["dst"], 0.0), s) + 0.5
-    pages = {r["path"]: r for r in con.execute("select * from g_pages where host=?", (host,))}
+                goal[rb(e["dst"])] = max(goal.get(rb(e["dst"]), 0.0), s) + 0.5
+    visited = {p for p, r in pages.items() if r["visits"]}
+    merged: dict[str, dict] = {}
+    for p, r in pages.items():                        # pages about another thing become pages about this one
+        q = rb(p)
+        r = dict(r, examples=json.dumps([rbu(x) for x in json.loads(r["examples"])], ensure_ascii=False))
+        if q in merged:
+            m = merged[q]
+            first, second = (r, m) if p == q else (m, r)
+            merged[q] = dict(first, visits=m["visits"] + r["visits"], direct_ok=m["direct_ok"] + r["direct_ok"],
+                             direct_fail=m["direct_fail"] + r["direct_fail"], title=first["title"] or second["title"],
+                             examples=json.dumps(json.loads(first["examples"]) + json.loads(second["examples"]),
+                                                 ensure_ascii=False))
+        else:
+            merged[q] = r
+    pages = merged
     adj: dict[str, list] = {}
     for e in con.execute("select * from g_edges where host=?", (host,)):
         if e["kind"] == "link":
-            cost, step = 1.5, ["goto", e["example"]]
+            cost, step = 1.5, ["goto", rbu(e["example"])]
         elif e["kind"] == "click":
-            role, name = json.loads(e["label"])[:2]
-            cost, step = 1.0 + 2.0 * e["fail"] / max(1, e["ok"] + e["fail"]), ["click", role, name]
+            lab = json.loads(e["label"])
+            cost, step = 1.0 + 2.0 * e["fail"] / max(1, e["ok"] + e["fail"]), ["click", *lab[:3]]
         else:
             continue
-        adj.setdefault(e["src"], []).append((cost, e["dst"], step))
+        adj.setdefault(rb(e["src"]), []).append((cost, rb(e["dst"]), step))
     # a virtual start: from anywhere, a page that took a direct goto before is one goto away
     dist, prev = {"*": 0.0}, {}
     heap = [(0.0, "*")]
@@ -318,6 +418,24 @@ def plan(start_url: str, target: str, host: str | None = None, con=None) -> dict
         return {"found": False, "host": host, "target": target, "matches": [p for _, p in targets],
                 "hint": "matching pages are known but no known way leads there; open one by URL"}
     _, end = min(reach)
+    ambiguous = None
+    if not slot:
+        # the tab is on no thing's page (a news front page): the same page exists for several things
+        # and only the target can say which (observed: from /news, "quarterly" went to whichever stock
+        # was looked at last, without a word)
+        th = _things(end, [p for _, p in reach])
+        if th:
+            seg, by = th
+            named = [p for v, p in by.items() if _named(v, target)]
+            here = _segs(start) if start else []
+            if len(here) > seg + 1 and here[:seg] == _segs(end)[:seg] and here[seg] in by:
+                end = by[here[seg]]                   # the tab is on that thing's other page (/stock/JPM/price)
+            elif named:
+                end = min((dist[p] - 2.0 * goal[p], p) for p in named)[1]
+            else:
+                ambiguous = {"segment": seg, "picked": _segs(end)[seg], "candidates": sorted(by)[:8],
+                             "hint": "the start page names no thing; name it in the target ('JPM quarterly') "
+                                     "or start from its page"}
     steps, node = [], end
     while node in prev:
         node, step = prev[node]
@@ -327,6 +445,71 @@ def plan(start_url: str, target: str, host: str | None = None, con=None) -> dict
     for st in steps:
         if st[0] == "goto" and isinstance(st[1], str) and host_of(st[1]) != host:
             return {"found": False, "host": host, "target": target, "hint": "path left the host; refused"}
-    return {"found": True, "host": host, "target": target, "page": end, "title": (pages[end]["title"] or "") if end in pages else "",
-            "match": round(goal[end], 2), "cost": round(dist[end], 2), "steps": steps,
-            "others": [p for _, p in targets if p != end][:4]}
+    out = {"found": True, "host": host, "target": target, "page": end,
+           "title": (pages[end]["title"] or "") if end in pages else "",
+           "match": round(goal[end], 2), "cost": round(dist[end], 2), "steps": steps,
+           "others": [p for p in dict.fromkeys(rb(p) for _, p in targets) if p != end][:4]}
+    if steps and steps[-1][0] == "goto" and "://" not in target and not target.startswith("/"):
+        searched = with_search(steps[-1][1], target)   # a search page holds the last search; this one is meant
+        if searched:
+            steps[-1] = ["goto", searched]
+            out["searched"] = True
+    if slot and end not in visited:
+        out["rebased"] = {"segment": slot[0], "to": slot[2]}   # inferred from another thing's page, never seen
+    if ambiguous:
+        out["ambiguous"] = ambiguous
+    # the target names a control used on that page before (a "quarterly" toggle): press it there
+    best = (0.0, None)
+    t = " ".join(target.split()).casefold()
+    for c in con.execute("select path, role, name from g_controls where host=? and used>0", (host,)):
+        if rb(c["path"]) == end and c["role"] != "textbox":
+            s = _score(target, [c["name"]])
+            n = " ".join(c["name"].split()).casefold()
+            if c["role"] in TOGGLES and len(n) >= 2 and n in t:
+                s = max(s, 0.8)                       # "NVDA quarterly": the toggle is named inside the target
+            best = max(best, (s, (c["role"], c["name"])), key=lambda x: x[0])
+    if best[0] >= 0.8:
+        steps.append(["click", *best[1]])
+    return out
+
+
+def _things(end: str, paths) -> tuple[int, dict[str, str]] | None:
+    """`end` and the known pages that are the same page about another thing (/stock/JPM/finance and
+    /stock/NVDA.O/finance): (segment index, {thing: path}), or None if there are none."""
+    e, idx, by = _segs(end), None, {}
+    for p in paths:
+        q = _segs(p)
+        if len(q) != len(e) or q == e:
+            continue
+        diff = [i for i in range(len(e)) if e[i] != q[i]]
+        if len(diff) == 1 and diff[0] < len(e) - 1 and idx in (None, diff[0]):
+            idx = diff[0]
+            by[q[idx]] = p
+    if idx is None:
+        return None
+    by[e[idx]] = end
+    return idx, by
+
+
+def _named(value: str, target: str) -> bool:
+    """Whether the target names this thing ("NVDA" for NVDA.O), as a word of its own."""
+    t = target.casefold()
+    return any(re.search(r"(?<![0-9a-z])" + re.escape(x) + r"(?![0-9a-z])", t)
+               for x in re.split(r"[^0-9a-z가-힣]+", value.casefold()) if len(x) >= 2)
+
+
+def _search_or_nothing(con, host: str, target: str) -> dict:
+    """No page matches: a search page of the host asked for the target words, or the known pages."""
+    known = []
+    for r in con.execute("select path, examples from g_pages where host=? order by visits desc", (host,)):
+        known.append(r["path"])
+        if "://" in target or target.startswith("/"):
+            continue
+        for ex in json.loads(r["examples"]):
+            url = with_search(ex, target)
+            if url:
+                return {"found": True, "host": host, "target": target, "page": r["path"], "title": "", "match": 0.5,
+                        "cost": 1.0, "steps": [["goto", url]], "others": [], "searched": True}
+    return {"found": False, "host": host, "target": target,
+            "hint": "no page on this host matches; known pages are listed (visit it once and the graph learns it)",
+            "known_pages": known[:15]}
