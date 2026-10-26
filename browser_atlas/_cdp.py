@@ -123,6 +123,39 @@ def close_tab(tab_id: str, port: int = DEFAULT_PORT) -> bool:
         return False
 
 
+def page_urls(c) -> dict[str, str]:
+    """Page targets in this browser right now and their addresses, seen from one tab's session
+    (taken before a click)."""
+    return {t["targetId"]: t.get("url", "") for t in c.call("Target.getTargets", timeout=5).get("targetInfos") or []
+            if t.get("type") == "page"}
+
+
+def opened_by(c, known: dict[str, str], wait: float = 0.0, load: float = 3.0) -> dict | None:
+    """A page that c's tab opened (CDP openerId) since `known` was taken, watched for `wait` seconds.
+    The opener id, not a tab-list diff: a tab someone else opens meanwhile is not this click's. One it
+    opened earlier that now shows another address counts too (reused): a site that opens every popup
+    into one named window sends the second table there (observed on a statistics portal).
+    A window.open() tab starts at about:blank, so once found it gets `load` seconds to show its address."""
+    me = c.target.get("id")
+    until, found, hit = _T() + wait, False, None
+    while True:
+        infos = c.call("Target.getTargets", timeout=5).get("targetInfos") or []
+        mine = [t for t in infos if t.get("type") == "page" and t.get("openerId") == me
+                and (t.get("targetId") not in known
+                     or t.get("url") not in ("", "about:blank", known[t.get("targetId")]))]
+        if mine:
+            hit = mine[-1]
+            if hit.get("targetId") in known:
+                hit = {**hit, "reused": True}
+            if hit.get("url") not in ("", "about:blank"):
+                return hit
+            if not found:
+                found, until = True, max(until, _T() + load)
+        if _T() >= until:
+            return hit
+        time.sleep(0.1)
+
+
 def _pick(pages: list[dict], match: str | None) -> dict:
     if not pages:
         raise RuntimeError("No page tabs. Launch Chrome first.")
