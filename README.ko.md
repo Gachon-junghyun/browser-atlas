@@ -6,8 +6,8 @@
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-3776ab?logo=python&logoColor=white)](pyproject.toml)
 [![Dependencies: 0](https://img.shields.io/badge/dependencies-0-7ec699)](pyproject.toml)
-[![Sites mapped: 80](https://img.shields.io/badge/sites_mapped-80-d97757)](atlas/sites.json)
-[![Button maps: 106 screens](https://img.shields.io/badge/button_maps-106_screens-d97757)](atlas/sites.json)
+[![Sites mapped: 127](https://img.shields.io/badge/sites_mapped-127-d97757)](atlas/sites.json)
+[![Button maps: 142 screens](https://img.shields.io/badge/button_maps-142_screens-d97757)](atlas/sites.json)
 [![License: MIT](https://img.shields.io/badge/license-MIT-lightgrey)](LICENSE)
 
 [English](README.md) | [한국어](README.ko.md)
@@ -29,8 +29,8 @@
 
 |   |   |
 |---|---|
-| 🗺️ **사이트 지도** | 80곳. 사이트마다 접근 등급(`open`, `session`, `api`, `blocked`), 바로가기 주소, 먼저 쓸 공식 API, 막힌 곳은 robots.txt 나 약관 원문을 날짜와 함께 적은 이유. |
-| 🔘 **버튼 지도** | 실제 화면 106개에서 사람이 쓰는 컨트롤 5~15개를 **역할 + 접근성 이름**(`button "검색"`)으로 적었습니다. 깨지기 쉬운 CSS 가 아닙니다. 전부 실제 화면에서 봤고, 둘을 뺀 나머지는 `check` 를 통과했습니다(주소가 없는 대화상자 하나, 요금제 한도에 걸리면 칸을 숨기는 로그인 화면 하나). |
+| 🗺️ **사이트 지도** | 127곳. 사이트마다 접근 등급(`open`, `session`, `api`, `blocked`), 바로가기 주소, 먼저 쓸 공식 API, 막힌 곳은 robots.txt 나 약관 원문을 날짜와 함께 적은 이유. |
+| 🔘 **버튼 지도** | 실제 화면 142개에서 사람이 쓰는 컨트롤 5~15개를 **역할 + 접근성 이름**(`button "검색"`)으로 적었습니다. 깨지기 쉬운 CSS 가 아닙니다. 전부 실제 화면에서 봤고, 둘을 뺀 나머지는 `check` 를 통과했습니다(주소가 없는 대화상자 하나, 요금제 한도에 걸리면 칸을 숨기는 로그인 화면 하나). |
 | 🛑 **코드로 지키는 안전** | 결제, 주문, 제출, 전송, 삭제 버튼은 «사람에게 물어보라»며 멈춥니다. 한 번 누르는 허락은 터미널 앞의 사람만 줄 수 있고(`browser-atlas allow "주문하기"`), MCP 도구로는 못 줍니다. 막힌 호스트는 리다이렉트 뒤에도 거절합니다. |
 | 🧠 **경험 기억** | 탭 하나가 한 번의 시도입니다. 캡차면 `blocked`, 본문을 못 읽었으면 `fail` 처럼 신호로 판정해 저장하고, 다음에 같은 사이트를 열면 잘 됐던 길을 먼저 돌려줍니다. |
 | 🖱️ **내 손 같은 포인터** | 몇 분간 마우스를 녹화하면 클릭이 내 Fitts 법칙 속도와 내 궤적 모양을 따라갑니다. 입력은 한 글자씩, 한글 조합까지 합니다. |
@@ -42,17 +42,18 @@
 
 | 분야 | 열림 | API 로 | 막힘(원문 근거) |
 |---|---|---|---|
-| 📊 **통계, 공공데이터** | KOSIS 🔘, 공공데이터포털 🔘, 서울 열린데이터광장 🔘, MDIS 🔘, Data.gov 🔘, World Bank 🔘 | 한국은행 ECOS, 브이월드 | |
+| 📊 **통계, 공공데이터** | KOSIS 🔘, 공공데이터포털 🔘, 서울 열린데이터광장 🔘, MDIS 🔘, Data.gov 🔘, World Bank 🔘, OECD Data 🔘, UNdata 🔘, 유럽중앙은행 🔘, BIS 🔘, 영국 통계청 🔘, 미국 인구조사국 🔘, 캐나다 통계청 🔘, 호주 통계청 🔘, 일본 e-Stat 🔘, Eurostat | 한국은행 ECOS, 브이월드 | |
 | 🏛️ **금융, 금융당국** | 금융감독원 🔘, 금융위원회 🔘, 예금보험공사 🔘, 파인 🔘, DART, KRX 보도자료, 네이버페이 증권 | | 토스증권, TradingView, IMF Data, Apple IR, NVIDIA IR |
-| ⚖️ **법, 특허, 국회** | 국가법령정보센터, USPTO 🔘 | | KIPRIS, 국회 의안정보시스템 |
+| ⚖️ **법, 특허, 국회** | 국가법령정보센터, USPTO 🔘, EUR-Lex 🔘, WIPO PATENTSCOPE 🔘 | 영국 legislation.gov.uk 🔘 | KIPRIS, 국회 의안정보시스템 |
 | 🩺 **보건, 안전** | 질병관리청 🔘, 심평원 병원 찾기 🔘, 식품안전나라 🔘, WHO 🔘 | PubMed(E-utilities) | 의약품안전나라 |
-| 🌦️ **날씨, 환경** | 기상청 날씨누리 🔘, 기상자료개방포털 🔘, 에어코리아 🔘 | | |
-| 🎓 **학술, 공부** | arXiv 🔘, solved.ac 🔘, Hacker News 🔘, 데이콘 🔘 | | KCI, 대학알리미, JEDEC |
-| 📚 **문화, 도서관** | 국립중앙도서관 🔘, 국립중앙박물관 🔘, 문화포털 🔘, 국가유산포털 🔘, 나무위키 🔘, 왓챠피디아 🔘, 교보문고 🔘 | | |
+| 🌦️ **날씨, 환경** | 기상청 날씨누리 🔘, 기상자료개방포털 🔘, 에어코리아 🔘, timeanddate 🔘 | | Windy |
+| 🎓 **학술, 공부** | arXiv 🔘, solved.ac 🔘, Hacker News 🔘, 데이콘 🔘, OpenAlex 🔘, Semantic Scholar 🔘 | Crossref 🔘 | KCI, 대학알리미, JEDEC |
+| 📚 **문화, 도서관** | 국립중앙도서관 🔘, 국립중앙박물관 🔘, 문화포털 🔘, 국가유산포털 🔘, 나무위키 🔘, 왓챠피디아 🔘, 교보문고 🔘, 위키백과 🔘, 위키낱말사전 🔘, 표준국어대사전 🔘, 우리말샘 🔘, Open Library | | WorldCat, 프로젝트 구텐베르크, 브리태니커 |
 | 📰 **기업 뉴스룸** | 삼성전자 🔘, SK하이닉스 🔘, 현대자동차 🔘 | | |
-| 🗺️ **지도, 장소, 이동** | 카카오맵 🔘, 네이버 지도 🔘, 고속버스 🔘, 스타필드 🔘, 코엑스 행사 🔘, 부동산 시세 🔘 | | SRT, 국토부 실거래가 |
-| 🛒 **쇼핑, 동네** | 당근 🔘, 중고나라 🔘, 오늘의집 🔘 | | 배달의민족 |
+| 🗺️ **지도, 장소, 이동** | 카카오맵 🔘, 네이버 지도 🔘, 고속버스 🔘, 스타필드 🔘, 코엑스 행사 🔘, 부동산 시세 🔘, 국가대중교통정보센터 🔘, 에어포털 🔘, 인천공항 🔘, OpenStreetMap, 코레일, 대한민국 구석구석 | | SRT, 국토부 실거래가, 스카이스캐너 |
+| 🛒 **쇼핑, 동네** | 당근 🔘, 중고나라 🔘, 오늘의집 🔘, 다나와 🔘, 에누리 🔘 | | 배달의민족 |
 | 🎮 **게임, 3D, 디자인** | Google Play 🔘, Steam 🔘, Steamworks 문서 🔘, Kenney 🔘, Quaternius 🔘, Poly Pizza 🔘, Fab 🔘, Blender 미러 🔘, ArchDaily 🔘, Unsplash 🔘 | | |
+| 📦 **개발 문서, 패키지 저장소** | MDN 🔘, Python 문서 🔘, PyPI 🔘, Docs.rs 🔘, DevDocs 🔘, pkg.go.dev, Read the Docs | crates.io 🔘, Hugging Face Hub 🔘 | Maven Central, NuGet, Docker Hub |
 | 🛠️ **개발자 콘솔**(사람이 한 번 로그인) | GitHub 리포 화면 🔘, Supabase 대시보드 🔘, Resend 🔘 | GitHub REST API, Supabase Management API | |
 | 🤖 **AI 앱, 메신저** | | | Claude.ai, Perplexity, Kling AI, 카카오톡 클라이언트, 블라인드 |
 

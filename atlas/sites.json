@@ -9846,5 +9846,3163 @@
    }
   },
   "verified": "2026-10-26"
+ },
+ "un_data": {
+  "label": "UN System Data Commons (UNdata host)",
+  "access": "open",
+  "hosts": [
+   "data.un.org"
+  ],
+  "go": {
+   "main": "https://data.un.org/"
+  },
+  "has": [
+   "공개 통계·자료 조회"
+  ],
+  "verified": "2026-10-26",
+  "source": "browser-atlas live visit 2026-10-26",
+  "pages": {
+   "main": {
+    "url": "https://data.un.org/",
+    "ready": "!!document.querySelector('input')",
+    "controls": [
+     {
+      "role": "button",
+      "name": "menu",
+      "where": "상단",
+      "act": "expand",
+      "does": "탐색 메뉴를 연다",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "Show feature highlights",
+      "where": "상단",
+      "act": "expand",
+      "does": "기능 소개를 연다",
+      "act_inferred": true
+     },
+     {
+      "role": "textbox",
+      "name": "Search data around the world",
+      "where": "중앙 검색칸",
+      "act": "input",
+      "does": "통계 검색어 입력",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "How has maternal mortality changed in Southern Asia?",
+      "where": "검색칸 아래 예시",
+      "act": "search",
+      "does": "모성 사망률 예시 질의를 연다",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "How many people lack access to clean water around the world?",
+      "where": "검색칸 아래 예시",
+      "act": "search",
+      "does": "깨끗한 물 접근성 예시 질의를 연다",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "Compare School completion rates among Small Island Developing States",
+      "where": "검색칸 아래 예시",
+      "act": "search",
+      "does": "학교 수료율 비교 예시 질의를 연다",
+      "act_inferred": true
+     }
+    ],
+    "traps": [
+     "data.un.org 홈은 UNdata 기존 표 목록 대신 UN System Data Commons로 표시된다 (2026-10-26)."
+    ]
+   }
+  }
+ },
+ "ons_uk": {
+  "label": "UK Office for National Statistics",
+  "access": "open",
+  "hosts": [
+   "www.ons.gov.uk"
+  ],
+  "go": {
+   "main": "https://www.ons.gov.uk/"
+  },
+  "has": [
+   "공개 통계·자료 조회"
+  ],
+  "verified": "2026-10-26",
+  "source": "browser-atlas live visit 2026-10-26",
+  "pages": {
+   "main": {
+    "url": "https://www.ons.gov.uk/",
+    "ready": "!!document.querySelector('input[type=search]') && !!document.querySelector('a[href=\"/timeseriestool\"]')",
+    "controls": [
+     {
+      "role": "searchbox",
+      "name": "Search for a keyword(s) or time series ID",
+      "where": "상단 검색칸",
+      "act": "input",
+      "does": "키워드·시계열 ID 입력",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "Search",
+      "where": "검색칸 옆",
+      "act": "search",
+      "does": "입력한 검색어의 결과를 연다",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "From our time series explorer",
+      "where": "주요 수치 영역",
+      "act": "navigate",
+      "does": "시계열 탐색 화면을 연다",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "Release calendar",
+      "where": "상단 메뉴",
+      "act": "navigate",
+      "does": "공표 일정을 연다",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "Analysis for inflation",
+      "where": "주요 수치 Inflation",
+      "act": "open_detail",
+      "does": "물가 분석을 연다",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "Data for inflation",
+      "where": "주요 수치 Inflation",
+      "act": "open_detail",
+      "does": "물가 시계열을 연다",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "Data for GDP",
+      "where": "주요 수치 GDP",
+      "act": "open_detail",
+      "does": "GDP 시계열을 연다",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "Start exploring the data",
+      "where": "지역 통계 영역",
+      "act": "navigate",
+      "does": "지역 통계 탐색기를 연다",
+      "act_inferred": true
+     }
+    ],
+    "traps": [
+     "첫 방문에 추가 쿠키 동의 배너가 표시된다 (2026-10-26)."
+    ]
+   }
+  },
+  "prefer": "ONS 공식 Beta API https://api.beta.ons.gov.uk/v1 — https://developer.ons.gov.uk/ 본문에서 HTTP·JSON 조회, 키 불필요, Beta 변경 가능성 확인"
+ },
+ "legislation_uk": {
+  "label": "legislation.gov.uk",
+  "access": "api",
+  "hosts": [
+   "www.legislation.gov.uk"
+  ],
+  "go": {
+   "main": "https://www.legislation.gov.uk/"
+  },
+  "has": [
+   "영국 법령 제목·연도·번호·유형 검색",
+   "신규 법령 목록"
+  ],
+  "verified": "2026-10-26",
+  "source": "browser-atlas live visit 2026-10-26",
+  "prefer": "공식 legislation.gov.uk API Formats 안내 https://legislation.github.io/data-documentation/formats/overview.html 및 New Legislation / Publication Log 피드 (Fair Use Policy에서 링크·설명 확인)",
+  "pages": {
+   "main": {
+    "url": "https://www.legislation.gov.uk/",
+    "ready": "!!document.querySelector('select')",
+    "controls": [
+     {
+      "role": "textbox",
+      "name": "Title:",
+      "where": "검색줄",
+      "act": "input",
+      "does": "법령 제목 입력",
+      "act_inferred": true
+     },
+     {
+      "role": "textbox",
+      "name": "Year:",
+      "where": "검색줄",
+      "act": "input",
+      "does": "연도 입력",
+      "act_inferred": true
+     },
+     {
+      "role": "textbox",
+      "name": "Number:",
+      "where": "검색줄",
+      "act": "input",
+      "does": "법령 번호 입력",
+      "act_inferred": true
+     },
+     {
+      "role": "combobox",
+      "name": "Type:",
+      "where": "검색줄",
+      "act": "filter",
+      "does": "법령 유형 선택",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "Search",
+      "where": "검색줄 오른쪽",
+      "act": "search",
+      "does": "조건에 맞는 법령 검색",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "Advanced Search",
+      "where": "검색줄 오른쪽",
+      "act": "navigate",
+      "does": "상세 검색 화면을 연다",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "Browse new legislation ›",
+      "where": "신규 법령 영역",
+      "act": "navigate",
+      "does": "신규 법령 목록을 연다",
+      "act_inferred": true
+     }
+    ],
+    "traps": [
+     "홈 상단에 쿠키 동의 배너가 표시된다 (2026-10-26)."
+    ]
+   }
+  }
+ },
+ "estat_japan": {
+  "label": "e-Stat Japan",
+  "access": "open",
+  "hosts": [
+   "www.e-stat.go.jp"
+  ],
+  "go": {
+   "main": "https://www.e-stat.go.jp/en"
+  },
+  "has": [
+   "공개 통계·자료 조회"
+  ],
+  "verified": "2026-10-26",
+  "source": "browser-atlas live visit 2026-10-26",
+  "prefer": "e-Stat 공식 통계 API: https://www.e-stat.go.jp/en/developer (홈 링크 확인; 별도 API 약관 적용)",
+  "pages": {
+   "main": {
+    "url": "https://www.e-stat.go.jp/en",
+    "ready": "!!document.querySelector('input[type=search]') && !!document.querySelector('a[href$=\"/en/statistics-by-organization/\"]')",
+    "controls": [
+     {
+      "role": "searchbox",
+      "name": "Example : Census",
+      "where": "상단 검색칸",
+      "act": "input",
+      "does": "검색어 입력",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "Search",
+      "where": "검색칸 옆",
+      "act": "search",
+      "does": "통계 검색",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "Data Browse All Statistics",
+      "where": "주요 탐색 타일",
+      "act": "navigate",
+      "does": "전체 통계 목록",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "Theme Find Statistics by Theme",
+      "where": "주요 탐색 타일",
+      "act": "navigate",
+      "does": "주제별 통계 탐색",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "Organization Find Statistics by Organization",
+      "where": "주요 탐색 타일",
+      "act": "navigate",
+      "does": "기관별 통계 탐색",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "For advanced use Get statistical data by API",
+      "where": "상단 안내",
+      "act": "navigate",
+      "does": "공식 API 안내",
+      "act_inferred": true
+     }
+    ],
+    "traps": [
+     "탐색 직후 본문이 비어 있고 다음 조회에서 렌더가 완료됐다 (2026-10-26).",
+     "Database·File은 controls 조회에 나타나지만 독립 검사에서 찾지 못해 초기 홈 지도에서 제외했다 (2026-10-26)."
+    ]
+   }
+  }
+ },
+ "ecb_data": {
+  "label": "ECB Data Portal",
+  "access": "open",
+  "hosts": [
+   "data.ecb.europa.eu"
+  ],
+  "go": {
+   "main": "https://data.ecb.europa.eu/"
+  },
+  "has": [
+   "공개 통계·자료 조회"
+  ],
+  "verified": "2026-10-26",
+  "source": "browser-atlas live visit 2026-10-26",
+  "prefer": "ECB Data Portal 공식 API https://data-api.ecb.europa.eu/ ; 안내 https://data.ecb.europa.eu/help/api/overview (홈 링크와 API 이전 공지 확인)",
+  "pages": {
+   "main": {
+    "url": "https://data.ecb.europa.eu/",
+    "ready": "!!document.querySelector('input[placeholder=\"Search for data\"],input[aria-label=\"Search for data\"]') && !!document.querySelector('a[href$=\"/data/datasets\"]')",
+    "controls": [
+     {
+      "role": "textbox",
+      "name": "Search for data",
+      "where": "상단 검색칸",
+      "act": "input",
+      "does": "데이터 검색어 입력",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "Browse data",
+      "where": "상단 메뉴",
+      "act": "navigate",
+      "does": "데이터 탐색",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "Categories",
+      "where": "탐색 분류줄",
+      "act": "navigate",
+      "does": "분야별 탐색",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "Concepts",
+      "where": "탐색 분류줄",
+      "act": "navigate",
+      "does": "개념별 탐색",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "Geographical areas",
+      "where": "탐색 분류줄",
+      "act": "navigate",
+      "does": "지역별 탐색",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "Datasets",
+      "where": "탐색 분류줄",
+      "act": "navigate",
+      "does": "데이터셋 목록",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "Currency converter",
+      "where": "상단 메뉴",
+      "act": "navigate",
+      "does": "환율 변환기",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "Web Services API",
+      "where": "하단 링크",
+      "act": "navigate",
+      "does": "공식 API 안내",
+      "act_inferred": true
+     }
+    ],
+    "traps": [
+     "첫 방문 쿠키 선택 배너가 표시된다 (2026-10-26).",
+     "검색 입력과 분류 링크가 준비되기 전에 검사하면 누락될 수 있어 Search for data 입력 및 Datasets 링크를 준비 조건으로 삼았다 (2026-10-26)."
+    ]
+   }
+  }
+ },
+ "eurostat": {
+  "label": "Eurostat Data Browser",
+  "access": "open",
+  "hosts": [
+   "ec.europa.eu"
+  ],
+  "go": {
+   "main": "https://ec.europa.eu/eurostat/databrowser/"
+  },
+  "has": [
+   "공개 통계·자료 조회"
+  ],
+  "verified": "2026-10-26",
+  "source": "browser-atlas live visit 2026-10-26",
+  "prefer": "Eurostat 공식 Data access via API 안내 https://ec.europa.eu/eurostat/web/user-guides/data-browser/api-data-access — Introduction / Getting started / Detailed guidelines 제공 확인; 실제 엔드포인트·제한 미확인"
+ },
+ "oecd_data": {
+  "label": "OECD Data Explorer",
+  "access": "open",
+  "hosts": [
+   "data-explorer.oecd.org"
+  ],
+  "go": {
+   "main": "https://data-explorer.oecd.org/"
+  },
+  "has": [
+   "공개 통계·자료 조회"
+  ],
+  "verified": "2026-10-26",
+  "source": "browser-atlas live visit 2026-10-26",
+  "prefer": "OECD 공식 API 문서 https://www.oecd.org/en/data/insights/data-explainers/2024/09/api.html (홈과 약관 API 항목 확인)",
+  "pages": {
+   "main": {
+    "url": "https://data-explorer.oecd.org/",
+    "ready": "!!document.querySelector('input[placeholder=\"Search by keywords\"],input[aria-label=\"Search by keywords\"]') && !!document.querySelector('button[aria-label=\"commit search\"]')",
+    "controls": [
+     {
+      "role": "textbox",
+      "name": "Search by keywords",
+      "where": "상단 검색칸",
+      "act": "input",
+      "does": "키워드 입력",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "commit search",
+      "where": "검색칸 옆",
+      "act": "search",
+      "does": "키워드 검색 실행",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "Topic",
+      "where": "중앙 분류 제목",
+      "act": "expand",
+      "does": "주제 분류 표시",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "Economy",
+      "where": "주제 목록",
+      "act": "navigate",
+      "does": "경제 통계 탐색",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "Employment",
+      "where": "주제 목록",
+      "act": "navigate",
+      "does": "고용 통계 탐색",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "Prices",
+      "where": "경제 하위 주제",
+      "act": "navigate",
+      "does": "가격 통계 탐색",
+      "act_inferred": true
+     },
+     {
+      "role": "combobox",
+      "name": "English",
+      "where": "언어 선택",
+      "act": "filter",
+      "does": "표시 언어 선택",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "API documentation",
+      "where": "하단 안내",
+      "act": "navigate",
+      "does": "공식 API 문서",
+      "act_inferred": true
+     }
+    ],
+    "traps": [
+     "일반 input 존재만으로는 검색·주제 컨트롤 검사에 이르러 검색 입력과 commit search 버튼을 준비 조건으로 삼았다 (2026-10-26)."
+    ]
+   }
+  }
+ },
+ "eur_lex": {
+  "label": "EUR-Lex",
+  "access": "open",
+  "hosts": [
+   "eur-lex.europa.eu"
+  ],
+  "go": {
+   "main": "https://eur-lex.europa.eu/homepage.html?locale=en"
+  },
+  "has": [
+   "EU 법령 빠른 검색",
+   "문서 번호·CELEX 번호 검색",
+   "Official Journal 조회"
+  ],
+  "verified": "2026-10-26",
+  "source": "browser-atlas live visit 2026-10-26",
+  "prefer": "EUR-Lex 공식 webservice: 등록 사용자가 검색 양식 없이 직접 질의 (Legal notice 개인정보 처리 항목에서 확인; 상세 API 문서 URL 미확인)",
+  "pages": {
+   "main": {
+    "url": "https://eur-lex.europa.eu/homepage.html?locale=en",
+    "ready": "!!document.querySelector('input') && !!document.querySelector('a[href$=\"advanced-search-form.html\"]') && !!document.querySelector('[role=tab]')",
+    "controls": [
+     {
+      "role": "textbox",
+      "name": "Quick search",
+      "where": "주요 검색칸",
+      "act": "input",
+      "does": "검색어 입력",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "Search",
+      "where": "검색 영역",
+      "act": "search",
+      "does": "검색 실행",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "Advanced search",
+      "where": "주요 검색칸 아래",
+      "act": "navigate",
+      "does": "상세 검색",
+      "act_inferred": true
+     },
+     {
+      "role": "tab",
+      "name": "Find results by document number",
+      "where": "문서 번호 위젯",
+      "act": "tab",
+      "does": "문서 번호 검색 탭",
+      "act_inferred": true
+     },
+     {
+      "role": "tab",
+      "name": "Find results by CELEX number",
+      "where": "문서 번호 위젯",
+      "act": "tab",
+      "does": "CELEX 번호 검색 탭",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "Official Journal",
+      "where": "본문",
+      "act": "navigate",
+      "does": "관보 조회",
+      "act_inferred": true
+     }
+    ],
+    "traps": [
+     "goto 직후 본문이 비어 있고 재조회에서 렌더가 완료됐다 (2026-10-26).",
+     "Search 버튼이 빠른 검색과 문서 번호 검색에 각각 표시된다 (2026-10-26).",
+     "초기 홈 재방문에서는 문서 번호 위젯의 Year·Number·QSTypeHelp가 표시되지 않아 지도에서 제외했다 (2026-10-26)."
+    ]
+   }
+  }
+ },
+ "abs_au": {
+  "label": "Australian Bureau of Statistics",
+  "access": "open",
+  "hosts": [
+   "www.abs.gov.au"
+  ],
+  "go": {
+   "main": "https://www.abs.gov.au/"
+  },
+  "has": [
+   "공개 통계·자료 조회"
+  ],
+  "verified": "2026-10-26",
+  "source": "browser-atlas live visit 2026-10-26",
+  "prefer": "ABS 공식 Data API / Indicator API / Time Series Directory API 안내 https://www.abs.gov.au/statistics/application-programming-interfaces-apis",
+  "pages": {
+   "main": {
+    "url": "https://www.abs.gov.au/",
+    "ready": "!!document.querySelector('[role=tab]')",
+    "controls": [
+     {
+      "role": "button",
+      "name": "Toggle site search",
+      "where": "상단",
+      "act": "expand",
+      "does": "검색칸을 펼친다",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "Open main menu",
+      "where": "상단",
+      "act": "expand",
+      "does": "주 메뉴를 펼친다",
+      "act_inferred": true
+     },
+     {
+      "role": "tab",
+      "name": "Latest releases",
+      "where": "본문 공표 목록 위",
+      "act": "tab",
+      "does": "최신 공표 목록",
+      "act_inferred": true
+     },
+     {
+      "role": "tab",
+      "name": "Future releases",
+      "where": "본문 공표 목록 위",
+      "act": "tab",
+      "does": "예정 공표 목록",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "Topics",
+      "where": "하단 Statistics 목록",
+      "act": "navigate",
+      "does": "주제별 통계",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "Data by region",
+      "where": "하단 Statistics 목록",
+      "act": "navigate",
+      "does": "지역별 통계",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "Data explorer",
+      "where": "하단 Statistics 목록",
+      "act": "navigate",
+      "does": "데이터 탐색기",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "Latest and future releases",
+      "where": "하단 Statistics 목록",
+      "act": "navigate",
+      "does": "공표 목록",
+      "act_inferred": true
+     }
+    ],
+    "traps": [
+     "Search ABS 검색칸은 Toggle site search를 누른 뒤에 나타난다 (2026-10-26).",
+     "goto 직후 본문이 비어 있고 재조회에서 렌더가 완료됐다 (2026-10-26)."
+    ]
+   }
+  }
+ },
+ "python_docs": {
+  "label": "Python documentation",
+  "access": "open",
+  "hosts": [
+   "docs.python.org"
+  ],
+  "go": {
+   "home": "https://docs.python.org/3/"
+  },
+  "has": [
+   "언어·표준 라이브러리 문서"
+  ],
+  "prefer": "공식 문서 오프라인 다운로드 https://docs.python.org/3/download.html (검색 API 미확인)",
+  "verified": "2026-10-26",
+  "source": "browser-atlas live visit 2026-10-26",
+  "pages": {
+   "home": {
+    "url": "https://docs.python.org/3/",
+    "ready": "!!document.querySelector('a[href=\"library/index.html\"]')",
+    "controls": [
+     {
+      "role": "combobox",
+      "name": "Python version",
+      "where": "버전 선택",
+      "act": "filter",
+      "does": "문서 버전을 고른다"
+     },
+     {
+      "role": "searchbox",
+      "name": "Quick search",
+      "where": "상단 검색칸",
+      "act": "input",
+      "does": "검색어 입력"
+     },
+     {
+      "role": "button",
+      "name": "Go",
+      "where": "검색칸 옆",
+      "act": "search",
+      "does": "문서 검색"
+     },
+     {
+      "role": "combobox",
+      "name": "Language",
+      "where": "언어 선택",
+      "act": "filter",
+      "does": "문서 언어 선택"
+     },
+     {
+      "role": "combobox",
+      "name": "Theme",
+      "where": "테마 선택",
+      "act": "filter",
+      "does": "화면 테마 선택"
+     },
+     {
+      "role": "link",
+      "name": "Tutorial",
+      "where": "본문 목록",
+      "act": "navigate",
+      "does": "튜토리얼 문서"
+     },
+     {
+      "role": "link",
+      "name": "Library reference",
+      "where": "본문 목록",
+      "act": "navigate",
+      "does": "표준 라이브러리 문서"
+     },
+     {
+      "role": "link",
+      "name": "Language reference",
+      "where": "본문 목록",
+      "act": "navigate",
+      "does": "언어 참조 문서"
+     },
+     {
+      "role": "link",
+      "name": "Global module index",
+      "where": "본문 색인",
+      "act": "navigate",
+      "does": "모듈 색인"
+     }
+    ],
+    "traps": []
+   }
+  }
+ },
+ "pypi": {
+  "label": "PyPI",
+  "access": "open",
+  "hosts": [
+   "pypi.org"
+  ],
+  "go": {
+   "home": "https://pypi.org/"
+  },
+  "has": [
+   "Python 패키지 검색·설명"
+  ],
+  "prefer": "공식 JSON API https://pypi.org/pypi/{project}/json ; Simple API https://pypi.org/simple/",
+  "verified": "2026-10-26",
+  "source": "browser-atlas live visit 2026-10-26",
+  "pages": {
+   "home": {
+    "url": "https://pypi.org/",
+    "ready": "!!document.querySelector('input[name=\"q\"]')",
+    "controls": [
+     {
+      "role": "button",
+      "name": "보기 메뉴",
+      "where": "상단 메뉴",
+      "act": "expand",
+      "does": "메뉴를 펼친다"
+     },
+     {
+      "role": "button",
+      "name": "Change language",
+      "where": "상단 언어",
+      "act": "expand",
+      "does": "언어 선택을 펼친다"
+     },
+     {
+      "role": "textbox",
+      "name": "PyPI 검색",
+      "where": "본문 검색칸",
+      "act": "input",
+      "does": "패키지 검색어 입력"
+     },
+     {
+      "role": "button",
+      "name": "검색",
+      "where": "검색칸 옆",
+      "act": "search",
+      "does": "패키지 검색"
+     },
+     {
+      "role": "link",
+      "name": "프로젝트들을 살펴보세요",
+      "where": "검색칸 아래",
+      "act": "navigate",
+      "does": "프로젝트 탐색 목록"
+     },
+     {
+      "role": "button",
+      "name": "데스크탑 버전으로 전환",
+      "where": "본문 아래",
+      "act": "filter",
+      "does": "데스크탑 표시로 전환"
+     }
+    ],
+    "traps": [
+     "홈에서 한국어 컨트롤과 데스크탑 버전으로 전환 버튼이 노출됐다 (2026-10-26)"
+    ]
+   }
+  }
+ },
+ "crates_io": {
+  "label": "crates.io",
+  "access": "api",
+  "hosts": [
+   "crates.io"
+  ],
+  "go": {
+   "home": "https://crates.io/"
+  },
+  "has": [
+   "Rust crate 메타데이터"
+  ],
+  "prefer": "Data Access Policy 순서: sparse index https://index.crates.io/ → CDN·DB dump → API https://crates.io/api/openapi.json (최대 1 req/s, 식별 User-Agent)",
+  "verified": "2026-10-26",
+  "source": "browser-atlas live visit 2026-10-26",
+  "pages": {
+   "home": {
+    "url": "https://crates.io/",
+    "ready": "!!document.querySelector('a[href=\"/crates?sort=new\"]')",
+    "controls": [
+     {
+      "role": "textbox",
+      "name": "Search",
+      "where": "상단 검색칸",
+      "act": "input",
+      "does": "crate 검색어 입력"
+     },
+     {
+      "role": "button",
+      "name": "Search",
+      "where": "검색칸 옆",
+      "act": "search",
+      "does": "crate 검색"
+     },
+     {
+      "role": "link",
+      "name": "New Crates",
+      "where": "본문 분류",
+      "act": "navigate",
+      "does": "새 crate 목록"
+     },
+     {
+      "role": "link",
+      "name": "Most Downloaded",
+      "where": "본문 분류",
+      "act": "navigate",
+      "does": "다운로드가 많은 crate 목록"
+     },
+     {
+      "role": "link",
+      "name": "Just Updated",
+      "where": "본문 분류",
+      "act": "navigate",
+      "does": "갱신된 crate 목록"
+     },
+     {
+      "role": "link",
+      "name": "Most Recent Downloads",
+      "where": "본문 분류",
+      "act": "navigate",
+      "does": "최근 다운로드가 많은 crate 목록"
+     },
+     {
+      "role": "link",
+      "name": "Popular Keywords",
+      "where": "본문 분류",
+      "act": "navigate",
+      "does": "인기 키워드 목록"
+     },
+     {
+      "role": "link",
+      "name": "Popular Categories",
+      "where": "본문 분류",
+      "act": "navigate",
+      "does": "인기 카테고리 목록"
+     }
+    ],
+    "traps": []
+   }
+  }
+ },
+ "docs_rs": {
+  "label": "Docs.rs",
+  "access": "open",
+  "hosts": [
+   "docs.rs"
+  ],
+  "go": {
+   "home": "https://docs.rs/"
+  },
+  "has": [
+   "Rust crate 문서·최근 릴리스"
+  ],
+  "prefer": "공식 문서 다운로드·메타데이터 API 제공 여부 미확인",
+  "verified": "2026-10-26",
+  "source": "browser-atlas live visit 2026-10-26",
+  "pages": {
+   "home": {
+    "url": "https://docs.rs/",
+    "ready": "!!document.querySelector('a[href=\"/releases\"]')",
+    "controls": [
+     {
+      "role": "link",
+      "name": "Recent Releases",
+      "where": "본문 상단",
+      "act": "navigate",
+      "does": "최근 릴리스 목록"
+     },
+     {
+      "role": "link",
+      "name": "Atom feed",
+      "where": "본문 상단",
+      "act": "download",
+      "does": "릴리스 Atom 피드"
+     },
+     {
+      "role": "textbox",
+      "name": "Find crate by search query",
+      "where": "본문 검색칸 및 상단",
+      "act": "input",
+      "does": "crate 검색어 입력"
+     },
+     {
+      "role": "button",
+      "name": "Search",
+      "where": "본문 검색칸 옆",
+      "act": "search",
+      "does": "crate 검색"
+     },
+     {
+      "role": "button",
+      "name": "I'm Feeling Lucky",
+      "where": "검색 버튼 옆",
+      "act": "open_detail",
+      "does": "검색어에 맞는 문서를 바로 연다"
+     }
+    ],
+    "traps": [
+     "Find crate by search query 검색칸이 상단과 본문에 같은 이름으로 두 번 노출됐다 (2026-10-26)"
+    ]
+   }
+  }
+ },
+ "mdn": {
+  "label": "MDN Web Docs",
+  "access": "open",
+  "hosts": [
+   "developer.mozilla.org"
+  ],
+  "go": {
+   "home": "https://developer.mozilla.org/en-US/"
+  },
+  "has": [
+   "웹 기술 문서·가이드"
+  ],
+  "prefer": "공식 MDN MCP 안내 https://developer.mozilla.org/en-US/blog/introducing-mdn-mcp-server/ (안내 링크만 확인, 사용 조건·엔드포인트 미확인)",
+  "verified": "2026-10-26",
+  "source": "browser-atlas live visit 2026-10-26",
+  "pages": {
+   "home": {
+    "url": "https://developer.mozilla.org/en-US/",
+    "ready": "!!document.querySelector('a[href=\"/en-US/docs/Web/JavaScript\"]')",
+    "controls": [
+     {
+      "role": "button",
+      "name": "Toggle navigation",
+      "where": "상단 메뉴",
+      "act": "expand",
+      "does": "내비게이션을 펼친다"
+     },
+     {
+      "role": "button",
+      "name": "Search",
+      "where": "상단 검색",
+      "act": "expand",
+      "does": "검색 화면을 연다"
+     },
+     {
+      "role": "button",
+      "name": "Search the site",
+      "where": "본문 검색",
+      "act": "expand",
+      "does": "사이트 검색을 연다"
+     },
+     {
+      "role": "button",
+      "name": "Switch color theme",
+      "where": "상단",
+      "act": "expand",
+      "does": "테마 선택"
+     },
+     {
+      "role": "button",
+      "name": "English (US)",
+      "where": "상단",
+      "act": "expand",
+      "does": "언어 선택"
+     },
+     {
+      "role": "link",
+      "name": "CSS",
+      "where": "본문 기술 목록",
+      "act": "navigate",
+      "does": "CSS 문서"
+     },
+     {
+      "role": "link",
+      "name": "HTML",
+      "where": "본문 기술 목록",
+      "act": "navigate",
+      "does": "HTML 문서"
+     },
+     {
+      "role": "link",
+      "name": "JavaScript",
+      "where": "본문 기술 목록",
+      "act": "navigate",
+      "does": "JavaScript 문서"
+     },
+     {
+      "role": "link",
+      "name": "Web APIs",
+      "where": "본문 기술 목록",
+      "act": "navigate",
+      "does": "Web API 문서"
+     }
+    ],
+    "traps": [
+     "추정한 /en-US/about/legal/terms 주소는 Page not found였고 Legal 링크는 mozilla.org 약관으로 연결됐다 (2026-10-26)"
+    ]
+   }
+  }
+ },
+ "pkg_go_dev": {
+  "label": "pkg.go.dev",
+  "access": "open",
+  "hosts": [
+   "pkg.go.dev"
+  ],
+  "go": {
+   "home": "https://pkg.go.dev/"
+  },
+  "has": [
+   "Go 패키지·심볼 문서"
+  ],
+  "prefer": "공식 pkg.go.dev API 안내 https://pkg.go.dev/api (링크 확인, 본문·제한 미확인); 모듈 데이터 https://proxy.golang.org/",
+  "verified": "2026-10-26",
+  "source": "browser-atlas live visit 2026-10-26"
+ },
+ "huggingface_hub": {
+  "label": "Hugging Face Hub",
+  "access": "api",
+  "hosts": [
+   "huggingface.co"
+  ],
+  "go": {
+   "models": "https://huggingface.co/models",
+   "datasets": "https://huggingface.co/datasets"
+  },
+  "has": [
+   "공개 모델·데이터셋 목록"
+  ],
+  "prefer": "공식 huggingface_hub SDK / Hub API; 프로그램 접근은 SDK 권장 https://huggingface.co/docs/hub/rate-limits",
+  "verified": "2026-10-26",
+  "source": "browser-atlas live visit 2026-10-26",
+  "pages": {
+   "models": {
+    "url": "https://huggingface.co/models",
+    "ready": "!!document.querySelector('a[href*=\"p=1\"][href*=\"sort=trending\"]')",
+    "controls": [
+     {
+      "role": "searchbox",
+      "name": "Filter by name",
+      "where": "목록 위 검색칸",
+      "act": "input",
+      "does": "목록 이름 필터 입력"
+     },
+     {
+      "role": "button",
+      "name": "Add filters",
+      "where": "목록 위",
+      "act": "expand",
+      "does": "필터 선택을 펼친다"
+     },
+     {
+      "role": "button",
+      "name": "Sort:  Trending",
+      "where": "목록 위 오른쪽",
+      "act": "sort",
+      "does": "정렬 선택을 펼친다"
+     },
+     {
+      "role": "link",
+      "name": "Models",
+      "where": "주 메뉴",
+      "act": "navigate",
+      "does": "모델 목록"
+     },
+     {
+      "role": "link",
+      "name": "Datasets",
+      "where": "주 메뉴",
+      "act": "navigate",
+      "does": "데이터셋 목록"
+     },
+     {
+      "role": "link",
+      "name": "Next",
+      "where": "목록 아래",
+      "act": "paginate",
+      "does": "다음 목록 페이지"
+     },
+     {
+      "role": "link",
+      "name": "2",
+      "where": "목록 아래",
+      "act": "paginate",
+      "does": "두 번째 목록 페이지"
+     }
+    ],
+    "traps": [
+     "goto 직후에는 로고와 전역 검색칸만 보였고 다음 읽기에서 결과와 필터가 나타났다 (2026-10-26)",
+     "경로 전체를 정확히 비교한 페이지 링크 ready는 독립 검사에서 충족되지 않았고, 쿼리 부분 선택자는 재방문에서 충족됐다 (2026-10-26)"
+    ]
+   },
+   "datasets": {
+    "url": "https://huggingface.co/datasets",
+    "ready": "!!document.querySelector('a[href*=\"p=1\"][href*=\"sort=trending\"]')",
+    "controls": [
+     {
+      "role": "searchbox",
+      "name": "Filter by name",
+      "where": "목록 위 검색칸",
+      "act": "input",
+      "does": "목록 이름 필터 입력"
+     },
+     {
+      "role": "button",
+      "name": "Add filters",
+      "where": "목록 위",
+      "act": "expand",
+      "does": "필터 선택을 펼친다"
+     },
+     {
+      "role": "button",
+      "name": "Sort:  Trending",
+      "where": "목록 위 오른쪽",
+      "act": "sort",
+      "does": "정렬 선택을 펼친다"
+     },
+     {
+      "role": "link",
+      "name": "Models",
+      "where": "주 메뉴",
+      "act": "navigate",
+      "does": "모델 목록"
+     },
+     {
+      "role": "link",
+      "name": "Datasets",
+      "where": "주 메뉴",
+      "act": "navigate",
+      "does": "데이터셋 목록"
+     },
+     {
+      "role": "link",
+      "name": "Next",
+      "where": "목록 아래",
+      "act": "paginate",
+      "does": "다음 목록 페이지"
+     },
+     {
+      "role": "link",
+      "name": "2",
+      "where": "목록 아래",
+      "act": "paginate",
+      "does": "두 번째 목록 페이지"
+     }
+    ],
+    "traps": [
+     "경로 전체를 정확히 비교한 페이지 링크 ready는 독립 검사에서 충족되지 않았고, 쿼리 부분 선택자는 재방문에서 충족됐다 (2026-10-26)"
+    ]
+   }
+  }
+ },
+ "maven_central": {
+  "label": "Maven Central",
+  "access": "blocked",
+  "hosts": [
+   "central.sonatype.com"
+  ],
+  "go": {
+   "home": "https://central.sonatype.com/"
+  },
+  "has": [
+   "Maven 공개 패키지 메타데이터"
+  ],
+  "prefer": "공식 API 문서 링크를 홈에서 확인했으나 엔드포인트·별도 허용 조건 미확인",
+  "why": "Terms (https://central.sonatype.org/terms.html): Abusive Actions include: «Attempting to download all or large portions of the Materials stored in Central (a.k.a., scraping or mirroring any content)» (2026-10-26 원문 확인)",
+  "verified": "2026-10-26",
+  "source": "browser-atlas live visit 2026-10-26"
+ },
+ "devdocs": {
+  "label": "DevDocs",
+  "access": "open",
+  "hosts": [
+   "devdocs.io"
+  ],
+  "go": {
+   "home": "https://devdocs.io/"
+  },
+  "has": [
+   "개발 문서 통합 검색"
+  ],
+  "prefer": "공식 API 미확인; Offline Data 화면과 공개 소스 저장소 https://github.com/freeCodeCamp/devdocs 링크 확인",
+  "verified": "2026-10-26",
+  "source": "browser-atlas live visit 2026-10-26",
+  "pages": {
+   "home": {
+    "url": "https://devdocs.io/",
+    "ready": "!!document.querySelector('a[href=\"/javascript/\"]')",
+    "controls": [
+     {
+      "role": "button",
+      "name": "Toggle menu",
+      "where": "상단 메뉴",
+      "act": "expand",
+      "does": "메뉴를 펼친다"
+     },
+     {
+      "role": "searchbox",
+      "name": "Search",
+      "where": "상단 검색칸",
+      "act": "input",
+      "does": "활성 문서 검색어 입력"
+     },
+     {
+      "role": "link",
+      "name": "Preferences",
+      "where": "사이드바",
+      "act": "navigate",
+      "does": "환경 설정 화면"
+     },
+     {
+      "role": "link",
+      "name": "Offline Data",
+      "where": "사이드바",
+      "act": "navigate",
+      "does": "오프라인 문서 관리 화면"
+     },
+     {
+      "role": "link",
+      "name": "Guide",
+      "where": "사이드바",
+      "act": "navigate",
+      "does": "사용 안내"
+     },
+     {
+      "role": "link",
+      "name": "CSS",
+      "where": "문서 목록",
+      "act": "navigate",
+      "does": "CSS 문서"
+     },
+     {
+      "role": "link",
+      "name": "HTML",
+      "where": "문서 목록",
+      "act": "navigate",
+      "does": "HTML 문서"
+     },
+     {
+      "role": "link",
+      "name": "JavaScript",
+      "where": "문서 목록",
+      "act": "navigate",
+      "does": "JavaScript 문서"
+     },
+     {
+      "role": "link",
+      "name": "Web APIs",
+      "where": "문서 목록",
+      "act": "navigate",
+      "does": "Web API 문서"
+     }
+    ],
+    "traps": [
+     "처음 About에서 Accept·Decline·Close가 있는 안내가 떴고 dismiss가 Close를 눌러 닫았다 (2026-10-26)",
+     "홈 이동 직후 문서 링크가 빠져 있었고 다음 controls 읽기에서 활성 문서 링크가 나타났다 (2026-10-26)"
+    ]
+   }
+  }
+ },
+ "nuget": {
+  "label": "NuGet Gallery",
+  "access": "blocked",
+  "hosts": [
+   "www.nuget.org"
+  ],
+  "go": {
+   "home": "https://www.nuget.org/"
+  },
+  "has": [
+   ".NET 패키지"
+  ],
+  "prefer": "Microsoft 공개 지원 NuGet API 우선; 공식 API 엔드포인트·별도 사용 조건 미확인",
+  "why": "Terms (https://www.nuget.org/policies/Terms): «you may not access, search, obtain or attempt to obtain any Offerings, materials, or information from the Sites through any means other than directly from Microsoft's publicly supported interfaces (for example, harvesting, reverse-engineering, 'spidering' or 'scraping' ... whether automated or not, is prohibited)» (2026-10-26 원문 확인)",
+  "verified": "2026-10-26",
+  "source": "browser-atlas live visit 2026-10-26"
+ },
+ "readthedocs": {
+  "label": "Read the Docs",
+  "access": "open",
+  "hosts": [
+   "readthedocs.org",
+   "about.readthedocs.com"
+  ],
+  "go": {
+   "home": "https://readthedocs.org/",
+   "projects": "https://readthedocs.org/projects/"
+  },
+  "has": [
+   "문서 호스팅 서비스 공개 소개"
+  ],
+  "prefer": "공식 Read the Docs API 존재는 약관에서 확인; 엔드포인트·익명 접근 범위 미확인",
+  "verified": "2026-10-26",
+  "source": "browser-atlas live visit 2026-10-26"
+ },
+ "openalex": {
+  "label": "OpenAlex",
+  "access": "open",
+  "hosts": [
+   "openalex.org"
+  ],
+  "go": {
+   "home": "https://openalex.org/"
+  },
+  "has": [
+   "학술 문헌 검색"
+  ],
+  "verified": "2026-10-26",
+  "source": "browser-atlas live visit 2026-10-26",
+  "prefer": "공식 OpenAlex API 안내: https://developers.openalex.org/",
+  "pages": {
+   "home": {
+    "url": "https://openalex.org/",
+    "ready": "!!document.querySelector('input')",
+    "controls": [
+     {
+      "role": "textbox",
+      "name": "Search scholarly works",
+      "act": "input",
+      "does": "학술 문헌 검색어 입력",
+      "where": "홈페이지 검색 영역",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "Search options",
+      "act": "expand",
+      "does": "검색 옵션 펼침",
+      "where": "홈페이지 검색 영역",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "Search",
+      "act": "search",
+      "does": "문헌 검색",
+      "where": "홈페이지 검색 영역",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "What's in OpenAlex?",
+      "act": "expand",
+      "does": "수록 범위 설명",
+      "where": "홈페이지 FAQ 영역",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "Do you have the full text, or just abstracts?",
+      "act": "expand",
+      "does": "원문 제공 설명",
+      "where": "홈페이지 FAQ 영역",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "Where does your data come from?",
+      "act": "expand",
+      "does": "데이터 출처 설명",
+      "where": "홈페이지 FAQ 영역",
+      "act_inferred": true
+     }
+    ],
+    "traps": [
+     "약관 PDF는 browser_read에서 본문 0자로 반환됐다 (2026-10-26)"
+    ]
+   }
+  }
+ },
+ "semantic_scholar": {
+  "label": "Semantic Scholar",
+  "access": "open",
+  "hosts": [
+   "www.semanticscholar.org"
+  ],
+  "go": {
+   "home": "https://www.semanticscholar.org/"
+  },
+  "has": [
+   "논문 검색",
+   "Semantic Reader"
+  ],
+  "verified": "2026-10-26",
+  "source": "browser-atlas live visit 2026-10-26",
+  "prefer": "Semantic Scholar 공식 API: https://api.semanticscholar.org/api-docs/ (별도 API License Agreement)",
+  "pages": {
+   "home": {
+    "url": "https://www.semanticscholar.org/",
+    "ready": "!!document.querySelector('input[aria-label=\"Search text\"]')",
+    "controls": [
+     {
+      "role": "searchbox",
+      "name": "Search text",
+      "act": "input",
+      "does": "논문 검색어 입력",
+      "where": "검색 폼",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "Submit",
+      "act": "search",
+      "does": "검색 결과 조회",
+      "where": "검색 폼",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "Semantic Reader",
+      "act": "navigate",
+      "does": "Semantic Reader 안내",
+      "where": "Product 영역",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "API Overview",
+      "act": "navigate",
+      "does": "공식 API 개요",
+      "where": "API 영역",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "API Tutorials",
+      "act": "navigate",
+      "does": "공식 API 사용 안내",
+      "where": "API 영역",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "API Documentation",
+      "act": "navigate",
+      "does": "공식 API 문서",
+      "where": "API 영역",
+      "act_inferred": true
+     }
+    ],
+    "traps": [
+     "첫 홈페이지 읽기에서 컨트롤이 비었고 다음 읽기에서 검색 폼이 나타났다 (2026-10-26)",
+     "쿠키 설정 대화 상자가 표시되었고 browser_dismiss는 pressed 빈 배열을 반환했다 (2026-10-26)"
+    ]
+   }
+  }
+ },
+ "wikipedia": {
+  "label": "Wikipedia (en, ko)",
+  "access": "open",
+  "hosts": [
+   "en.wikipedia.org",
+   "ko.wikipedia.org"
+  ],
+  "go": {
+   "en": "https://en.wikipedia.org/wiki/Main_Page",
+   "ko": "https://ko.wikipedia.org/wiki/위키백과:대문",
+   "ko_main": "https://ko.wikipedia.org/wiki/%EC%9C%84%ED%82%A4%EB%B0%B1%EA%B3%BC:%EB%8C%80%EB%AC%B8"
+  },
+  "has": [
+   "영어·한국어 백과사전"
+  ],
+  "verified": "2026-10-26",
+  "source": "browser-atlas live visit 2026-10-26",
+  "prefer": "공식 MediaWiki API 및 Wikimedia 데이터 덤프. API 약관의 User-Agent·Robot Policy·API:Etiquette 준수 필요",
+  "pages": {
+   "en_main": {
+    "url": "https://en.wikipedia.org/wiki/Main_Page",
+    "ready": "!!document.querySelector('main a')",
+    "controls": [
+     {
+      "role": "link",
+      "name": "Search",
+      "act": "search",
+      "where": "상단",
+      "does": "검색 화면",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "Main menu",
+      "act": "expand",
+      "where": "상단",
+      "does": "주 메뉴",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "Appearance",
+      "act": "expand",
+      "where": "상단",
+      "does": "화면 모양",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "Tools",
+      "act": "expand",
+      "where": "제목 옆",
+      "does": "문서 도구",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "View history",
+      "act": "navigate",
+      "where": "문서 탭",
+      "does": "문서 변경 이력",
+      "act_inferred": true
+     }
+    ],
+    "traps": [
+     "첫 읽기에서는 컨트롤이 비었고 다음 읽기에서 본문과 메뉴가 나타났다 (2026-10-26)",
+     "Some sidebar links (Content portals) appear only at some window widths (2026-10-26)"
+    ]
+   }
+  }
+ },
+ "wiktionary": {
+  "label": "Wiktionary",
+  "access": "open",
+  "hosts": [
+   "en.wiktionary.org"
+  ],
+  "go": {
+   "home": "https://en.wiktionary.org/wiki/Wiktionary:Main_Page"
+  },
+  "has": [
+   "다국어 낱말 뜻·어원·동의어"
+  ],
+  "verified": "2026-10-26",
+  "source": "browser-atlas live visit 2026-10-26",
+  "prefer": "공식 MediaWiki API 및 Wikimedia 덤프 (공통 API 약관 적용)",
+  "pages": {
+   "home": {
+    "url": "https://en.wiktionary.org/wiki/Wiktionary:Main_Page",
+    "ready": "!!document.querySelector('main a')",
+    "controls": [
+     {
+      "role": "link",
+      "name": "Search",
+      "act": "search",
+      "where": "상단",
+      "does": "사전 검색 화면",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "Main menu",
+      "act": "expand",
+      "where": "상단",
+      "does": "주 메뉴",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "Appearance",
+      "act": "expand",
+      "where": "상단",
+      "does": "화면 모양",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "Tools",
+      "act": "expand",
+      "where": "문서 탭 옆",
+      "does": "문서 도구",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "View history",
+      "act": "navigate",
+      "where": "문서 탭",
+      "does": "변경 이력",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "thesaurus",
+      "act": "navigate",
+      "where": "대문 소개",
+      "does": "동의어 사전",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "etymologies",
+      "act": "navigate",
+      "where": "대문 소개",
+      "does": "어원 안내",
+      "act_inferred": true
+     }
+    ],
+    "traps": []
+   }
+  }
+ },
+ "open_library": {
+  "label": "Open Library",
+  "access": "open",
+  "hosts": [
+   "openlibrary.org"
+  ],
+  "go": {
+   "home": "https://openlibrary.org/"
+  },
+  "has": [
+   "도서 서지"
+  ],
+  "verified": "2026-10-26",
+  "source": "browser-atlas live visit 2026-10-26",
+  "prefer": "공식 API·대량 덤프 안내: https://openlibrary.org/developers/api, https://openlibrary.org/developers/dumps (이전 /terms 화면의 공식 링크에서 확인)"
+ },
+ "stdict": {
+  "label": "국립국어원 표준국어대사전",
+  "access": "open",
+  "hosts": [
+   "stdict.korean.go.kr"
+  ],
+  "go": {
+   "home": "https://stdict.korean.go.kr/main/main.do"
+  },
+  "has": [
+   "표준어 뜻풀이",
+   "자세히 찾기",
+   "사전 통계"
+  ],
+  "verified": "2026-10-26",
+  "source": "browser-atlas live visit 2026-10-26",
+  "prefer": "공식 Open API: https://stdict.korean.go.kr/api/search.do (인증 키 필수, XML/JSON). 안내 https://stdict.korean.go.kr/openapi/openApiInfo.do",
+  "pages": {
+   "home": {
+    "url": "https://stdict.korean.go.kr/main/main.do",
+    "ready": "!!document.querySelector('input')",
+    "controls": [
+     {
+      "role": "textbox",
+      "name": "통합검색",
+      "act": "input",
+      "where": "가운데 검색칸",
+      "does": "낱말 입력",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "찾기",
+      "act": "search",
+      "where": "검색칸 옆",
+      "does": "낱말 검색",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "자세히 찾기",
+      "act": "navigate",
+      "where": "검색칸 옆",
+      "does": "상세 검색 조건 화면",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "일러두기",
+      "act": "navigate",
+      "where": "상단",
+      "does": "사전 이용 안내",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "사전 통계",
+      "act": "navigate",
+      "where": "하단",
+      "does": "사전 통계",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "개발 지원(Open API)",
+      "act": "navigate",
+      "where": "하단",
+      "does": "공식 API 소개",
+      "act_inferred": true
+     }
+    ],
+    "traps": [
+     "약관 페이지 첫 읽기는 0자였고 다음 읽기에서 본문이 나타났다 (2026-10-26)"
+    ]
+   }
+  }
+ },
+ "crossref_search": {
+  "label": "Crossref Search",
+  "access": "api",
+  "hosts": [
+   "search.crossref.org"
+  ],
+  "go": {
+   "home": "https://search.crossref.org/",
+   "help": "https://search.crossref.org/help/works"
+  },
+  "has": [
+   "DOI·서지 검색 입구"
+  ],
+  "verified": "2026-10-26",
+  "source": "browser-atlas live visit 2026-10-26",
+  "prefer": "공식 Crossref REST API: https://api.crossref.org/ (홈페이지 API 링크 확인). 검색 결과 URL은 robots 금지이므로 API 우선",
+  "pages": {
+   "home": {
+    "url": "https://search.crossref.org/",
+    "ready": "!!document.querySelector('input')",
+    "controls": [
+     {
+      "role": "textbox",
+      "name": "Title, author, DOI, ORCID iD, etc.",
+      "act": "input",
+      "where": "가운데 검색칸",
+      "does": "서지 검색어 입력",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "Metadata Search",
+      "act": "navigate",
+      "where": "상단 메뉴",
+      "does": "검색 입구",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "API",
+      "act": "navigate",
+      "where": "상단 메뉴",
+      "does": "공식 REST API",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "Help",
+      "act": "navigate",
+      "where": "상단 메뉴",
+      "does": "검색 도움말",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "Search help",
+      "act": "navigate",
+      "where": "검색칸 아래",
+      "does": "검색 도움말",
+      "act_inferred": true
+     },
+     {
+      "role": "link",
+      "name": "Status",
+      "act": "navigate",
+      "where": "상단 메뉴",
+      "does": "서비스 상태",
+      "act_inferred": true
+     }
+    ],
+    "traps": [
+     "검색 결과 /?q=python은 robots가 금지하여 열지 않았다 (2026-10-26)"
+    ]
+   }
+  }
+ },
+ "worldcat": {
+  "label": "WorldCat",
+  "access": "blocked",
+  "hosts": [
+   "search.worldcat.org"
+  ],
+  "go": {
+   "home": "https://search.worldcat.org/ko"
+  },
+  "has": [
+   "도서·소장 도서관 검색"
+  ],
+  "verified": "2026-10-26",
+  "source": "browser-atlas live visit 2026-10-26",
+  "why": "Terms (https://www.oclc.org/content/dam/ext-ref/worldcat-org/terms.html): prohibited: «using bots, spiders, automated tools, or scraping/mining routines to access or extract data.» (2026-10-26 원문 확인)"
+ },
+ "gutenberg": {
+  "label": "Project Gutenberg",
+  "access": "blocked",
+  "hosts": [
+   "www.gutenberg.org"
+  ],
+  "go": {
+   "terms": "https://www.gutenberg.org/policy/terms_of_use.html"
+  },
+  "has": [
+   "전자책"
+  ],
+  "verified": "2026-10-26",
+  "source": "browser-atlas live visit 2026-10-26",
+  "prefer": "약관이 안내하는 Offline Catalogs and Feeds·공식 미러·OPDS 경로 (별도 지침 확인 필요)",
+  "why": "Terms (https://www.gutenberg.org/policy/terms_of_use.html): «This website is intended for human users only.» «Any perceived use of automated tools to access this website will result in a temporary or permanent block of your IP address.» (2026-10-26 원문 확인)"
+ },
+ "opendict": {
+  "label": "국립국어원 우리말샘",
+  "access": "open",
+  "hosts": [
+   "opendict.korean.go.kr"
+  ],
+  "go": {
+   "home": "https://opendict.korean.go.kr/main"
+  },
+  "has": [
+   "낱말 검색",
+   "지역어·옛말·속담·관용구"
+  ],
+  "verified": "2026-10-26",
+  "source": "browser-atlas live visit 2026-10-26",
+  "prefer": "공식 개발지원(Open API) 링크가 있으나 /service/openApiInfo는 robots 금지로 상세 조건 확인 못 함",
+  "pages": {
+   "home": {
+    "url": "https://opendict.korean.go.kr/main",
+    "ready": "!!document.querySelector('input')",
+    "controls": [
+     {
+      "role": "textbox",
+      "name": "검색어 입력",
+      "act": "input",
+      "where": "상단 주 검색칸",
+      "does": "낱말 입력",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "검색",
+      "act": "search",
+      "where": "상단 주 검색칸 옆",
+      "does": "낱말 조회",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "옛한글",
+      "act": "expand",
+      "where": "상단 주 검색칸 옆",
+      "does": "옛한글 입력 도구",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "자세히 찾기",
+      "act": "expand",
+      "where": "상단 검색 영역",
+      "does": "상세 조건",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "지역어(방언)",
+      "act": "filter",
+      "where": "소사전 메뉴",
+      "does": "지역어 분류",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "옛말",
+      "act": "filter",
+      "where": "소사전 메뉴",
+      "does": "옛말 분류",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "속담",
+      "act": "filter",
+      "where": "소사전 메뉴",
+      "does": "속담 분류",
+      "act_inferred": true
+     },
+     {
+      "role": "button",
+      "name": "관용구",
+      "act": "filter",
+      "where": "소사전 메뉴",
+      "does": "관용구 분류",
+      "act_inferred": true
+     }
+    ],
+    "traps": [
+     "검색어 입력·검색·옛한글 컨트롤이 화면 내 여러 영역에서 같은 이름으로 노출됐다 (2026-10-26)"
+    ]
+   }
+  }
+ },
+ "britannica": {
+  "label": "Britannica",
+  "access": "blocked",
+  "hosts": [
+   "www.britannica.com"
+  ],
+  "go": {
+   "home": "https://www.britannica.com/"
+  },
+  "has": [
+   "백과사전"
+  ],
+  "verified": "2026-10-26",
+  "source": "browser-atlas live visit 2026-10-26",
+  "prefer": "홈페이지에 Encyclopaedia Britannica's Syndication API 공식 링크가 있음. 이용 조건은 확인 못 함",
+  "why": "Terms (https://corporate.britannica.com/termsofuse.html): «You may not use data mining, robots, screen scraping, or similar data gathering and extraction tools on the Services ... except with our express written consent.» (2026-10-26 원문 확인)"
+ },
+ "openstreetmap": {
+  "label": "OpenStreetMap",
+  "access": "open",
+  "hosts": [
+   "www.openstreetmap.org"
+  ],
+  "go": {
+   "지도": "https://www.openstreetmap.org/"
+  },
+  "has": [
+   "공개 지도",
+   "지도 레이어"
+  ],
+  "prefer": "OpenStreetMap API 및 데이터 배포: https://wiki.openstreetmap.org/wiki/API",
+  "verified": "2026-10-26",
+  "source": "browser-atlas live visit 2026-10-26"
+ },
+ "korail": {
+  "label": "코레일 승차권 시간표 조회",
+  "access": "open",
+  "hosts": [
+   "www.letskorail.com",
+   "www.korail.com"
+  ],
+  "go": {
+   "조회 입구": "https://www.korail.com/intro"
+  },
+  "has": [
+   "승차권 조회 입구"
+  ],
+  "verified": "2026-10-26",
+  "source": "browser-atlas live visit 2026-10-26"
+ },
+ "tago": {
+  "label": "국가대중교통정보센터 TAGO",
+  "access": "open",
+  "hosts": [
+   "www.tago.go.kr"
+  ],
+  "go": {
+   "메인": "https://www.tago.go.kr/",
+   "열차 조회": "https://www.tago.go.kr/train/realtimeSchedule"
+  },
+  "has": [
+   "열차 운행시간 조회",
+   "교통 OpenAPI 안내"
+  ],
+  "prefer": "TAGO Open API: https://www.tago.go.kr/use/openapi (버스·열차·항공·선박·지하철 등 공식 제공)",
+  "pages": {
+   "train": {
+    "url": "https://www.tago.go.kr/train/realtimeSchedule",
+    "ready": "!!document.querySelector('select') && !!document.querySelector('table')",
+    "controls": [
+     {
+      "role": "combobox",
+      "name": "출발일",
+      "where": "운행시간 조회 양식",
+      "act": "filter",
+      "does": "출발일 조건 선택"
+     },
+     {
+      "role": "combobox",
+      "name": "일 선택",
+      "where": "운행시간 조회 양식",
+      "act": "filter",
+      "does": "일 선택 조건 선택"
+     },
+     {
+      "role": "combobox",
+      "name": "출발지",
+      "where": "운행시간 조회 양식",
+      "act": "filter",
+      "does": "출발지 조건 선택"
+     },
+     {
+      "role": "combobox",
+      "name": "출발역 선택",
+      "where": "운행시간 조회 양식",
+      "act": "filter",
+      "does": "출발역 선택 조건 선택"
+     },
+     {
+      "role": "combobox",
+      "name": "도착지",
+      "where": "운행시간 조회 양식",
+      "act": "filter",
+      "does": "도착지 조건 선택"
+     },
+     {
+      "role": "combobox",
+      "name": "도착역 선택",
+      "where": "운행시간 조회 양식",
+      "act": "filter",
+      "does": "도착역 선택 조건 선택"
+     },
+     {
+      "role": "checkbox",
+      "name": "차량종류 전체 선택",
+      "where": "차량종류 선택 줄",
+      "act": "filter",
+      "does": "차량종류 전체 선택 차량 포함 여부"
+     },
+     {
+      "role": "checkbox",
+      "name": "KTX/SRT",
+      "where": "차량종류 선택 줄",
+      "act": "filter",
+      "does": "KTX/SRT 차량 포함 여부"
+     },
+     {
+      "role": "checkbox",
+      "name": "ITX-청춘",
+      "where": "차량종류 선택 줄",
+      "act": "filter",
+      "does": "ITX-청춘 차량 포함 여부"
+     },
+     {
+      "role": "checkbox",
+      "name": "무궁화호/누리로",
+      "where": "차량종류 선택 줄",
+      "act": "filter",
+      "does": "무궁화호/누리로 차량 포함 여부"
+     },
+     {
+      "role": "button",
+      "name": "조회하기",
+      "where": "조건 양식 아래",
+      "act": "search",
+      "does": "조건에 맞는 운행시간 조회"
+     }
+    ],
+    "traps": [
+     "링크에 jsessionid가 붙어 노출되어 지도에는 세션 식별자를 제외했다 (2026-10-26)."
+    ]
+   }
+  },
+  "verified": "2026-10-26",
+  "source": "browser-atlas live visit 2026-10-26"
+ },
+ "airportal": {
+  "label": "항공정보포털 에어포털",
+  "access": "open",
+  "hosts": [
+   "www.airportal.go.kr"
+  ],
+  "go": {
+   "메인": "https://www.airportal.go.kr/main.do"
+  },
+  "has": [
+   "항공정보 검색",
+   "항공통계 입구",
+   "실시간 출도착정보"
+  ],
+  "pages": {
+   "main": {
+    "url": "https://www.airportal.go.kr/main.do",
+    "ready": "!!document.querySelector('table') && !!document.querySelector('input')",
+    "controls": [
+     {
+      "role": "textbox",
+      "name": "항공정보가 궁금하세요?",
+      "where": "상단 검색 영역",
+      "act": "input",
+      "does": "항공정보 검색어 입력",
+      "css": "input[placeholder='항공정보가 궁금하세요?']"
+     },
+     {
+      "role": "button",
+      "name": "검색",
+      "where": "검색 양식",
+      "act": "search",
+      "does": "항공정보 검색"
+     },
+     {
+      "role": "link",
+      "name": "전체메뉴",
+      "where": "상단",
+      "act": "expand",
+      "does": "전체 메뉴 펼침"
+     },
+     {
+      "role": "link",
+      "name": "일자별통계 일자별통계",
+      "where": "자주 찾는 메뉴 및 통계 영역",
+      "act": "navigate",
+      "does": "일자별 항공통계 화면"
+     },
+     {
+      "role": "link",
+      "name": "항공운송통계 항공운송통계",
+      "where": "자주 찾는 메뉴 및 통계 영역",
+      "act": "navigate",
+      "does": "항공운송통계 화면"
+     },
+     {
+      "role": "link",
+      "name": "포켓 항공현황 포켓 항공현황",
+      "where": "자주 찾는 메뉴 및 통계 영역",
+      "act": "navigate",
+      "does": "포켓 항공현황 자료"
+     }
+    ],
+    "traps": []
+   }
+  },
+  "verified": "2026-10-26",
+  "source": "browser-atlas live visit 2026-10-26"
+ },
+ "timeanddate": {
+  "label": "timeanddate.com",
+  "access": "open",
+  "hosts": [
+   "www.timeanddate.com"
+  ],
+  "go": {
+   "서울 날씨": "https://www.timeanddate.com/weather/south-korea/seoul"
+  },
+  "has": [
+   "현재 날씨",
+   "시간별·14일·과거 날씨 입구"
+  ],
+  "prefer": "공식 API 링크가 날씨 화면 하단에 노출됨; 제공 범위·주소·조건 미확인",
+  "pages": {
+   "weather": {
+    "url": "https://www.timeanddate.com/weather/south-korea/seoul",
+    "ready": "!!document.querySelector('table') && !!document.querySelector('input[type=search]')",
+    "controls": [
+     {
+      "role": "searchbox",
+      "name": "Search for city, state or country…",
+      "where": "날씨 제목 오른쪽",
+      "act": "input",
+      "does": "도시 날씨 검색어 입력"
+     },
+     {
+      "role": "link",
+      "name": "Weather Today",
+      "where": "날씨 분류 탭",
+      "act": "tab",
+      "does": "현재 날씨"
+     },
+     {
+      "role": "link",
+      "name": "Weather Hourly",
+      "where": "날씨 분류 탭",
+      "act": "tab",
+      "does": "시간별 날씨"
+     },
+     {
+      "role": "link",
+      "name": "14 Day Forecast",
+      "where": "날씨 분류 탭",
+      "act": "tab",
+      "does": "14일 예보"
+     },
+     {
+      "role": "link",
+      "name": "Yesterday/Past Weather",
+      "where": "날씨 분류 탭",
+      "act": "tab",
+      "does": "과거 날씨"
+     },
+     {
+      "role": "link",
+      "name": "Climate (Averages)",
+      "where": "날씨 분류 탭",
+      "act": "tab",
+      "does": "평균 기후"
+     }
+    ],
+    "traps": []
+   }
+  },
+  "verified": "2026-10-26",
+  "source": "browser-atlas live visit 2026-10-26"
+ },
+ "windy": {
+  "label": "Windy",
+  "access": "blocked",
+  "hosts": [
+   "www.windy.com"
+  ],
+  "go": {
+   "지도": "https://www.windy.com/"
+  },
+  "has": [
+   "날씨 지도"
+  ],
+  "prefer": "Windy API는 약관에서 공식 서비스로 명시됨; 별도 API 약관·주소 확인 필요",
+  "why": "Terms (https://account.windy.com/agreements/windy-terms-of-use): prohibited: «\"crawling\" of the Services or otherwise using any automated means to view, access, or collect information from the Services;» (2026-10-26 원문 확인)",
+  "verified": "2026-10-26",
+  "source": "browser-atlas live visit 2026-10-26"
+ },
+ "danawa": {
+  "label": "다나와 가격비교",
+  "access": "open",
+  "hosts": [
+   "www.danawa.com",
+   "search.danawa.com"
+  ],
+  "go": {
+   "검색": "https://search.danawa.com/?query={query}"
+  },
+  "has": [
+   "상품 가격비교 검색",
+   "가격 범위·정렬"
+  ],
+  "pages": {
+   "search": {
+    "url": "https://search.danawa.com/?query={query}",
+    "ready": "!!document.querySelector('a[href^=\"https://prod.danawa.com/\"]') && !!document.querySelector('select')",
+    "controls": [
+     {
+      "role": "textbox",
+      "name": "검색",
+      "where": "상단 검색 줄",
+      "act": "input",
+      "does": "상품 검색어 입력"
+     },
+     {
+      "role": "button",
+      "name": "검색",
+      "where": "상단 검색 줄",
+      "act": "search",
+      "does": "상품 검색"
+     },
+     {
+      "role": "button",
+      "name": "결과 내 검색",
+      "where": "상단 검색 줄",
+      "act": "expand",
+      "does": "결과 내 검색 조건"
+     },
+     {
+      "role": "textbox",
+      "name": "최소 가격",
+      "where": "상세검색 가격 범위",
+      "act": "input",
+      "does": "최소 가격 입력"
+     },
+     {
+      "role": "textbox",
+      "name": "최대 가격",
+      "where": "상세검색 가격 범위",
+      "act": "input",
+      "does": "최대 가격 입력"
+     },
+     {
+      "role": "combobox",
+      "name": "페이지당 아이템 개수",
+      "where": "결과 도구 모음",
+      "act": "paginate",
+      "does": "한 페이지 표시 개수 선택"
+     },
+     {
+      "role": "tab",
+      "name": "인기상품순",
+      "where": "결과 정렬 줄",
+      "act": "sort",
+      "does": "인기상품순 정렬"
+     },
+     {
+      "role": "tab",
+      "name": "낮은가격순",
+      "where": "결과 정렬 줄",
+      "act": "sort",
+      "does": "낮은가격순 정렬"
+     },
+     {
+      "role": "tab",
+      "name": "높은가격순",
+      "where": "결과 정렬 줄",
+      "act": "sort",
+      "does": "높은가격순 정렬"
+     },
+     {
+      "role": "tab",
+      "name": "신상품순",
+      "where": "결과 정렬 줄",
+      "act": "sort",
+      "does": "신상품순 정렬"
+     },
+     {
+      "role": "button",
+      "name": "리스트 보기",
+      "where": "결과 도구 모음",
+      "act": "filter",
+      "does": "리스트 보기 표시"
+     },
+     {
+      "role": "button",
+      "name": "이미지 보기",
+      "where": "결과 도구 모음",
+      "act": "filter",
+      "does": "이미지 보기 표시"
+     }
+    ],
+    "traps": [
+     "dsearch.php?query=laptop이 /?query=laptop으로 이동했다 (2026-10-26).",
+     "이용약관 화면의 상위 본문에는 약관 내용이 노출되지 않았다 (2026-10-26)."
+    ]
+   }
+  },
+  "verified": "2026-10-26",
+  "source": "browser-atlas live visit 2026-10-26"
+ },
+ "enuri": {
+  "label": "에누리 가격비교",
+  "access": "open",
+  "hosts": [
+   "www.enuri.com",
+   "price.enuri.com"
+  ],
+  "go": {
+   "검색": "https://price.enuri.com/search?keyword={query}"
+  },
+  "has": [
+   "상품 가격비교",
+   "가격 정렬·배송비 조건"
+  ],
+  "pages": {
+   "search": {
+    "url": "https://price.enuri.com/search?keyword={query}",
+    "ready": "!!document.querySelector('a[href*=\"/catalog/\"]') && !!document.querySelector('input[type=radio], [role=radio]') && [...document.querySelectorAll('button')].some(e=>(e.getAttribute('aria-label')||e.textContent).trim()==='그리드형') && document.body.innerText.includes('배송비 포함')",
+    "controls": [
+     {
+      "role": "textbox",
+      "name": "검색어 입력",
+      "where": "상단 검색 줄",
+      "act": "input",
+      "does": "상품 검색어 입력"
+     },
+     {
+      "role": "button",
+      "name": "검색",
+      "where": "상단 검색 줄",
+      "act": "search",
+      "does": "상품 검색"
+     },
+     {
+      "role": "textbox",
+      "name": "리스트 결과 내 검색어 입력",
+      "where": "결과 상단",
+      "act": "input",
+      "does": "결과 내 검색어 입력"
+     },
+     {
+      "role": "radio",
+      "name": "인기순",
+      "where": "결과 정렬 줄",
+      "act": "sort",
+      "does": "인기순 정렬"
+     },
+     {
+      "role": "radio",
+      "name": "최저가순",
+      "where": "결과 정렬 줄",
+      "act": "sort",
+      "does": "최저가순 정렬"
+     },
+     {
+      "role": "radio",
+      "name": "최고가순",
+      "where": "결과 정렬 줄",
+      "act": "sort",
+      "does": "최고가순 정렬"
+     },
+     {
+      "role": "radio",
+      "name": "신상품순",
+      "where": "결과 정렬 줄",
+      "act": "sort",
+      "does": "신상품순 정렬"
+     },
+     {
+      "role": "checkbox",
+      "name": "30일 내 최저가",
+      "where": "결과 조건 줄",
+      "act": "filter",
+      "does": "30일 내 최저가 조건"
+     },
+     {
+      "role": "checkbox",
+      "name": "배송비 포함",
+      "where": "결과 조건 줄",
+      "act": "filter",
+      "does": "배송비 포함 조건"
+     },
+     {
+      "role": "checkbox",
+      "name": "중고/렌탈 제외",
+      "where": "결과 조건 줄",
+      "act": "filter",
+      "does": "중고/렌탈 제외 조건"
+     },
+     {
+      "role": "button",
+      "name": "리스트형",
+      "where": "결과 표시 방식",
+      "act": "filter",
+      "does": "리스트형 표시"
+     },
+     {
+      "role": "button",
+      "name": "그리드형",
+      "where": "결과 표시 방식",
+      "act": "filter",
+      "does": "그리드형 표시"
+     }
+    ],
+    "traps": [
+     "search.jsp가 price.enuri.com/search로 이동하고 최초 outline은 0자였으나 다음 읽기에는 상품 결과가 나타났다 (2026-10-26).",
+     "결과 링크가 필터·정렬 UI보다 먼저 나타나 이전 ready로는 컨트롤 검사 시점이 빨랐다 (2026-10-26)."
+    ]
+   }
+  },
+  "verified": "2026-10-26",
+  "source": "browser-atlas live visit 2026-10-26"
+ },
+ "skyscanner": {
+  "label": "Skyscanner",
+  "access": "blocked",
+  "hosts": [
+   "www.skyscanner.co.kr"
+  ],
+  "go": {
+   "홈": "https://www.skyscanner.co.kr/"
+  },
+  "has": [
+   "항공·호텔·렌터카 가격비교"
+  ],
+  "prefer": "상용 API 기반 여행 데이터 접근: 약관에서 명시, 계약·공식 API 상세 주소 미확인",
+  "why": "Terms (https://www.skyscanner.co.kr/terms-of-service): «사용자는 무단 자동화된 컴퓨터 프로그램, 소프트웨어 에이전트, 봇, 스파이더 또는 기타 소프트웨어나 애플리케이션을 사용하여 당사의 서비스 또는 플랫폼 또는 여기에 포함된 데이터를 스캔, 복사, 색인, 정렬 또는 기타 방식으로 악용하지 않을 것에 동의합니다.» (2026-10-26 원문 확인)",
+  "verified": "2026-10-26",
+  "source": "browser-atlas live visit 2026-10-26"
+ },
+ "incheon_airport": {
+  "label": "인천공항 운항 정보",
+  "access": "open",
+  "hosts": [
+   "www.airport.kr"
+  ],
+  "go": {
+   "출발 운항정보": "https://www.airport.kr/ap_ko/869/subview.do"
+  },
+  "has": [
+   "여객 출발 운항정보",
+   "목적지·항공사·편명 필터"
+  ],
+  "pages": {
+   "departures": {
+    "url": "https://www.airport.kr/ap_ko/869/subview.do",
+    "ready": "!!document.querySelector('select') && [...document.querySelectorAll('button')].some(e=>e.textContent.includes('출발시간'))",
+    "controls": [
+     {
+      "role": "combobox",
+      "name": "터미널 선택",
+      "where": "항공편 검색 조건",
+      "act": "filter",
+      "does": "터미널 선택 조건 선택"
+     },
+     {
+      "role": "combobox",
+      "name": "날짜선택",
+      "where": "항공편 검색 조건",
+      "act": "filter",
+      "does": "날짜선택 조건 선택"
+     },
+     {
+      "role": "combobox",
+      "name": "출발시간 선택",
+      "where": "항공편 검색 조건",
+      "act": "filter",
+      "does": "출발시간 선택 조건 선택"
+     },
+     {
+      "role": "combobox",
+      "name": "도착시간 선택",
+      "where": "항공편 검색 조건",
+      "act": "filter",
+      "does": "도착시간 선택 조건 선택"
+     },
+     {
+      "role": "combobox",
+      "name": "목적지 선택",
+      "where": "항공편 검색 조건",
+      "act": "filter",
+      "does": "목적지 선택 조건 선택"
+     },
+     {
+      "role": "combobox",
+      "name": "항공사 선택",
+      "where": "항공편 검색 조건",
+      "act": "filter",
+      "does": "항공사 선택 조건 선택"
+     },
+     {
+      "role": "textbox",
+      "name": "편명입력",
+      "where": "항공편 검색 조건",
+      "act": "input",
+      "does": "항공편명 입력"
+     },
+     {
+      "role": "button",
+      "name": "검색하기",
+      "where": "조건 양식 아래",
+      "act": "search",
+      "does": "운항편 조회"
+     },
+     {
+      "role": "button",
+      "name": "새로고침",
+      "where": "운항정보 목록 위",
+      "act": "search",
+      "does": "현재 운항정보 갱신"
+     },
+     {
+      "role": "button",
+      "name": "엑셀다운로드",
+      "where": "운항정보 목록 위",
+      "act": "download",
+      "does": "운항정보 엑셀 다운로드"
+     },
+     {
+      "role": "button",
+      "name": "출발편",
+      "where": "검색 조건 위",
+      "act": "expand",
+      "does": "출도착 구분 선택"
+     }
+    ],
+    "traps": [
+     "첫 outline과 controls는 비어 있었고 다음 읽기에서 운항편 목록이 나타났다 (2026-10-26).",
+     "첫 화면 팝업은 browser_dismiss의 닫기로 닫혔다 (2026-10-26)."
+    ]
+   }
+  },
+  "verified": "2026-10-26",
+  "source": "browser-atlas live visit 2026-10-26"
+ },
+ "visitkorea": {
+  "label": "대한민국 구석구석",
+  "access": "open",
+  "hosts": [
+   "korean.visitkorea.or.kr"
+  ],
+  "go": {
+   "메인": "https://korean.visitkorea.or.kr/main/main.do"
+  },
+  "has": [
+   "국내 여행정보",
+   "여행코스·축제·가이드북 입구"
+  ],
+  "prefer": "TourAPI 4.0 공식 링크와 한국관광콘텐츠랩의 관광데이터·API 제공 안내가 메인에 노출됨; 상세 주소·인증 조건 미확인",
+  "verified": "2026-10-26",
+  "source": "browser-atlas live visit 2026-10-26"
+ },
+ "census_data": {
+  "label": "US Census data.census.gov",
+  "access": "open",
+  "hosts": [
+   "data.census.gov"
+  ],
+  "go": {
+   "home": "https://data.census.gov/"
+  },
+  "has": [
+   "Census tables, maps, profiles and search"
+  ],
+  "why": "",
+  "verified": "2026-10-26",
+  "source": "browser-atlas live visit 2026-10-26",
+  "pages": {
+   "home": {
+    "url": "https://data.census.gov/",
+    "ready": "!!document.querySelector('[role=combobox]')",
+    "controls": [
+     {
+      "role": "combobox",
+      "name": "Search Button",
+      "where": "Main search area",
+      "act": "input",
+      "does": "Enters search terms"
+     },
+     {
+      "role": "link",
+      "name": "tables",
+      "where": "Main content",
+      "act": "navigate",
+      "does": "Opens tables"
+     },
+     {
+      "role": "link",
+      "name": "maps",
+      "where": "Main content",
+      "act": "navigate",
+      "does": "Opens maps"
+     },
+     {
+      "role": "link",
+      "name": "Explore Microdata",
+      "where": "Microdata section",
+      "act": "navigate",
+      "does": "Opens microdata access"
+     },
+     {
+      "role": "link",
+      "name": "Navigates to the Explore Filters page",
+      "where": "Search area",
+      "act": "navigate",
+      "does": "Opens advanced filters"
+     },
+     {
+      "role": "link",
+      "name": "Explore Tables",
+      "where": "Main content",
+      "act": "navigate",
+      "does": "Opens tables"
+     },
+     {
+      "role": "link",
+      "name": "Explore Maps",
+      "where": "Main content",
+      "act": "navigate",
+      "does": "Opens maps"
+     }
+    ]
+   },
+   "search": {
+    "url": "https://data.census.gov/all?q={query}",
+    "ready": "!!document.querySelector('h3') && !!document.querySelector('[role=combobox]')",
+    "controls": [
+     {
+      "role": "combobox",
+      "name": "Search Button",
+      "where": "Top search area",
+      "act": "input",
+      "does": "Enters search terms"
+     },
+     {
+      "role": "button",
+      "name": "VIEW FILTERS",
+      "where": "Top left",
+      "act": "expand",
+      "does": "Displays search filters"
+     },
+     {
+      "role": "link",
+      "name": "All",
+      "where": "Results navigation",
+      "act": "tab",
+      "does": "Displays all results"
+     },
+     {
+      "role": "link",
+      "name": "Tables",
+      "where": "Results navigation",
+      "act": "tab",
+      "does": "Displays table results"
+     },
+     {
+      "role": "link",
+      "name": "Maps",
+      "where": "Results navigation",
+      "act": "tab",
+      "does": "Displays map results"
+     },
+     {
+      "role": "link",
+      "name": "Charts",
+      "where": "Results navigation",
+      "act": "tab",
+      "does": "Displays chart results"
+     },
+     {
+      "role": "link",
+      "name": "Profiles",
+      "where": "Results navigation",
+      "act": "tab",
+      "does": "Displays profile results"
+     },
+     {
+      "role": "link",
+      "name": "Pages",
+      "where": "Results navigation",
+      "act": "tab",
+      "does": "Displays page results"
+     }
+    ]
+   }
+  }
+ },
+ "wipo_patentscope": {
+  "label": "WIPO PATENTSCOPE",
+  "access": "open",
+  "hosts": [
+   "patentscope.wipo.int"
+  ],
+  "go": {
+   "home": "https://patentscope.wipo.int/search/ko/search.jsf"
+  },
+  "has": [
+   "Patent search",
+   "Weekly PCT publications"
+  ],
+  "why": "",
+  "verified": "2026-10-26",
+  "source": "browser-atlas live visit 2026-10-26",
+  "pages": {
+   "search": {
+    "url": "https://patentscope.wipo.int/search/ko/search.jsf",
+    "ready": "!!document.querySelector('h1') && !!document.querySelector('option')",
+    "controls": [
+     {
+      "role": "button",
+      "name": "검색",
+      "where": "Top navigation",
+      "act": "expand",
+      "does": "Opens search navigation"
+     },
+     {
+      "role": "button",
+      "name": "열람",
+      "where": "Top navigation",
+      "act": "expand",
+      "does": "Opens browse navigation"
+     },
+     {
+      "role": "button",
+      "name": "도구",
+      "where": "Top navigation",
+      "act": "expand",
+      "does": "Opens tools navigation"
+     },
+     {
+      "role": "link",
+      "name": "데이터 수록범위 상세정보",
+      "where": "Main content",
+      "act": "open_detail",
+      "does": "Opens data coverage information"
+     },
+     {
+      "role": "link",
+      "name": "질의 예시",
+      "where": "Search area",
+      "act": "expand",
+      "does": "Displays example queries"
+     },
+     {
+      "role": "button",
+      "name": "AI 지원 검색",
+      "where": "Search area",
+      "act": "tab",
+      "does": "Displays AI assisted search"
+     }
+    ],
+    "traps": [
+     "Search input was absent from the controls listing (2026-10-26)."
+    ]
+   },
+   "weekly": {
+    "url": "https://patentscope.wipo.int/search/ko/resultWeeklyBrowse.jsf",
+    "ready": "!!document.querySelector('a[aria-label=\"Next Page\"]')",
+    "controls": [
+     {
+      "role": "link",
+      "name": "First Page",
+      "where": "Results pagination",
+      "act": "paginate",
+      "does": "Opens first results page"
+     },
+     {
+      "role": "link",
+      "name": "Previous Page",
+      "where": "Results pagination",
+      "act": "paginate",
+      "does": "Opens previous results page"
+     },
+     {
+      "role": "link",
+      "name": "Page 2",
+      "where": "Results pagination",
+      "act": "paginate",
+      "does": "Opens second results page"
+     },
+     {
+      "role": "link",
+      "name": "Next Page",
+      "where": "Results pagination",
+      "act": "paginate",
+      "does": "Opens next results page"
+     },
+     {
+      "role": "link",
+      "name": "Last Page",
+      "where": "Results pagination",
+      "act": "paginate",
+      "does": "Opens last results page"
+     },
+     {
+      "role": "link",
+      "name": "Excel Download",
+      "where": "Above results",
+      "act": "download",
+      "does": "Downloads results as Excel"
+     },
+     {
+      "role": "link",
+      "name": "IPC Statistics",
+      "where": "Above results",
+      "act": "open_detail",
+      "does": "Displays IPC statistics"
+     }
+    ]
+   }
+  }
+ },
+ "statcan": {
+  "label": "Statistics Canada",
+  "access": "open",
+  "hosts": [
+   "www150.statcan.gc.ca",
+   "www.statcan.gc.ca"
+  ],
+  "go": {
+   "home": "https://www150.statcan.gc.ca/n1/en/type/data"
+  },
+  "has": [
+   "Statistical data catalogue",
+   "Economic indicators"
+  ],
+  "why": "",
+  "verified": "2026-10-26",
+  "source": "browser-atlas live visit 2026-10-26",
+  "pages": {
+   "home": {
+    "url": "https://www.statcan.gc.ca/en/start",
+    "ready": "!!document.querySelector('a[href*=\"n1/en/type/data\"]')",
+    "controls": [
+     {
+      "role": "link",
+      "name": "Key indicators",
+      "where": "Main content",
+      "act": "navigate",
+      "does": "Opens key indicators"
+     },
+     {
+      "role": "link",
+      "name": "Major economic indicators",
+      "where": "Main content",
+      "act": "navigate",
+      "does": "Opens economic indicators"
+     },
+     {
+      "role": "link",
+      "name": "Subjects and data hubs",
+      "where": "Main content",
+      "act": "navigate",
+      "does": "Opens subject hubs"
+     },
+     {
+      "role": "link",
+      "name": "Data",
+      "where": "Main content",
+      "act": "navigate",
+      "does": "Opens data catalogue"
+     },
+     {
+      "role": "link",
+      "name": "Analysis",
+      "where": "Main content",
+      "act": "navigate",
+      "does": "Opens analysis catalogue"
+     },
+     {
+      "role": "link",
+      "name": "Reference",
+      "where": "Main content",
+      "act": "navigate",
+      "does": "Opens reference catalogue"
+     },
+     {
+      "role": "link",
+      "name": "Geography",
+      "where": "Main content",
+      "act": "navigate",
+      "does": "Opens geography resources"
+     },
+     {
+      "role": "link",
+      "name": "Census",
+      "where": "Main content",
+      "act": "navigate",
+      "does": "Opens census resources"
+     }
+    ],
+    "traps": [
+     "Immediate reads after navigation returned empty content before rendering completed (2026-10-26)."
+    ]
+   },
+   "data": {
+    "url": "https://www150.statcan.gc.ca/n1/en/type/data",
+    "ready": "!!document.querySelector('a[href*=\"/t1/tbl1/en/tv.action\"]')",
+    "controls": [
+     {
+      "role": "button",
+      "name": "Search",
+      "where": "Catalogue search area",
+      "act": "search",
+      "does": "Searches the catalogue"
+     },
+     {
+      "role": "button",
+      "name": "Search by vector",
+      "where": "Catalogue search area",
+      "act": "expand",
+      "does": "Opens vector search"
+     },
+     {
+      "role": "button",
+      "name": "Search Help",
+      "where": "Catalogue search area",
+      "act": "expand",
+      "does": "Displays search help"
+     },
+     {
+      "role": "button",
+      "name": "Sort Help",
+      "where": "Catalogue sort area",
+      "act": "expand",
+      "does": "Displays sorting help"
+     },
+     {
+      "role": "link",
+      "name": "Skip to filters",
+      "where": "Above catalogue",
+      "act": "navigate",
+      "does": "Moves to filters"
+     },
+     {
+      "role": "link",
+      "name": "View results",
+      "where": "Above catalogue",
+      "act": "navigate",
+      "does": "Moves to catalogue results"
+     },
+     {
+      "role": "link",
+      "name": "How to access microdata",
+      "where": "Main content",
+      "act": "navigate",
+      "does": "Opens microdata guidance"
+     }
+    ]
+   }
+  }
+ },
+ "bis_data": {
+  "label": "BIS Data Portal",
+  "access": "open",
+  "hosts": [
+   "data.bis.org"
+  ],
+  "go": {
+   "home": "https://data.bis.org/"
+  },
+  "has": [
+   "International financial statistics",
+   "Central bank policy rates"
+  ],
+  "why": "",
+  "verified": "2026-10-26",
+  "source": "browser-atlas live visit 2026-10-26",
+  "prefer": "BIS SDMX REST API: https://stats.bis.org/api-doc/v2/",
+  "pages": {
+   "policy_rates": {
+    "url": "https://data.bis.org/topics/CBPOL",
+    "ready": "!!document.querySelector('a[href*=\"cbpol_doc.pdf\"]')",
+    "controls": [
+     {
+      "role": "button",
+      "name": "Search",
+      "where": "Top navigation",
+      "act": "expand",
+      "does": "Displays search"
+     },
+     {
+      "role": "link",
+      "name": "Overview",
+      "where": "Topic navigation",
+      "act": "tab",
+      "does": "Displays topic overview"
+     },
+     {
+      "role": "link",
+      "name": "Central bank policy rates - data documentation and sources",
+      "where": "Methodology section",
+      "act": "download",
+      "does": "Opens methodology PDF"
+     },
+     {
+      "role": "button",
+      "name": "Show more",
+      "where": "Topic content",
+      "act": "expand",
+      "does": "Expands additional topic content"
+     },
+     {
+      "role": "button",
+      "name": "Central bank policy rates",
+      "where": "Glossary section",
+      "act": "expand",
+      "does": "Displays glossary definition"
+     },
+     {
+      "role": "button",
+      "name": "How often and when are the policy rate series updated?",
+      "where": "FAQs",
+      "act": "expand",
+      "does": "Displays update frequency information"
+     },
+     {
+      "role": "button",
+      "name": "What are the main sources for the policy rates series?",
+      "where": "FAQs",
+      "act": "expand",
+      "does": "Displays source information"
+     },
+     {
+      "role": "button",
+      "name": "Can I republish the BIS statistics?",
+      "where": "FAQs",
+      "act": "expand",
+      "does": "Displays reuse information"
+     },
+     {
+      "role": "button",
+      "name": "What is the main policy rate and how is it selected?",
+      "where": "FAQs",
+      "act": "expand",
+      "does": "Displays policy rate selection explanation"
+     }
+    ]
+   }
+  }
+ },
+ "docker_hub": {
+  "label": "Docker Hub",
+  "access": "blocked",
+  "hosts": [
+   "hub.docker.com"
+  ],
+  "go": {
+   "home": "https://hub.docker.com/"
+  },
+  "has": [
+   "Public container image catalogue"
+  ],
+  "why": "Terms (https://www.docker.com/legal/docker-terms-use/): you may not: «Use automated means (agents, robots, spiders, scrapers, or similar) to access the Website or Services except as permitted by Docker (for example, through documented APIs and within published limits).» (2026-10-26 원문 확인)",
+  "verified": "2026-10-26",
+  "source": "browser-atlas live visit 2026-10-26"
  }
 }

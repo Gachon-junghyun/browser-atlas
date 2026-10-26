@@ -6,8 +6,8 @@
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-3776ab?logo=python&logoColor=white)](pyproject.toml)
 [![Dependencies: 0](https://img.shields.io/badge/dependencies-0-7ec699)](pyproject.toml)
-[![Sites mapped: 80](https://img.shields.io/badge/sites_mapped-80-d97757)](atlas/sites.json)
-[![Button maps: 106 screens](https://img.shields.io/badge/button_maps-106_screens-d97757)](atlas/sites.json)
+[![Sites mapped: 127](https://img.shields.io/badge/sites_mapped-127-d97757)](atlas/sites.json)
+[![Button maps: 142 screens](https://img.shields.io/badge/button_maps-142_screens-d97757)](atlas/sites.json)
 [![MCP ready](https://img.shields.io/badge/MCP-ready-8b8680)](#-plug-it-into-claude-code)
 [![License: MIT](https://img.shields.io/badge/license-MIT-lightgrey)](LICENSE)
 
@@ -40,8 +40,8 @@ that reads it, and safety rules written in code instead of in a prompt.
 
 |   |   |
 |---|---|
-| 🗺️ **Site atlas** | 80 sites, each with an access level (`open`, `session`, `api`, `blocked`), entry URLs, the official API to prefer, and for blocked ones the reason, quoted from robots.txt or the terms and dated. |
-| 🔘 **Button maps** | 106 real screens with the 5 to 15 controls people actually use, stored as **role + accessible name** (`button "검색"`) instead of brittle CSS. Every one was seen on the live page; all but two pass `check` (a dialog that has no URL, and a signed-in form that hides its fields when the account is at its plan limit). |
+| 🗺️ **Site atlas** | 127 sites, each with an access level (`open`, `session`, `api`, `blocked`), entry URLs, the official API to prefer, and for blocked ones the reason, quoted from robots.txt or the terms and dated. |
+| 🔘 **Button maps** | 142 real screens with the 5 to 15 controls people actually use, stored as **role + accessible name** (`button "검색"`) instead of brittle CSS. Every one was seen on the live page; all but two pass `check` (a dialog that has no URL, and a signed-in form that hides its fields when the account is at its plan limit). |
 | 🛑 **Safety in code** | Pay, order, submit, send and delete controls stop with *ask the human*. Only a person at a terminal can allow one click (`browser-atlas allow "주문하기"`); no MCP tool can. Blocked hosts are refused, even after a redirect. |
 | 🧠 **Experience memory** | Every tab is an episode, judged from signals (captcha means `blocked`, never reading means `fail`). Next time, `browser_open` hands back the routes that worked on that site, best first. |
 | 🖱️ **Your own pointer** | Record your mouse for a few minutes and clicks follow your Fitts' law timing and your path shapes, landing on a point that really hits the target. Typing goes key by key, Hangul composition included. |
@@ -53,17 +53,18 @@ that reads it, and safety rules written in code instead of in a prompt.
 
 | Area | Open | API instead | Blocked, with the quote |
 |---|---|---|---|
-| 📊 **Statistics and open data** | KOSIS 🔘, data.go.kr 🔘, Seoul Open Data 🔘, MDIS 🔘, Data.gov 🔘, World Bank 🔘 | Bank of Korea ECOS, V-World | |
+| 📊 **Statistics and open data** | KOSIS 🔘, data.go.kr 🔘, Seoul Open Data 🔘, MDIS 🔘, Data.gov 🔘, World Bank 🔘, OECD Data 🔘, UNdata 🔘, ECB Data 🔘, BIS Data 🔘, UK ONS 🔘, US Census 🔘, Statistics Canada 🔘, ABS 🔘, e-Stat Japan 🔘, Eurostat | Bank of Korea ECOS, V-World | |
 | 🏛️ **Finance and regulators** | FSS 🔘, FSC 🔘, KDIC 🔘, FINE 🔘, DART, KRX press, Naver Pay Securities | | Toss Securities, TradingView, IMF Data, Apple IR, NVIDIA IR |
-| ⚖️ **Law, patents, parliament** | National Law Information Center, USPTO 🔘 | | KIPRIS, National Assembly bills |
+| ⚖️ **Law, patents, parliament** | National Law Information Center, USPTO 🔘, EUR-Lex 🔘, WIPO PATENTSCOPE 🔘 | legislation.gov.uk 🔘 | KIPRIS, National Assembly bills |
 | 🩺 **Health and safety** | KDCA 🔘, HIRA hospital finder 🔘, Food Safety Korea 🔘, WHO 🔘 | PubMed (E-utilities) | MFDS drug portal |
-| 🌦️ **Weather and environment** | KMA weather 🔘, KMA open data 🔘, AirKorea 🔘 | | |
-| 🎓 **Science and learning** | arXiv 🔘, solved.ac 🔘, Hacker News 🔘, DACON 🔘 | | KCI, Academy Info, JEDEC |
-| 📚 **Culture and libraries** | National Library of Korea 🔘, National Museum of Korea 🔘, Culture Portal 🔘, Korea Heritage 🔘, Namuwiki 🔘, Watcha Pedia 🔘, Kyobo Book 🔘 | | |
+| 🌦️ **Weather and environment** | KMA weather 🔘, KMA open data 🔘, AirKorea 🔘, timeanddate 🔘 | | Windy |
+| 🎓 **Science and learning** | arXiv 🔘, solved.ac 🔘, Hacker News 🔘, DACON 🔘, OpenAlex 🔘, Semantic Scholar 🔘 | Crossref 🔘 | KCI, Academy Info, JEDEC |
+| 📚 **Culture and libraries** | National Library of Korea 🔘, National Museum of Korea 🔘, Culture Portal 🔘, Korea Heritage 🔘, Namuwiki 🔘, Watcha Pedia 🔘, Kyobo Book 🔘, Wikipedia 🔘, Wiktionary 🔘, Standard Korean Dictionary 🔘, Urimalsaem 🔘, Open Library | | WorldCat, Project Gutenberg, Britannica |
 | 📰 **Company newsrooms** | Samsung Electronics 🔘, SK hynix 🔘, Hyundai Motor 🔘 | | |
-| 🗺️ **Maps, places, travel** | Kakao Map 🔘, Naver Map 🔘, KOBUS 🔘, Starfield 🔘, COEX events 🔘, real estate prices 🔘 | | SRT, MOLIT transaction prices |
-| 🛒 **Shopping and local** | Daangn 🔘, Joongna 🔘, Ohouse store 🔘 | | Baemin |
+| 🗺️ **Maps, places, travel** | Kakao Map 🔘, Naver Map 🔘, KOBUS 🔘, Starfield 🔘, COEX events 🔘, real estate prices 🔘, TAGO public transit 🔘, Airportal 🔘, Incheon Airport 🔘, OpenStreetMap, Korail, VisitKorea | | SRT, MOLIT transaction prices, Skyscanner |
+| 🛒 **Shopping and local** | Daangn 🔘, Joongna 🔘, Ohouse store 🔘, Danawa 🔘, Enuri 🔘 | | Baemin |
 | 🎮 **Games, 3D and design** | Google Play 🔘, Steam 🔘, Steamworks docs 🔘, Kenney 🔘, Quaternius 🔘, Poly Pizza 🔘, Fab 🔘, Blender mirror 🔘, ArchDaily 🔘, Unsplash 🔘 | | |
+| 📦 **Developer docs and packages** | MDN 🔘, Python docs 🔘, PyPI 🔘, Docs.rs 🔘, DevDocs 🔘, pkg.go.dev, Read the Docs | crates.io 🔘, Hugging Face Hub 🔘 | Maven Central, NuGet, Docker Hub |
 | 🛠️ **Developer consoles** (sign in once by hand) | GitHub repository pages 🔘, Supabase dashboard 🔘, Resend 🔘 | GitHub REST API, Supabase Management API | |
 | 🤖 **AI apps and chat** | | | Claude.ai, Perplexity, Kling AI, KakaoTalk client, Blind |
 
