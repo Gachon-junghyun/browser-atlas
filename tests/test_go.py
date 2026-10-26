@@ -23,6 +23,7 @@ class _Browser:
         self.url = {"T": H + "/"}
         self.texts = texts or {}
         self.clicks = clicks or {}
+        self.later = {}                               # tab -> addresses it shows on the next waits (redirects)
         self.calls = []
 
     def __call__(self, name, args):
@@ -40,10 +41,14 @@ class _Browser:
             hit = self.clicks.get(args.get("name"), {})
             if "new_tab" in hit:
                 self.url[hit["new_tab"]["tab"]] = hit.get("lands", hit["new_tab"]["url"])
+                if "then" in hit:
+                    self.later[hit["new_tab"]["tab"]] = list(hit["then"])
                 return {"url": self.url[tab], "new_tab": dict(hit["new_tab"])}
             self.url[tab] = hit.get("url", self.url[tab])
             return {"url": self.url[tab]}
         if name == "browser_wait":
+            if self.later.get(tab):
+                self.url[tab] = self.later[tab].pop(0)
             if args.get("wait_text") and args["wait_text"] not in self.texts.get(self.url[tab], ""):
                 raise TimeoutError("not met in 15s")
             return {"met": True, "url": self.url[tab]}
@@ -138,16 +143,61 @@ class GoTest(unittest.TestCase):
         self.assertEqual(b.calls[-1][:2], ("browser_read", "N"))       # later steps act in the new tab
         self.assertEqual(b.url["T"], H + "/")                             # the clicked tab stays
 
-    def test_a_popup_counts_by_where_it_was_opened_not_where_it_redirected(self):
-        b = _Browser(clicks={"PPI table": {"new_tab": {"tab": "N", "url": H + "/table?id=1"},
-                                           "lands": H + "/sso/hop?return=%2Ftable"}})
+    def test_only_the_latest_click_can_be_followed_by_tab_new(self):
+        # review 2: a click that opened nothing left the earlier click's popup as the "new" tab
+        b = _Browser(clicks={"first": {"new_tab": {"tab": "N", "url": H + "/table"}}})
+        with mock.patch.object(mcp_server, "_late_tab", return_value=None):
+            r, _, _ = self._go(_plan("/", []), [["click", "link", "first"], ["click", "button", "second"],
+                                                ["tab", "new"]], b)
+        self.assertIn("no new tab opened", r["steps"][-1]["error"])
+        self.assertEqual((r["completed"], r["tab"]), (2, "T"))
+
+    def test_a_popup_that_ends_on_a_login_page_is_arrived_but_elsewhere(self):
+        # review 3: the address a popup opened at only teaches the path; where it ended decides
+        b = _Browser(clicks={"PPI table": {"new_tab": {"tab": "N", "url": H + "/table?id=1"}, "lands": H + "/login"}})
         plan = _plan("/table?id=1", [["click", "link", "PPI table"], ["tab", "new"]])
         r, _, _ = self._go(plan, [["go", "price index table"]], b)
+        err = r["steps"][-1]["error"]
+        self.assertTrue(err.startswith("arrived_but: "), err)
+        self.assertEqual(json.loads(err[len("arrived_but: "):]),
+                         {"why": "elsewhere", "url": H + "/login", "page": "/table?id=1", "others": ["/other"],
+                          "next": "site_rank"})
+        self.assertEqual(r["completed"], 0)
+
+    def test_a_popup_seen_on_its_opening_address_first_is_not_arrived_yet(self):
+        # live recheck: the first look caught the popup before its redirect to a login page
+        b = _Browser(clicks={"PPI table": {"new_tab": {"tab": "N", "url": H + "/table?id=1"},
+                                           "then": [H + "/table?id=1", H + "/login"]}})
+        plan = _plan("/table?id=1", [["click", "link", "PPI table"], ["tab", "new"]])
+        r, _, _ = self._go(plan, [["go", "price index table"]], b)
+        self.assertIn('"why": "elsewhere"', r["steps"][-1]["error"])
+        self.assertIn(H + "/login", r["steps"][-1]["error"])
+
+    def test_a_popup_redirect_gets_time_and_a_wait_text_can_vouch_for_another_address(self):
+        hop = {"new_tab": {"tab": "N", "url": H + "/table?id=1"}, "lands": H + "/sso/hop"}
+        plan = _plan("/table?id=1", [["click", "link", "PPI table"], ["tab", "new"]])
+        b = _Browser(clicks={"PPI table": {**hop, "then": [H + "/table?id=1"]}})        # the hop finishes
+        r, _, _ = self._go(plan, [["go", "price index table"]], b)
         self.assertTrue(all(s["ok"] for s in r["steps"]), r["steps"])
-        self.assertEqual(r["tab"], "N")
+        self.assertNotIn("landed", r["steps"][0]["result"])
+        b = _Browser(texts={H + "/stat/view": "Producer price index"},
+                     clicks={"PPI table": {**hop, "then": [H + "/stat/view"]}})         # settles elsewhere
+        r, _, _ = self._go(plan, [["go", "price index table", "Producer price index"]], b)
+        self.assertTrue(all(s["ok"] for s in r["steps"]), r["steps"])
+        self.assertEqual(r["steps"][0]["result"]["landed"], H + "/stat/view")
         b = _Browser(clicks={"Grades": {"url": H + "/sso/hop"}})                # a plain click still has to land
         r, _, _ = self._go(_plan("/grades", [["click", "link", "Grades"]]), [["go", "grades"]], b)
         self.assertIn("landed on", r["steps"][-1]["error"])
+
+    def test_browser_plan_passes_picks(self):
+        seen = {}
+
+        def fake_plan(start, target, host=None, con=None, picks=None):
+            seen["picks"] = picks
+            return {"found": False}
+        with mock.patch.object(mcp_server._graph, "plan", side_effect=fake_plan):
+            mcp_server.call("browser_plan", {"target": "financials", "url": H + "/", "picks": {"thing": "JPM"}})
+        self.assertEqual(seen["picks"], {"thing": "JPM"})
 
     def test_tab_new_without_a_new_tab_fails(self):
         with mock.patch.object(mcp_server, "_late_tab", return_value=None):
@@ -218,18 +268,31 @@ class NewestDateTest(unittest.TestCase):
         self.assertIsNone(f("2026.13.45, 15일 전후, 1588-1234", self.D))
         self.assertIsNone(f("no dates here", self.D))
 
+    def test_a_full_date_is_not_read_again_as_this_years_month_day(self):
+        # review 4: "2024. 10.21." came back as 2026-10-21
+        f = mcp_server._newest_date
+        self.assertEqual(f("게시일 2024. 10.21.", self.D), date(2024, 10, 21))
+        self.assertIsNone(f("2027. 10.21.", self.D))
+        self.assertEqual(f("2024. 10.21. / 10.20.", self.D), date(2026, 10, 20))
+
+    def test_a_month_day_after_today_is_last_year(self):
+        self.assertEqual(mcp_server._newest_date("공지 12.30.", date(2027, 1, 5)), date(2026, 12, 30))
+
     def test_hours_ago_crosses_midnight_with_a_datetime(self):
         self.assertEqual(mcp_server._newest_date("30분 전", datetime(2026, 10, 27, 0, 10)), date(2026, 10, 26))
 
 
 class FakeCDP:
-    """Just enough of a tab for browser_click: getTargets changes when the pointer clicks."""
-    def __init__(self, opener="T", url=H + "/table", popup_like=True):
+    """Just enough of a tab for browser_click. The click may open N (with this tab's Page.windowOpen),
+    now or a few looks later, and may or may not change the DOM."""
+    def __init__(self, opener="T", url=H + "/table", event=True, changes=1, late=0):
         self.target = {"id": "T"}
         self.infos = [{"targetId": "T", "type": "page", "url": H + "/search"},
                       {"targetId": "P", "type": "page", "url": H + "/elsewhere"}]
         self.new = {"targetId": "N", "type": "page", "openerId": opener, "url": url} if opener else None
-        self.popup_like = popup_like
+        self.event, self.changes, self.late = event, changes, late
+        self.window_opens = []
+        self.countdown = None
 
     def __call__(self, port, tab):
         return self
@@ -242,6 +305,11 @@ class FakeCDP:
 
     def call(self, method, params=None, timeout=30):
         assert method == "Target.getTargets"
+        if self.countdown is not None:
+            self.countdown -= 1
+            if self.countdown <= 0:
+                self.countdown = None
+                self.open()
         return {"targetInfos": list(self.infos)}
 
     def eval(self, js, timeout=30):
@@ -249,13 +317,23 @@ class FakeCDP:
             return H + "/search"
         if js == "document.readyState":
             return "complete"
-        if js == mcp_server._POPUP_JS:
-            return self.popup_like
+        if js == mcp_server._WATCH_JS:
+            return True
+        if js == mcp_server._QUIET_JS:
+            return self.changes
         raise AssertionError(js)
 
-    def click(self):
+    def open(self):
         if self.new:
             self.infos.append(self.new)
+        if self.event:
+            self.window_opens.append({"url": (self.new or {}).get("url", ""), "windowName": "_blank"})
+
+    def click(self):
+        if self.late:
+            self.countdown = self.late
+        else:
+            self.open()
 
 
 class ClickTest(unittest.TestCase):
@@ -286,21 +364,43 @@ class ClickTest(unittest.TestCase):
         self.assertIn(mock.call("N", 9555), close.call_args_list)
 
     def test_a_tab_someone_else_opened_is_not_this_clicks(self):
-        with mock.patch.object(mcp_server, "POPUP_WAIT", 0.3):
-            r = self._click(FakeCDP(opener="P"))
+        r = self._click(FakeCDP(opener="P", event=False))
         self.assertNotIn("new_tab", r)
         self.assertNotIn("N", mcp_server._opened())
 
-    def test_a_plain_click_is_not_held_up(self):
+    def test_an_earlier_popup_that_moves_on_its_own_is_not_this_clicks(self):
+        # review 1: a popup this tab opened before changed address during an unrelated click
+        fake = FakeCDP(event=False)
+        fake.infos.append({"targetId": "N", "type": "page", "openerId": "T", "url": H + "/old"})
+        fake.new = None
+
+        def click():                                  # no window asked for; N redirects by itself
+            fake.infos[-1] = {**fake.infos[-1], "url": H + "/redirect"}
+        fake.click = click
+        r = self._click(fake)
+        self.assertNotIn("new_tab", r)
+        self.assertNotIn("N", mcp_server._opened())
+
+    def test_a_late_open_from_a_click_that_changed_nothing_is_caught(self):
+        # review 5: a listener opens the window 500 ms after the click, with nothing in the DOM to say so
+        r = self._click(FakeCDP(changes=0, late=5))
+        self.assertEqual(r.get("new_tab"), {"tab": "N", "url": H + "/table"})
+
+    def test_a_click_that_changed_the_page_is_not_held_up(self):
         import time
         t0 = time.perf_counter()
-        r = self._click(FakeCDP(opener=None, popup_like=False))
+        r = self._click(FakeCDP(opener=None, event=False, changes=3))
         self.assertNotIn("new_tab", r)
-        self.assertLess(time.perf_counter() - t0, 1.5)
+        self.assertLess(time.perf_counter() - t0, 1.0)
 
-    def test_opened_by_waits_for_a_blank_popup_to_get_its_address(self):
+    def test_opened_by_needs_the_window_open_event_and_waits_for_an_address(self):
+        known = {"T": H + "/search", "P": H + "/elsewhere"}
+        fake = FakeCDP(url="about:blank", event=False)
+        fake.open()                                   # a new page, but this tab never asked for a window
+        with mock.patch("time.sleep"):
+            self.assertIsNone(_cdp.opened_by(fake, known, wait=0, since=0))
         fake = FakeCDP(url="about:blank")
-        fake.click()
+        fake.open()
         seq = iter([None, H + "/table"])
 
         def call(method, params=None, timeout=30):
@@ -309,27 +409,14 @@ class ClickTest(unittest.TestCase):
                 fake.new["url"] = u
             return {"targetInfos": list(fake.infos)}
         fake.call = call
-        known = {"T": H + "/search", "P": H + "/elsewhere"}
         with mock.patch("time.sleep"):
-            t = _cdp.opened_by(fake, known, wait=0)
-        self.assertEqual((t["targetId"], t["url"], "reused" in t), ("N", H + "/table", False))
-        self.assertIsNone(_cdp.opened_by(fake, {**known, "N": H + "/table"}, wait=0))   # nothing changed
-
-    def test_a_popup_window_reused_for_another_page_counts_as_reused(self):
-        fake = FakeCDP()
-        fake.infos.append({"targetId": "N", "type": "page", "openerId": "T", "url": H + "/table?id=1"})
-        fake.new = None
-
-        def click():                                  # the site opens the next table into the same window
-            fake.infos[-1] = {**fake.infos[-1], "url": H + "/table?id=2"}
-        fake.click = click
-        r = self._click(fake)
-        self.assertEqual(r["new_tab"], {"tab": "N", "url": H + "/table?id=2", "reused": True})
-
+            t = _cdp.opened_by(fake, known, wait=0, since=0)
+        self.assertEqual((t["targetId"], t["url"]), ("N", H + "/table"))
+        self.assertIsNone(_cdp.opened_by(fake, {**known, "N": H + "/table"}, wait=0, since=0))
 
     def test_tab_new_names_an_earlier_popup_when_nothing_new_came(self):
         fake = FakeCDP()
-        fake.click()                                  # N was opened by an earlier click and is still there
+        fake.open()                                   # N was opened by an earlier click and is still there
         mcp_server._remember_tab("N", 9555)
         mcp_server._CLICK_KNOWN["T"] = {"T": H + "/search", "P": H + "/elsewhere", "N": H + "/table"}
         with mock.patch.object(_cdp, "CDP", fake), mock.patch.object(mcp_server, "TAB_WAIT", 0):

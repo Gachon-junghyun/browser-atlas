@@ -130,27 +130,26 @@ def page_urls(c) -> dict[str, str]:
             if t.get("type") == "page"}
 
 
-def opened_by(c, known: dict[str, str], wait: float = 0.0, load: float = 3.0) -> dict | None:
-    """A page that c's tab opened (CDP openerId) since `known` was taken, watched for `wait` seconds.
-    The opener id, not a tab-list diff: a tab someone else opens meanwhile is not this click's. One it
-    opened earlier that now shows another address counts too (reused): a site that opens every popup
-    into one named window sends the second table there (observed on a statistics portal).
-    A window.open() tab starts at about:blank, so once found it gets `load` seconds to show its address."""
+def opened_by(c, known: dict[str, str], wait: float = 0.0, load: float = 3.0, since: int | None = None) -> dict | None:
+    """A new page c's tab opened (CDP openerId) that was not in `known`, watched for `wait` seconds.
+    The opener id, not a tab-list diff: a tab someone else opens meanwhile is not this click's.
+    With `since`, only after this tab sent a Page.windowOpen past c.window_opens[since]: an event of
+    this click, not a page that merely changed. A named window the site reuses sends no such event
+    (checked in Chrome), so it is not reported as opened.
+    A window.open() tab starts at about:blank, so once asked for it gets `load` seconds to show its address."""
     me = c.target.get("id")
-    until, found, hit = _T() + wait, False, None
+    until, heard, hit = _T() + wait, False, None
     while True:
         infos = c.call("Target.getTargets", timeout=5).get("targetInfos") or []
+        asked = since is None or len(c.window_opens) > since
         mine = [t for t in infos if t.get("type") == "page" and t.get("openerId") == me
-                and (t.get("targetId") not in known
-                     or t.get("url") not in ("", "about:blank", known[t.get("targetId")]))]
+                and t.get("targetId") not in known] if asked else []
         if mine:
             hit = mine[-1]
-            if hit.get("targetId") in known:
-                hit = {**hit, "reused": True}
             if hit.get("url") not in ("", "about:blank"):
                 return hit
-            if not found:
-                found, until = True, max(until, _T() + load)
+        if (mine or (asked and since is not None)) and not heard:
+            heard, until = True, max(until, _T() + load)
         if _T() >= until:
             return hit
         time.sleep(0.1)
@@ -202,6 +201,7 @@ class CDP:
         self._frame_id = None
         self._ctx = None
         self.dialogs: list[dict] = []
+        self.window_opens: list[dict] = []
         self._ready = False   # dialogs open before we attached may be a human's; leave them
         try:
             self.call("Page.enable", timeout=5)   # needed to hear javascriptDialogOpening
@@ -258,6 +258,9 @@ class CDP:
                 msg = json.loads(data)
                 if msg.get("method") == "Page.javascriptDialogOpening":
                     self._on_dialog(msg.get("params") or {})
+                    continue
+                if msg.get("method") == "Page.windowOpen":   # this tab asked for a window (window.open, a target link)
+                    self.window_opens.append(msg.get("params") or {})
                     continue
                 if msg.get("id") == mid:
                     if "error" in msg:
