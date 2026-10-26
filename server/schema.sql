@@ -166,8 +166,8 @@ grant execute on function merge_submission(uuid), reject_submission(uuid) to aut
 
 -- ── optional: mail the maintainer when submissions arrive ──────────────────
 -- Needs three Vault secrets (Project Settings > Vault): resend_api_key, notify_to, notify_from
--- (a sender on a domain verified in Resend). Without them nothing is sent. At most one mail per
--- 10 minutes, and the mail carries only the pending count: submitted text never leaves the database.
+-- (a sender on a domain verified in Resend). Without them nothing is sent. At most one mail an hour
+-- (a shared Resend free quota is 100 a day), and the mail carries only the pending count: submitted text never leaves the database.
 create extension if not exists pg_net with schema extensions;
 create table if not exists notify_state (id int primary key default 1 check (id = 1), last_sent timestamptz);
 alter table notify_state enable row level security;          -- no policies: invisible to the API
@@ -184,7 +184,7 @@ begin
     return null;
   end if;
   select last_sent into last from notify_state where id = 1;
-  if last is not null and last > now() - interval '10 minutes' then
+  if last is not null and last > now() - interval '1 hour' then
     return null;
   end if;
   insert into notify_state (id, last_sent) values (1, now())
