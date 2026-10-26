@@ -17,6 +17,7 @@ import json
 import os
 import re
 import sys
+from datetime import date, datetime, timedelta
 from urllib.parse import urlparse
 
 from . import _atlas, _ax, _cdp, _episodes, _graph, _memory, _robots, _safety
@@ -135,9 +136,16 @@ TOOLS += [
                     "[\"read\", mode, find?] [\"click\", role, name, index?] [\"click_css\", selector] "
                     "[\"type\", role, name, text] [\"type_css\", selector, text] [\"dismiss\"] [\"back\"] "
                     "[\"sleep\", lo_seconds, hi_seconds]. "
-                    "Planned and repeated steps: [\"go\", target, wait_text?] walks the local page graph to a page "
+                    "[\"tab\", \"new\"|tab_id] makes later steps act in the tab the last click opened (or a tab "
+                    "this server opened); the result's tab is where the run ended. "
+                    "Planned and repeated steps: [\"go\", target, wait_text?, picks?] walks the local page graph to a page "
                     "matching target (see browser_plan), fails if the tab lands elsewhere, then waits for wait_text "
-                    "(pages that draw their content late show an empty frame first); [\"each_link\", find, [steps], max?] runs the steps once per link "
+                    "(pages that draw their content late show an empty frame first). Where the plan cannot be sure "
+                    "(which thing, which toggle) go stops with error 'choose: {...}' and a top-level choose saying "
+                    "what to read and how to answer; run again with picks, e.g. {\"thing\": \"JPM\"}. On arrival "
+                    "it checks the page: wait_text missing or a dated list older than fresh_days fails with "
+                    "'arrived_but: {why, others, next}' (try another source: site_rank); success carries checked "
+                    "{fresh, wait}, fresh 'unknown' when the page shows no date. [\"each_link\", find, [steps], max?] runs the steps once per link "
                     "on this page whose text or URL contains find (same host only, at most 30), with {url} in the "
                     "steps replaced by that link; [\"if_text\", text, [steps]] runs the steps only if the page "
                     "text contains text.",
@@ -181,7 +189,8 @@ TOOLS += [
     {"name": "browser_click",
      "description": "Click a control, found by role+name (preferred) or css, with a learned human-like pointer. "
                     "Pay/buy/add-to-cart/submit/send/delete-like controls stop and return 'ask the human'. "
-                    "The result's url is where the tab ended up after the click.",
+                    "The result's url is where the tab ended up after the click. A click that opens a new tab "
+                    "returns new_tab {tab, url}: that tab counts as opened by this server; the clicked tab stays.",
      "inputSchema": {"type": "object", "properties": {"tab": _TAB, **_WHICH}, "required": ["tab"]}},
     {"name": "browser_type",
      "description": "Type text into a field key by key (Hangul through IME composition) and verify it stuck. "
@@ -650,7 +659,9 @@ def _browser(name: str, args: dict):
         which = (args.get("role"), args.get("name"))
         idx = args.get("index")
         before = c.eval("location.href") or ""
+        known = None
         if name == "browser_click":
+            known = _known_tabs(c)
             r = p.click_control(*which, index=idx) if which[1] else p.click(args["css"])
         elif name == "browser_type":
             if which[1]:
@@ -660,7 +671,51 @@ def _browser(name: str, args: dict):
         else:
             raise KeyError(f"unknown tool {name}")
         r["url"] = _settle(c, before)
+        if known is not None:
+            opened = _popup(c, tab, port, known)
+            if opened:
+                r["new_tab"] = opened
         return r
+
+
+POPUP_WAIT = 3.0
+TAB_WAIT = 5.0
+_CLICK_KNOWN: dict[str, dict] = {}      # tab -> page targets (id -> url) just before its last click
+
+# the control just pressed (it has focus) looks like it opens a window
+_POPUP_JS = r"""(() => {
+  const e = document.activeElement, a = e && e.closest ? e.closest('a,button,[onclick]') : null;
+  if (!a) return false;
+  const t = (a.getAttribute('target') || '').toLowerCase(), h = (a.getAttribute('href') || '').trim().toLowerCase();
+  return (!!t && !['_self', '_top', '_parent'].includes(t)) || h.startsWith('javascript:')
+         || /open|pop|win/.test((a.getAttribute('onclick') || '').toLowerCase());
+})()"""
+
+
+def _known_tabs(c) -> dict | None:
+    try:
+        return _cdp.page_urls(c)
+    except Exception:
+        return None
+
+
+def _popup(c, tab: str, port: int, known: dict) -> dict | None:
+    """The tab this click opened. A window.open() in the click handler already exists once the click has
+    settled, so one look is free; only a control that looks like it opens a window is watched longer,
+    because making every click wait would undo what _settle saved."""
+    _CLICK_KNOWN[tab] = known
+    try:
+        wait = POPUP_WAIT if c.eval(_POPUP_JS, timeout=3) else 0.0
+    except Exception:
+        wait = 0.0
+    try:
+        t = _cdp.opened_by(c, known, wait)
+    except Exception:                                 # the click worked; not seeing a tab must not undo it
+        return None
+    if not t:
+        return None
+    _remember_tab(t["targetId"], port)
+    return {"tab": t["targetId"], "url": t.get("url", ""), **({"reused": True} if t.get("reused") else {})}
 
 
 # ── the loop: every browser call is recorded, judged and recalled by the server itself ──
@@ -755,12 +810,140 @@ def _here(tab: str) -> str:
 
 def _run(args: dict) -> dict:
     out: list = []
-    tab, pace = args["tab"], args.get("pace", "human")
+    run = {"tab": args["tab"]}                        # the tab steps act in; a ["tab", ...] step moves it
+    pace = args.get("pace", "human")
     steps = args.get("steps") or []
-    done = _steps(tab, pace, steps, out, "")
+    done = _steps(run, pace, steps, out, "")
     # top-level steps finished: a go whose planned clicks failed is not finished (observed: "11 of 11" on a stop)
     failed = next((str(x["step"]).split(".")[0] for x in reversed(out) if not x["ok"]), None)
-    return {"steps": out, "completed": len(steps) if done or failed is None else int(failed), "of": len(steps)}
+    res = {"steps": out, "completed": len(steps) if done or failed is None else int(failed), "of": len(steps),
+           "tab": run["tab"]}
+    if run.get("choose"):
+        res["choose"] = run["choose"]
+    return res
+
+
+def _stop(out: list, label, why: str, payload: dict) -> bool:
+    """End a go with an answer the agent can parse ("choose: {...}", "arrived_but: {...}"), not an
+    exception text."""
+    out.append({"step": label, "op": "go", "ok": False, "error": why + ": " + json.dumps(payload, ensure_ascii=False)})
+    return False
+
+
+def _late_tab(tab: str, port: int) -> dict | None:
+    """A tab the last click in `tab` opened after that click had already returned. When none came,
+    name the tabs it opened before: a popup window reused for the same address looks like nothing."""
+    with _cdp.CDP(port, tab) as c:
+        known = _CLICK_KNOWN.get(tab)
+        t = _cdp.opened_by(c, known if known is not None else _cdp.page_urls(c), TAB_WAIT)
+        if not t:
+            mine = _opened()
+            earlier = [i["targetId"] for i in c.call("Target.getTargets", timeout=5).get("targetInfos") or []
+                       if i.get("openerId") == tab and i.get("type") == "page" and i["targetId"] in mine]
+            if earlier:
+                raise LookupError(f"no new tab opened; tab {earlier[-1]} that this tab opened earlier is still "
+                                  f"open (a reused popup window?): [\"tab\", \"{earlier[-1]}\"] goes there")
+            return None
+    _remember_tab(t["targetId"], port)
+    return {"tab": t["targetId"], "url": t.get("url", ""), **({"reused": True} if t.get("reused") else {})}
+
+
+def _switch(run: dict, want: str) -> dict:
+    """["tab", "new" | id]: later steps act in another tab. Only tabs this server opened, as with
+    browser_close: a tab a person opened is theirs."""
+    cur = run["tab"]
+    if want == "new":
+        nt = run.pop("opened", None) or _late_tab(cur, _tab_port(cur) or _port({}))
+        if not nt:
+            raise LookupError("no new tab opened")
+        tid, run["entered"] = nt["tab"], nt.get("url")
+    else:
+        tid, run["entered"] = want, None
+        if tid not in _opened():
+            raise PermissionError("this server did not open that tab; leave it alone")
+    run["tab"] = tid
+    w = _tracked("browser_wait", {"tab": tid, "wait_css": "body", "timeout": TAB_WAIT})
+    return {"tab": tid, "from": cur, "url": w.get("url") if isinstance(w, dict) else None}
+
+
+_MONTHS = ("jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec")
+_MON = r"(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?"
+_DATES = [
+    (re.compile(r"(?<!\d)(\d{4})\s*[.\-/]\s*(\d{1,2})\s*[.\-/]\s*(\d{1,2})(?!\d)"), "ymd"),
+    (re.compile(r"(\d{4})\s*년\s*(\d{1,2})\s*월\s*(\d{1,2})\s*일"), "ymd"),
+    (re.compile(r"(?<![\d.])(\d{1,2})\.(\d{1,2})\.(?!\d)"), "md"),
+    (re.compile(_MON + r"\s+(\d{1,2}),?\s+(\d{4})(?!\d)", re.I), "mdy"),
+    (re.compile(r"(?<!\d)(\d{1,2})\s+" + _MON + r",?\s+(\d{4})(?!\d)", re.I), "dmy"),
+]
+_AGO = re.compile(r"(\d+)\s*(분|시간|일)\s*전(?!후)|어제")
+_AGO_UNIT = {"분": "minutes", "시간": "hours", "일": "days"}
+
+
+def _newest_date(text: str, today) -> date | None:
+    """The most recent date written on a page, for the freshness check. today is a date, or a datetime
+    (then 'N시간 전' crosses midnight right). Future dates are dropped: a deadline or an event says
+    nothing about when the list was last written."""
+    now = today if isinstance(today, datetime) else datetime.combine(today, datetime.max.time())
+    day, found = now.date(), []
+    for rx, order in _DATES:
+        for m in rx.finditer(text or ""):
+            g = m.groups()
+            if order == "ymd":
+                y, mo, d = g
+            elif order == "md":
+                y, mo, d = day.year, g[0], g[1]
+            elif order == "mdy":
+                mo, d, y = _MONTHS.index(g[0][:3].lower()) + 1, g[1], g[2]
+            else:
+                d, mo, y = g[0], _MONTHS.index(g[1][:3].lower()) + 1, g[2]
+            try:
+                found.append(date(int(y), int(mo), int(d)))
+            except ValueError:
+                pass
+    for m in _AGO.finditer(text or ""):
+        if not m.group(1):
+            found.append(day - timedelta(days=1))
+            continue
+        try:
+            found.append((now - timedelta(**{_AGO_UNIT[m.group(2)]: int(m.group(1))})).date())
+        except OverflowError:
+            pass
+    found = [d for d in found if 1990 <= d.year and d <= day]
+    return max(found, default=None)
+
+
+def _check_arrival(tab: str, p: dict, wait: str | None, picks: dict | None) -> tuple[dict, dict | None]:
+    """After the address matched: is what we came for on the page, and is it recent? The right address
+    with an empty frame or a year-old list reads like an answer; failing here sends the agent to
+    another source instead. Returns (checked, failure)."""
+    checked: dict = {"fresh": None, "wait": None}
+    others = p.get("others") or []
+    if wait:
+        try:
+            w = _tracked("browser_wait", {"tab": tab, "wait_text": wait})
+        except TimeoutError:
+            w = {"met": False}
+        if isinstance(w, dict) and w.get("met") is False:
+            return checked, {"why": "missing", "wait": wait, "page": p.get("page"), "others": others,
+                             "next": "site_rank"}
+        checked["wait"] = True
+    fresh = (picks or {}).get("fresh", (p.get("checks") or {}).get("fresh_days"))
+    if fresh:
+        now = datetime.now()
+        try:
+            r = _tracked("browser_read", {"tab": tab, "mode": "text", "max_chars": 60000})
+            body = r.get("untrusted_page_content")
+            newest = _newest_date(body if isinstance(body, str) else " ".join(map(str, body or [])), now)
+        except Exception:
+            newest = None
+        if newest is None:
+            checked["fresh"] = "unknown"                # no date on the page: say so, do not guess
+        elif (now.date() - newest).days > int(fresh):
+            return checked, {"why": "stale", "newest": newest.isoformat(), "fresh_days": int(fresh),
+                             "others": others, "next": "site_rank"}
+        else:
+            checked["fresh"] = newest.isoformat()
+    return checked, None
 
 
 def _arrived(tab: str, p: dict) -> bool:
@@ -779,8 +962,19 @@ def _arrived(tab: str, p: dict) -> bool:
     return False
 
 
-def _steps(tab: str, pace: str, steps: list, out: list, prefix: str, depth: int = 0, first: int = 0) -> bool:
-    """Run steps in order; False at the first error (already in out). Nested steps report as 2.0, 2.1..."""
+def _landed(run: dict, p: dict) -> bool:
+    """_arrived, except that a tab a popup step moved to counts by the address it was opened at: that is
+    the page the graph learned, and the site's own redirects after it (observed: a statistics table
+    popup hops through a sign-on page) say nothing about the click."""
+    u = run.get("entered") or ""
+    if p["steps"] and p["steps"][-1][0] == "tab" and _graph.host_of(u) == p["host"] and _graph.path_of(u) == p["page"]:
+        return True
+    return _arrived(run["tab"], p)
+
+
+def _steps(run: dict, pace: str, steps: list, out: list, prefix: str, depth: int = 0, first: int = 0) -> bool:
+    """Run steps in order; False at the first error (already in out). Nested steps report as 2.0, 2.1...
+    run["tab"] is the tab they act in; a ["tab", ...] step changes it for everything after."""
     import random as _r
     import time
     for i, st in enumerate(steps, first):
@@ -791,45 +985,64 @@ def _steps(tab: str, pace: str, steps: list, out: list, prefix: str, depth: int 
                 if depth >= 3:
                     raise ValueError("steps nest at most 3 deep")
                 if op == "go":
-                    p = _graph.plan(_here(tab), str(a[0]))
+                    wait = a[1] if len(a) > 1 and isinstance(a[1], str) and a[1] else None
+                    picks = next((x for x in a[1:3] if isinstance(x, dict)), None)
+                    p = _graph.plan(_here(run["tab"]), str(a[0]), picks=picks)
                     if not p.get("found"):
                         raise LookupError(json.dumps({k: p[k] for k in p if k != "found"}, ensure_ascii=False)[:500])
-                    if p.get("ambiguous"):           # a wrong thing's page reads like the right one: ask, never guess
-                        raise LookupError(json.dumps({"target": p["target"], "ambiguous": p["ambiguous"]},
-                                                     ensure_ascii=False)[:500])
-                    out.append({"step": label, "op": op, "ok": True,
-                                "result": {"page": p["page"], "title": p.get("title"), "planned": p["steps"],
-                                           **{k: p[k] for k in ("rebased", "searched") if k in p}}})
+                    choose = p.get("choose")
+                    if not choose and p.get("ambiguous"):    # a wrong thing's page reads like the right one: ask, never guess
+                        choose = {"kind": "thing", "at": 0, "candidates": p["ambiguous"].get("candidates"),
+                                  "picked": p["ambiguous"].get("picked")}
+                    todo = p["steps"][:int(choose.get("at") or 0)] if choose else p["steps"]
+                    entry = {"step": label, "op": op, "ok": True,
+                             "result": {"page": p["page"], "title": p.get("title"), "planned": p["steps"],
+                                        **{k: p[k] for k in ("rebased", "searched") if k in p}}}
+                    if todo or not choose:
+                        out.append(entry)
                     src = ""
-                    for k, sub_step in enumerate(p["steps"]):
-                        src = _here(tab)
-                        if not _steps(tab, pace, [sub_step], out, f"{label}.", depth + 1, first=k):
+                    for k, sub_step in enumerate(todo):
+                        src = _here(run["tab"])
+                        if not _steps(run, pace, [sub_step], out, f"{label}.", depth + 1, first=k):
                             # right after a goto the page may still be drawing (a loader on top, the
                             # control not there yet; observed on a finance site): one more try
                             if sub_step[0] != "click" or not re.search(r"covered|no control", out[-1].get("error", "")):
                                 return False
                             out.pop()
                             time.sleep(2.0)
-                            if not _steps(tab, pace, [sub_step], out, f"{label}.", depth + 1, first=k):
+                            if not _steps(run, pace, [sub_step], out, f"{label}.", depth + 1, first=k):
                                 return False
-                    if not _arrived(tab, p):
+                    stop = {"target": p.get("target", a[0]), "choose": choose,
+                            **({"ambiguous": p["ambiguous"]} if p.get("ambiguous") else {})}
+                    if choose and (not todo or len(todo) < len(p["steps"])):
+                        run["choose"] = choose               # stopped short: the agent reads, then answers with picks
+                        return _stop(out, label, "choose", stop)
+                    if not _landed(run, p):
                         last = p["steps"][-1] if p["steps"] else None
+                        if last and last[0] == "tab" and len(p["steps"]) > 1:
+                            last = p["steps"][-2]           # a popup: the click before the tab step
                         if last and last[0] == "click":
                             _graph.miss(src, last[1:], p["page"])   # that click goes elsewhere; plan around it next time
-                        raise LookupError(f"landed on {_here(tab)}, planned {p['page']} on {p['host']}")
-                    if len(a) > 1 and a[1]:
-                        w = _tracked("browser_wait", {"tab": tab, "wait_text": str(a[1])})
-                        out.append({"step": f"{label}.wait", "op": "wait_text", "ok": True, "result": w})
+                        raise LookupError(f"landed on {_here(run['tab'])}, planned {p['page']} on {p['host']}")
+                    if choose:                               # walked the whole way; the choice is on this page
+                        run["choose"] = choose
+                        return _stop(out, label, "choose", stop)
+                    checked, failure = _check_arrival(run["tab"], p, wait, picks)
+                    if checked["wait"]:
+                        out.append({"step": f"{label}.wait", "op": "wait_text", "ok": True, "result": {"met": True}})
+                    if failure:
+                        return _stop(out, label, "arrived_but", failure)
+                    entry["result"]["checked"] = checked
                     continue
                 if op == "if_text":
-                    r = _tracked("browser_read", {"tab": tab, "mode": "text", "find": str(a[0])})
+                    r = _tracked("browser_read", {"tab": run["tab"], "mode": "text", "find": str(a[0])})
                     met = bool(r.get("untrusted_page_content"))
                     out.append({"step": label, "op": op, "ok": True, "result": {"met": met}})
-                    if met and not _steps(tab, pace, a[1] if len(a) > 1 else [], out, f"{label}.", depth + 1):
+                    if met and not _steps(run, pace, a[1] if len(a) > 1 else [], out, f"{label}.", depth + 1):
                         return False
                     continue
-                here = _graph.host_of(_here(tab))
-                r = _tracked("browser_read", {"tab": tab, "mode": "links", "find": str(a[0]), "max_chars": 60000})
+                here = _graph.host_of(_here(run["tab"]))
+                r = _tracked("browser_read", {"tab": run["tab"], "mode": "links", "find": str(a[0]), "max_chars": 60000})
                 urls, seen = [], set()
                 for item in r.get("untrusted_page_content") or []:
                     u = str(item[1]) if isinstance(item, list) and len(item) > 1 else ""
@@ -840,10 +1053,12 @@ def _steps(tab: str, pace: str, steps: list, out: list, prefix: str, depth: int 
                 out.append({"step": label, "op": op, "ok": True,
                             "result": {"links": len(urls), "running": min(len(urls), cap)}})
                 for j, u in enumerate(urls[:cap]):
-                    if not _steps(tab, pace, _fill(a[1] if len(a) > 1 else [], u), out, f"{label}.{j}.", depth + 1):
+                    if not _steps(run, pace, _fill(a[1] if len(a) > 1 else [], u), out, f"{label}.{j}.", depth + 1):
                         return False
                 continue
-            if op == "sleep":
+            if op == "tab":
+                res = _switch(run, str(a[0]) if a else "new")
+            elif op == "sleep":
                 lo = float(a[0]) if a else 1.0
                 secs = _r.uniform(lo, float(a[1])) if len(a) > 1 else lo
                 time.sleep(min(secs, 30))
@@ -863,7 +1078,9 @@ def _steps(tab: str, pace: str, steps: list, out: list, prefix: str, depth: int 
                     "dismiss": ("browser_dismiss", lambda: {}),
                     "back": ("browser_back", lambda: {}),
                 }[op]
-                res = _tracked(name, {"tab": tab, "pace": pace, **sub()})
+                res = _tracked(name, {"tab": run["tab"], "pace": pace, **sub()})
+                if name == "browser_click" and isinstance(res, dict) and res.get("new_tab"):
+                    run["opened"] = res["new_tab"]   # where a following ["tab", "new"] goes
             out.append({"step": label, "op": op, "ok": True, "result": res})
         except KeyError:
             out.append({"step": label, "op": op, "ok": False, "error": f"unknown step {op!r}"})

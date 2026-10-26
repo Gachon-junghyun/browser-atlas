@@ -1,0 +1,341 @@
+"""go stops where a choice is needed, follows new tabs, and doubts what it arrived at."""
+import json
+import os
+import tempfile
+import unittest
+from datetime import date, datetime, timedelta
+from unittest import mock
+
+from browser_atlas import _cdp, mcp_server
+
+H = "https://stats.example.org"
+
+
+def _plan(page, steps, **extra):
+    return {"found": True, "host": "stats.example.org", "page": page, "title": "t", "target": "x",
+            "steps": steps, "others": ["/other"], **extra}
+
+
+class _Browser:
+    """A fake _browser: one URL per tab, page texts by URL, clicks that move or open a tab."""
+
+    def __init__(self, texts=None, clicks=None):
+        self.url = {"T": H + "/"}
+        self.texts = texts or {}
+        self.clicks = clicks or {}
+        self.calls = []
+
+    def __call__(self, name, args):
+        tab = args.get("tab")
+        self.calls.append((name, tab, args))
+        if tab:
+            self.url.setdefault(tab, H + "/")
+        if name == "browser_open":
+            self.url["T"] = args["url"]
+            return {"tab": "T", "url": args["url"], "title": "x"}
+        if name == "browser_goto":
+            self.url[tab] = args["url"]
+            return {"url": args["url"], "title": "x"}
+        if name == "browser_click":
+            hit = self.clicks.get(args.get("name"), {})
+            if "new_tab" in hit:
+                self.url[hit["new_tab"]["tab"]] = hit.get("lands", hit["new_tab"]["url"])
+                return {"url": self.url[tab], "new_tab": dict(hit["new_tab"])}
+            self.url[tab] = hit.get("url", self.url[tab])
+            return {"url": self.url[tab]}
+        if name == "browser_wait":
+            if args.get("wait_text") and args["wait_text"] not in self.texts.get(self.url[tab], ""):
+                raise TimeoutError("not met in 15s")
+            return {"met": True, "url": self.url[tab]}
+        if name == "browser_read":
+            return {"url": self.url[tab], "untrusted_page_content": [self.texts.get(self.url[tab], "")]}
+        if name == "browser_close":
+            return {"closed": True}
+        return {"url": self.url[tab]}
+
+
+class GoTest(unittest.TestCase):
+    def setUp(self):
+        os.environ["BROWSER_ATLAS_HOME"] = tempfile.mkdtemp()
+        os.environ.pop("BROWSER_ATLAS_MAP", None)
+        mcp_server.REC.open.clear()
+        mcp_server._FULL_URL.clear()
+        mcp_server._CLICK_KNOWN.clear()
+        for p in (mock.patch.object(_cdp, "tabs", return_value=[]),          # never reach a real Chrome
+                  mock.patch.object(mcp_server, "_opened", return_value={"T", "N"}),
+                  mock.patch("time.sleep")):
+            p.start()
+            self.addCleanup(p.stop)
+
+    def _go(self, plan, steps, browser=None):
+        b = browser or _Browser()
+        seen = {}
+
+        def fake_plan(start, target, host=None, con=None, picks=None):
+            seen["picks"] = picks
+            return json.loads(json.dumps(plan))
+        with mock.patch.object(mcp_server, "_browser", side_effect=b), \
+                mock.patch.object(mcp_server._graph, "plan", side_effect=fake_plan):
+            mcp_server.call("browser_open", {"url": H + "/", "goal": "x"})
+            r = mcp_server.call("browser_run", {"tab": "T", "steps": steps})
+        return r, b, seen
+
+    # ── choice points ──
+    def test_a_thing_choice_at_zero_does_nothing_and_says_what_to_answer(self):
+        ch = {"kind": "thing", "at": 0, "candidates": ["JPM", "NVDA.O"], "picked": "NVDA.O",
+              "read": "which thing", "answer": 'picks={"thing": "<name>"}'}
+        plan = _plan("/stock/NVDA.O/finance", [["goto", H + "/stock/NVDA.O/finance"]], choose=ch,
+                     ambiguous={"candidates": ["JPM", "NVDA.O"], "picked": "NVDA.O"})
+        r, b, _ = self._go(plan, [["go", "financials"], ["read", "text"]])
+        self.assertEqual(len(r["steps"]), 1)
+        err = r["steps"][0]["error"]
+        self.assertTrue(err.startswith("choose: "))
+        payload = json.loads(err[len("choose: "):])
+        self.assertEqual((payload["choose"]["kind"], payload["target"]), ("thing", "x"))
+        self.assertIn("ambiguous", payload)
+        self.assertEqual(r["choose"], ch)
+        self.assertEqual((r["completed"], r["of"]), (0, 2))
+        self.assertNotIn("browser_goto", [c[0] for c in b.calls])
+
+    def test_a_choice_further_on_runs_the_safe_steps_first(self):
+        ch = {"kind": "toggle", "at": 1, "candidates": [["tab", "Quarterly"]], "picked": None}
+        plan = _plan("/fin", [["goto", H + "/fin"], ["click", "tab", "Quarterly"]], choose=ch)
+        r, b, _ = self._go(plan, [["go", "financials"]])
+        names = [c[0] for c in b.calls]
+        self.assertIn("browser_goto", names)
+        self.assertNotIn("browser_click", names)
+        self.assertEqual([s["step"] for s in r["steps"]], [0, "0.0", 0])
+        self.assertTrue(r["steps"][-1]["error"].startswith("choose: "))
+        self.assertNotIn("ambiguous", json.loads(r["steps"][-1]["error"][8:]))
+        self.assertEqual((r["completed"], r["choose"]["at"]), (0, 1))
+
+    def test_a_toggle_choice_at_the_end_arrives_then_stops(self):
+        ch = {"kind": "toggle", "at": 1, "candidates": [["radio", "Annual"], ["radio", "Quarterly"]]}
+        r, b, _ = self._go(_plan("/fin", [["goto", H + "/fin"]], choose=ch), [["go", "financials"]])
+        self.assertEqual(b.url["T"], H + "/fin")
+        self.assertTrue(r["steps"][-1]["error"].startswith("choose: "))
+        self.assertEqual(r["choose"]["kind"], "toggle")
+
+    def test_picks_reach_the_plan_in_either_slot(self):
+        plan = _plan("/fin", [["goto", H + "/fin"]])
+        _, _, seen = self._go(plan, [["go", "financials", {"thing": "JPM"}]])
+        self.assertEqual(seen["picks"], {"thing": "JPM"})
+        b = _Browser(texts={H + "/fin": "Revenue"})
+        r, _, seen = self._go(plan, [["go", "financials", "Revenue", {"toggle": ""}]], b)
+        self.assertEqual(seen["picks"], {"toggle": ""})
+        self.assertEqual(r["steps"][0]["result"]["checked"], {"fresh": None, "wait": True})
+
+    # ── new tabs ──
+    def test_tab_step_follows_the_popup_and_go_arrives_there(self):
+        b = _Browser(texts={H + "/table": "Producer price index"},
+                     clicks={"PPI table": {"new_tab": {"tab": "N", "url": H + "/table"}}})
+        plan = _plan("/table", [["click", "link", "PPI table"], ["tab", "new"]])
+        r, b, _ = self._go(plan, [["go", "price index table"], ["read", "text"]], b)
+        self.assertTrue(all(s["ok"] for s in r["steps"]), r["steps"])
+        self.assertEqual(r["tab"], "N")
+        tab_step = next(s for s in r["steps"] if s["op"] == "tab")
+        self.assertEqual((tab_step["result"]["tab"], tab_step["result"]["from"]), ("N", "T"))
+        self.assertEqual(b.calls[-1][:2], ("browser_read", "N"))       # later steps act in the new tab
+        self.assertEqual(b.url["T"], H + "/")                             # the clicked tab stays
+
+    def test_a_popup_counts_by_where_it_was_opened_not_where_it_redirected(self):
+        b = _Browser(clicks={"PPI table": {"new_tab": {"tab": "N", "url": H + "/table?id=1"},
+                                           "lands": H + "/sso/hop?return=%2Ftable"}})
+        plan = _plan("/table?id=1", [["click", "link", "PPI table"], ["tab", "new"]])
+        r, _, _ = self._go(plan, [["go", "price index table"]], b)
+        self.assertTrue(all(s["ok"] for s in r["steps"]), r["steps"])
+        self.assertEqual(r["tab"], "N")
+        b = _Browser(clicks={"Grades": {"url": H + "/sso/hop"}})                # a plain click still has to land
+        r, _, _ = self._go(_plan("/grades", [["click", "link", "Grades"]]), [["go", "grades"]], b)
+        self.assertIn("landed on", r["steps"][-1]["error"])
+
+    def test_tab_new_without_a_new_tab_fails(self):
+        with mock.patch.object(mcp_server, "_late_tab", return_value=None):
+            r, _, _ = self._go(_plan("/", []), [["tab", "new"], ["read", "text"]])
+        self.assertIn("no new tab opened", r["steps"][0]["error"])
+        self.assertEqual((r["completed"], r["tab"]), (0, "T"))
+
+    def test_tab_by_id_only_moves_to_our_own_tabs(self):
+        r, _, _ = self._go(_plan("/", []), [["tab", "Z"]])
+        self.assertIn("did not open", r["steps"][0]["error"])
+        r, _, _ = self._go(_plan("/", []), [["tab", "N"]])
+        self.assertEqual(r["tab"], "N")
+
+    # ── arrival checks ──
+    def test_wait_text_that_never_shows_is_arrived_but_missing(self):
+        b = _Browser(texts={H + "/news": "Loading"})
+        r, _, _ = self._go(_plan("/news", [["goto", H + "/news"]]), [["go", "news", "Headlines"]], b)
+        err = r["steps"][-1]["error"]
+        self.assertTrue(err.startswith("arrived_but: "))
+        self.assertEqual(json.loads(err[len("arrived_but: "):]),
+                         {"why": "missing", "wait": "Headlines", "page": "/news", "others": ["/other"],
+                          "next": "site_rank"})
+        self.assertEqual(r["completed"], 0)
+
+    def test_an_old_dated_list_is_arrived_but_stale(self):
+        b = _Browser(texts={H + "/news": "Notices\n2024.01.14 Holiday hours\n2023.12.02 Moved"})
+        plan = _plan("/news", [["goto", H + "/news"]], checks={"fresh_days": 14})
+        r, _, _ = self._go(plan, [["go", "news"]], b)
+        payload = json.loads(r["steps"][-1]["error"][len("arrived_but: "):])
+        self.assertEqual((payload["why"], payload["newest"], payload["fresh_days"], payload["next"]),
+                         ("stale", "2024-01-14", 14, "site_rank"))
+        self.assertEqual(payload["others"], ["/other"])
+
+    def test_no_date_on_the_page_is_fresh_unknown_not_a_failure(self):
+        b = _Browser(texts={H + "/news": "Notices\nHoliday hours"})
+        plan = _plan("/news", [["goto", H + "/news"]], checks={"fresh_days": 14})
+        r, _, _ = self._go(plan, [["go", "news"]], b)
+        self.assertTrue(all(s["ok"] for s in r["steps"]))
+        self.assertEqual(r["steps"][0]["result"]["checked"], {"fresh": "unknown", "wait": None})
+
+    def test_a_recent_list_passes_and_picks_fresh_zero_turns_the_check_off(self):
+        today = date.today()
+        b = _Browser(texts={H + "/news": f"Notices {today:%Y.%m.%d} Opening {today - timedelta(days=40):%Y.%m.%d}"})
+        plan = _plan("/news", [["goto", H + "/news"]], checks={"fresh_days": 14})
+        r, _, _ = self._go(plan, [["go", "news", "Notices"]], b)
+        self.assertEqual(r["steps"][0]["result"]["checked"], {"fresh": today.isoformat(), "wait": True})
+        b = _Browser(texts={H + "/news": "2001.01.01 Founded"})
+        r, _, _ = self._go(plan, [["go", "news", {"fresh": 0}]], b)
+        self.assertEqual(r["steps"][0]["result"]["checked"], {"fresh": None, "wait": None})
+
+
+class NewestDateTest(unittest.TestCase):
+    D = date(2026, 10, 27)
+
+    def test_formats(self):
+        for text, want in [("2026.10.21", date(2026, 10, 21)), ("2026-10-21", date(2026, 10, 21)),
+                           ("2026/10/21", date(2026, 10, 21)), ("2026. 10. 21.", date(2026, 10, 21)),
+                           ("2026년 10월 21일", date(2026, 10, 21)), ("공지 10.21. 휴무", date(2026, 10, 21)),
+                           ("Oct 21, 2026", date(2026, 10, 21)), ("October 21 2026", date(2026, 10, 21)),
+                           ("21 Oct 2026", date(2026, 10, 21)), ("3시간 전", self.D), ("30분 전", self.D),
+                           ("3일 전", date(2026, 10, 24)), ("어제", date(2026, 10, 26))]:
+            self.assertEqual(mcp_server._newest_date(text, self.D), want, text)
+
+    def test_newest_wins_and_future_and_nonsense_are_dropped(self):
+        f = mcp_server._newest_date
+        self.assertEqual(f("2025.01.14 a\n2026.09.30 b\n2024-12-01 c", self.D), date(2026, 9, 30))
+        self.assertEqual(f("마감 2026.12.31 / 접수 2026.10.01", self.D), date(2026, 10, 1))
+        self.assertIsNone(f("2026.13.45, 15일 전후, 1588-1234", self.D))
+        self.assertIsNone(f("no dates here", self.D))
+
+    def test_hours_ago_crosses_midnight_with_a_datetime(self):
+        self.assertEqual(mcp_server._newest_date("30분 전", datetime(2026, 10, 27, 0, 10)), date(2026, 10, 26))
+
+
+class FakeCDP:
+    """Just enough of a tab for browser_click: getTargets changes when the pointer clicks."""
+    def __init__(self, opener="T", url=H + "/table", popup_like=True):
+        self.target = {"id": "T"}
+        self.infos = [{"targetId": "T", "type": "page", "url": H + "/search"},
+                      {"targetId": "P", "type": "page", "url": H + "/elsewhere"}]
+        self.new = {"targetId": "N", "type": "page", "openerId": opener, "url": url} if opener else None
+        self.popup_like = popup_like
+
+    def __call__(self, port, tab):
+        return self
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        pass
+
+    def call(self, method, params=None, timeout=30):
+        assert method == "Target.getTargets"
+        return {"targetInfos": list(self.infos)}
+
+    def eval(self, js, timeout=30):
+        if js == "location.href":
+            return H + "/search"
+        if js == "document.readyState":
+            return "complete"
+        if js == mcp_server._POPUP_JS:
+            return self.popup_like
+        raise AssertionError(js)
+
+    def click(self):
+        if self.new:
+            self.infos.append(self.new)
+
+
+class ClickTest(unittest.TestCase):
+    def setUp(self):
+        os.environ["BROWSER_ATLAS_HOME"] = tempfile.mkdtemp()
+        mcp_server._remember_tab("T", 9555)
+
+    def _click(self, fake):
+        class Pointer:
+            def __init__(self, c, pace="human"):
+                pass
+
+            def click_control(self, role, name, index=None):
+                fake.click()
+                return {"role": role, "name": name, "same_name_controls": 1}
+        with mock.patch.object(_cdp, "CDP", fake), mock.patch("browser_atlas._pointer.Pointer", Pointer):
+            return mcp_server._browser("browser_click", {"tab": "T", "role": "link", "name": "PPI table"})
+
+    def test_a_click_that_opens_a_tab_reports_it_and_makes_it_ours(self):
+        r = self._click(FakeCDP())
+        self.assertEqual(r["new_tab"], {"tab": "N", "url": H + "/table"})
+        self.assertEqual(r["url"], H + "/search")                         # the clicked tab stays
+        self.assertIn("N", mcp_server._opened())
+        self.assertEqual(mcp_server._tab_port("N"), 9555)
+        with mock.patch.object(_cdp, "tabs", return_value=[{"id": "T"}, {"id": "N"}]), \
+                mock.patch.object(_cdp, "close_tab", return_value=True) as close:
+            mcp_server._browser("browser_close_mine", {"port": 9555})
+        self.assertIn(mock.call("N", 9555), close.call_args_list)
+
+    def test_a_tab_someone_else_opened_is_not_this_clicks(self):
+        with mock.patch.object(mcp_server, "POPUP_WAIT", 0.3):
+            r = self._click(FakeCDP(opener="P"))
+        self.assertNotIn("new_tab", r)
+        self.assertNotIn("N", mcp_server._opened())
+
+    def test_a_plain_click_is_not_held_up(self):
+        import time
+        t0 = time.perf_counter()
+        r = self._click(FakeCDP(opener=None, popup_like=False))
+        self.assertNotIn("new_tab", r)
+        self.assertLess(time.perf_counter() - t0, 1.5)
+
+    def test_opened_by_waits_for_a_blank_popup_to_get_its_address(self):
+        fake = FakeCDP(url="about:blank")
+        fake.click()
+        seq = iter([None, H + "/table"])
+
+        def call(method, params=None, timeout=30):
+            u = next(seq, H + "/table")
+            if u:
+                fake.new["url"] = u
+            return {"targetInfos": list(fake.infos)}
+        fake.call = call
+        known = {"T": H + "/search", "P": H + "/elsewhere"}
+        with mock.patch("time.sleep"):
+            t = _cdp.opened_by(fake, known, wait=0)
+        self.assertEqual((t["targetId"], t["url"], "reused" in t), ("N", H + "/table", False))
+        self.assertIsNone(_cdp.opened_by(fake, {**known, "N": H + "/table"}, wait=0))   # nothing changed
+
+    def test_a_popup_window_reused_for_another_page_counts_as_reused(self):
+        fake = FakeCDP()
+        fake.infos.append({"targetId": "N", "type": "page", "openerId": "T", "url": H + "/table?id=1"})
+        fake.new = None
+
+        def click():                                  # the site opens the next table into the same window
+            fake.infos[-1] = {**fake.infos[-1], "url": H + "/table?id=2"}
+        fake.click = click
+        r = self._click(fake)
+        self.assertEqual(r["new_tab"], {"tab": "N", "url": H + "/table?id=2", "reused": True})
+
+
+    def test_tab_new_names_an_earlier_popup_when_nothing_new_came(self):
+        fake = FakeCDP()
+        fake.click()                                  # N was opened by an earlier click and is still there
+        mcp_server._remember_tab("N", 9555)
+        mcp_server._CLICK_KNOWN["T"] = {"T": H + "/search", "P": H + "/elsewhere", "N": H + "/table"}
+        with mock.patch.object(_cdp, "CDP", fake), mock.patch.object(mcp_server, "TAB_WAIT", 0):
+            with self.assertRaisesRegex(LookupError, r'no new tab opened; tab N .*\["tab", "N"\]'):
+                mcp_server._late_tab("T", 9555)
+
+
+if __name__ == "__main__":
+    unittest.main()
