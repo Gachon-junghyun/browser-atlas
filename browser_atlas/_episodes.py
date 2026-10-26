@@ -345,6 +345,16 @@ def _lesson_host(site: str) -> str:
     return host if re.fullmatch(r"[a-z0-9-]+(\.[a-z0-9-]+)+", host or "") else ""
 
 
+def _login_host(site: str) -> str:
+    """The host of a login recipe's key (browser_login(site=...) names sites the map may not have)."""
+    try:
+        from . import _login
+        r = _login.recipes().get(site) or {}
+    except Exception:
+        return ""
+    return (urlparse(str(r.get("check_url") or r.get("login_url") or "")).hostname or "").lower()
+
+
 def record_lesson(site: str, text: str, page: str | None = None) -> dict:
     """A pitfall learned on a site, one sentence. Applied locally at once (it shows up in atlas_site and
     in browser_open's map_traps); shared only through the review queue, on request.
@@ -355,9 +365,10 @@ def record_lesson(site: str, text: str, page: str | None = None) -> dict:
     from . import _memory
     sites = _atlas.load()
     if site not in sites:
-        host = _lesson_host(site)
+        host = _lesson_host(site) or _login_host(site)
         if not host:
-            raise ValueError(f"no site {site!r} in the atlas; give an atlas key, or the hostname of a site not mapped yet")
+            raise ValueError(f"no site {site!r} in the atlas or the login recipes; give an atlas key, a login "
+                             "site name, or the hostname of a site not mapped yet")
         hit = _atlas.site_for("https://" + host + "/", sites)
         if hit is None:
             if page:

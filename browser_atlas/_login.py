@@ -137,10 +137,11 @@ def summary() -> list[dict]:
 
 
 # ── judging the session ──────────────────────────────────────────────
-def _present(cdp, css: str, timeout: float) -> bool:
-    """Visible element matching css within timeout."""
+def _present(cdp, css: str, timeout: float, visible: bool = True) -> bool:
+    """An element matching css within timeout; visible (non-zero size) unless visible=False."""
     js = ("(()=>{const e=document.querySelector(%s);if(!e)return false;const r=e.getBoundingClientRect();"
-          "return r.width>0&&r.height>0})()" % json.dumps(css))
+          "return r.width>0&&r.height>0})()" % json.dumps(css)) if visible else \
+        "!!document.querySelector(%s)" % json.dumps(css)
     t0 = time.time()
     while time.time() - t0 < timeout:
         try:
@@ -174,7 +175,8 @@ def is_logged_in(cdp, r: dict, navigate: bool = True) -> bool:
         return False
     if "url_not_contains" in cond and cond["url_not_contains"] in url:
         return False
-    if "css" in cond and not _present(cdp, cond["css"], cond.get("timeout", 5)):
+    # a logout link often sits in a collapsed menu with zero size: being in the document is enough
+    if "css" in cond and not _present(cdp, cond["css"], cond.get("timeout", 5), visible=False):
         return False
     if "css_absent" in cond and _present(cdp, cond["css_absent"], cond.get("timeout", 2)):
         return False
@@ -240,6 +242,9 @@ def login(cdp, site: str, pointer=None) -> dict:
         try:
             _step(cdp, pointer, step)
         except Exception as e:                        # never include values, only where it broke
+            if is_logged_in(cdp, r, navigate=False):  # no login form because the session was alive after all
+                out.update(ok=True, reason="already logged in (the login form was not there)")
+                return out
             msg = str(e) if isinstance(e, LoginError) and "credential" in str(e) else type(e).__name__
             out.update(needs_human=True,
                        reason=f"step[{i}] {step.get('action')} css={step.get('css')!r} failed ({msg})")

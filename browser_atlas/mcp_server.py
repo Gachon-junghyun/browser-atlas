@@ -475,6 +475,18 @@ def _dismiss(c, limit: int = 8) -> dict:
     return {"pressed": pressed, "left": len(pressed) == limit}
 
 
+def _goto(c, url: str, wait_js: str | None) -> dict:
+    """Navigate; a wait condition that never came true is reported, not raised. The page is there
+    either way, and raising here once lost a whole episode: the tab was open but never recorded,
+    so forty later steps in it were dropped."""
+    try:
+        return c.goto(url, wait_js)
+    except TimeoutError as e:
+        return {"url": c.eval("location.href"), "title": c.eval("document.title"), "until": False,
+                "wait_timed_out": f"{e}"[:200],
+                "hint": "the page loaded but the wait condition never held; read the page before deciding"}
+
+
 def _robots_gate(url: str) -> dict | None:
     """For a site the atlas does not know, robots.txt decides: a disallowed URL is not opened. Mapped
     sites carry a reviewed verdict instead, so they are not fetched here. Returns the verdict, or None
@@ -519,7 +531,7 @@ def _browser(name: str, args: dict):
         tid = _cdp.new_tab("about:blank", port)["id"]
         _remember_tab(tid, port)
         with _cdp.CDP(port, tid) as c:
-            r = c.goto(args["url"], _wait_js(args))
+            r = _goto(c, args["url"], _wait_js(args))
             try:
                 _atlas.guard(r["url"])            # a redirect may land on a blocked host
                 if r.get("url") and r["url"] != args["url"]:
@@ -549,7 +561,7 @@ def _browser(name: str, args: dict):
         if name == "browser_goto":
             _atlas.guard(args["url"])
             robots = _robots_gate(args["url"])
-            r = c.goto(args["url"], _wait_js(args))
+            r = _goto(c, args["url"], _wait_js(args))
             try:
                 _atlas.guard(r["url"])
                 if r.get("url") and r["url"] != args["url"]:
@@ -775,6 +787,8 @@ def _tracked(name: str, args: dict):
         REC.start(r["tab"], r.get("url") or args["url"], args.get("goal"))
         REC.open[r["tab"]]["robots"] = r.get("robots")
         REC.step(r["tab"], name, True, url=r.get("url", ""))
+        if r.get("wait_timed_out"):
+            REC.step(r["tab"], "browser_wait", False, error=TimeoutError(r["wait_timed_out"]), url=r.get("url", ""))
         if not hit and not _atlas.site_for(r.get("url") or ""):
             host = (urlparse(r.get("url") or args["url"]).hostname or "")
             seen = _memory.host_digest(host)
@@ -821,6 +835,8 @@ def _tracked(name: str, args: dict):
         verdicts = [v for v in (REC.finish(t) for t in mine) if v]
         return {"closed": _browser(name, args), "episodes": verdicts}
     tab = args.get("tab")
+    if tab and tab not in REC.open and tab in _opened():  # our tab with no open episode: start one, never drop steps
+        _adopt(tab)
     control = [args["role"], args["name"]] if args.get("role") and args.get("name") else None
     try:
         r = _browser(name, args)
@@ -836,7 +852,20 @@ def _tracked(name: str, args: dict):
     if tab:
         REC.step(tab, name, True, control=control, css=args.get("css"), result=r,
                  url=r.get("url", "") if isinstance(r, dict) else "")
+        if isinstance(r, dict) and r.get("wait_timed_out"):
+            REC.step(tab, "browser_wait", False, error=TimeoutError(r["wait_timed_out"]), url=r.get("url", ""))
     return r
+
+
+def _adopt(tab: str) -> None:
+    """Open an episode for a tab this server opened but is not recording (a failed open, a login
+    tab reused, a server restart in between), starting from where the tab is now."""
+    url = ""
+    try:
+        url = next((t.get("url", "") for t in _cdp.tabs(_tab_port(tab) or _port({})) if t.get("id") == tab), "")
+    except Exception:
+        pass
+    REC.start(tab, url or "about:blank", None)
 
 
 def call(name: str, args: dict):
