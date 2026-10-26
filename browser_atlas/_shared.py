@@ -246,11 +246,19 @@ def upload() -> dict:
               for o in p["map_fixes"]]
     queue += [{"kind": "trap", "site": o["site"], "payload": {k: v for k, v in o.items() if k not in ("site", "kind")}}
               for o in p["lessons"]]
-    queue += [{"kind": "site_report", "site": re.sub(r"[^a-z0-9]", "_", o["host"])[:64], "payload": o}
-              for o in p["site_reports"]]
-    if not queue:
+    reports = [{"kind": "site_report", "site": re.sub(r"[^a-z0-9]", "_", o["host"])[:64], "payload": o}
+               for o in p["site_reports"]]
+    if not queue and not reports:
         return {"submitted": 0, "note": "nothing new to share"}
-    _req("POST", "/rest/v1/submissions", queue, extra={"Prefer": "return=minimal"})
+    if queue:
+        _req("POST", "/rest/v1/submissions", queue, extra={"Prefer": "return=minimal"})
+    note = None
+    if reports:                                         # sent apart: a server older than site reports refuses the kind
+        try:
+            _req("POST", "/rest/v1/submissions", reports, extra={"Prefer": "return=minimal"})
+        except RuntimeError as e:
+            note = f"site reports not accepted by this server yet (run server/schema.sql): {str(e)[:120]}"
+            p["site_reports"] = []
     if p["experience"]:
         _memory.mark_shared([r["id"] for r in p["experience"]])
     sent = {o["id"] for o in p["map_fixes"] + p["lessons"]}
@@ -266,8 +274,10 @@ def upload() -> dict:
         except (OSError, ValueError):
             sent_ids = []
         _sent_reports_path().write_text(json.dumps(sent_ids + [o["id"] for o in p["site_reports"]]), encoding="utf-8")
-    return {"submitted": len(queue), "experience": len(p["experience"]), "map_fixes": len(p["map_fixes"]),
-            "lessons": len(p["lessons"]), "site_reports": len(p["site_reports"]), "status": "pending review"}
+    out = {"submitted": len(queue) + len(p["site_reports"]), "experience": len(p["experience"]),
+           "map_fixes": len(p["map_fixes"]), "lessons": len(p["lessons"]), "site_reports": len(p["site_reports"]),
+           "status": "pending review"}
+    return {**out, "note": note} if note else out
 
 
 # ── the maintainer's side ────────────────────────────────────────────

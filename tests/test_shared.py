@@ -95,9 +95,24 @@ class SharedTest(unittest.TestCase):
         sent = []
         with patch.object(_shared, "_req", side_effect=lambda m, path, body=None, *a, **k: sent.append(body)):
             self.assertEqual(_shared.upload()["site_reports"], 1)
-        report = next(x for x in sent[0] if x["kind"] == "site_report")
-        self.assertEqual(report["site"], "docs_newsite_example_org")
+        self.assertEqual([x["kind"] for x in sent[1]], ["site_report"])            # sent apart from the rest
+        self.assertEqual(sent[1][0]["site"], "docs_newsite_example_org")
         self.assertEqual(_shared.preview()["site_reports"], [])                    # the same report goes once
+
+    def test_a_server_without_site_reports_still_takes_the_rest(self):
+        self.seed()
+        self.unmapped_episode()
+        sent = []
+
+        def fake(m, path, body=None, *a, **k):
+            if any(x["kind"] == "site_report" for x in body):
+                raise RuntimeError("HTTP 400 violates check constraint submissions_kind_check")
+            sent.append(body)
+        with patch.object(_shared, "_req", side_effect=fake):
+            r = _shared.upload()
+        self.assertEqual((r["experience"], r["site_reports"]), (1, 0))
+        self.assertIn("not accepted", r["note"])
+        self.assertEqual(len(_shared.preview()["site_reports"]), 1)               # kept for when the server has it
 
     def test_merged_reports_come_back_checked_and_summed(self):
         good = {"id": "a" * 32, "host": "docs.newsite.example.org", "attempts": 2, "outcomes": {"success": 2},
