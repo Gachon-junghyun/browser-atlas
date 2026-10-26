@@ -57,7 +57,9 @@ create policy experience_write on experience for insert
 create policy map_fixes_write on map_fixes for insert
   with check (author = auth.uid() and exists (select 1 from maintainers m where m.user_id = auth.uid()));
 
--- the maintainers table is not readable or writable through the API at all (no policies)
+-- the maintainers table: a signed-in user can see only their own row (so the policies above can
+-- ask "am I a maintainer?"); nobody can list maintainers or write the table through the API
+create policy maintainers_self on maintainers for select to authenticated using (user_id = auth.uid());
 
 create index if not exists experience_site on experience (site);
 create index if not exists map_fixes_site  on map_fixes (site);

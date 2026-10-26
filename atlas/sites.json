@@ -9508,7 +9508,8 @@
    "new project": "https://supabase.com/dashboard/new/{org_id}",
    "SQL editor with a query": "https://supabase.com/dashboard/project/{ref}/sql/new?content={url_encoded_sql}",
    "project settings": "https://supabase.com/dashboard/project/{ref}/settings/general",
-   "API keys": "https://supabase.com/dashboard/project/{ref}/settings/api-keys"
+   "API keys": "https://supabase.com/dashboard/project/{ref}/settings/api-keys",
+   "vault secrets": "https://supabase.com/dashboard/project/{ref}/integrations/vault/secrets"
   },
   "has": [
    "projects per organisation and their plan",
@@ -9659,7 +9660,7 @@
      "Typing into the editor fails as covered (the rendered lines sit on top of the input); open sql/new?content=<url-encoded SQL> instead and read the text back before Run (2026-10-26).",
      "First visit shows a Snippets no longer save automatically dialog; press Understood (2026-10-26).",
      "Every visit to sql/new opens a new Untitled query tab and the URL becomes sql/<id> (2026-10-26).",
-     "A content URL sometimes opens an empty editor on the first load in a new tab; load the same URL again in that tab (2026-10-26).",
+     "A content parameter longer than about 3.5 KB of URL was silently dropped (empty editor); split the SQL into parts (2026-10-26).",
      "Run asks Potential issue detected for any drop, even drop ... if exists on something that cannot exist yet; leave such lines out of a first-time setup instead of confirming (2026-10-26).",
      "The editor is ready before the left rail; wait for the Project Settings link too (2026-10-26).",
      "With unsaved edits, navigating away by URL silently does nothing; use the left rail links or close the tab (2026-10-26)."
@@ -9721,6 +9722,126 @@
       "does": "deletes the project and its data",
       "irreversible": true
      }
+    ]
+   },
+   "vault_secrets": {
+    "url": "https://supabase.com/dashboard/project/{ref}/integrations/vault/secrets",
+    "ready": "[...document.querySelectorAll('button')].some(b => b.textContent.trim() === 'Add new secret')",
+    "controls": [
+     {
+      "role": "link",
+      "name": "Overview",
+      "where": "first tab under the Vault title",
+      "act": "tab",
+      "does": "what Vault is and its extension status"
+     },
+     {
+      "role": "link",
+      "name": "Secrets",
+      "where": "second tab under the Vault title",
+      "act": "tab",
+      "does": "list of secrets: name, id, masked value, date"
+     },
+     {
+      "role": "button",
+      "name": "Refresh",
+      "where": "toolbar above the secrets table",
+      "act": "navigate",
+      "does": "reloads the list"
+     },
+     {
+      "role": "button",
+      "name": "Add new secret",
+      "where": "green button at the right end of the toolbar",
+      "act": "expand",
+      "does": "opens the Add new secret dialog (Name, Description, Secret value)"
+     },
+     {
+      "role": "link",
+      "name": "Vault",
+      "where": "left Integrations menu, under INSTALLED",
+      "act": "navigate",
+      "does": "Vault overview"
+     }
+    ],
+    "traps": [
+     "Opening vault/secrets by URL can land on the Integrations overview; click Vault in the left menu, then the Secrets tab (2026-10-26).",
+     "In the Add new secret dialog the Secret value box has no accessible name; a human pastes the value there, an agent never does (2026-10-26).",
+     "The dialog closed by itself while the human switched tabs; reopen it and the Name is empty again (2026-10-26)."
+    ]
+   }
+  },
+  "verified": "2026-10-26"
+ },
+ "resend": {
+  "label": "Resend (e-mail API dashboard, signed in)",
+  "access": "session",
+  "hosts": [
+   "resend.com"
+  ],
+  "go": {
+   "API keys": "https://resend.com/api-keys",
+   "domains": "https://resend.com/domains",
+   "sent e-mails": "https://resend.com/emails",
+   "new key form": "https://resend.com/api-keys?new=true"
+  },
+  "has": [
+   "API keys and their permission and domain",
+   "verified sending domains",
+   "sent e-mail log"
+  ],
+  "can": [
+   "create or delete API keys",
+   "verify domains"
+  ],
+  "prefer": "Resend API (api.resend.com) with a sending-only key scoped to one domain",
+  "pages": {
+   "new_key": {
+    "url": "https://resend.com/api-keys?new=true",
+    "ready": "!!document.querySelector('[role=dialog] input')",
+    "controls": [
+     {
+      "role": "textbox",
+      "name": "Name",
+      "where": "first field of the Add API Key dialog",
+      "act": "input",
+      "does": "a label for the key"
+     },
+     {
+      "role": "combobox",
+      "name": "Permission",
+      "where": "second field; no accessible name, shows Full access",
+      "act": "filter",
+      "does": "Full access or Sending access",
+      "unnamed": true,
+      "css": "[role=dialog] button[role=combobox]"
+     },
+     {
+      "role": "button",
+      "name": "Cancel Esc",
+      "where": "bottom of the dialog, right of Add",
+      "act": "navigate",
+      "does": "closes without a key"
+     },
+     {
+      "role": "button",
+      "name": "Add Ctrl ↩︎",
+      "where": "bottom left of the dialog, white",
+      "act": "submit",
+      "does": "creates the key and shows it once",
+      "irreversible": true
+     },
+     {
+      "role": "button",
+      "name": "Close dialog",
+      "where": "top right x of the dialog",
+      "act": "navigate",
+      "does": "closes without a key"
+     }
+    ],
+    "traps": [
+     "Permission and Domain are base-ui comboboxes with no accessible name; open them by css and pick the option by name (Sending access, the domain) (2026-10-26).",
+     "The new key is shown only once after Add; a human copies it. Agents create the form, never read or carry the key (2026-10-26)."
     ]
    }
   },

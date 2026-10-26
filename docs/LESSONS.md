@@ -369,6 +369,13 @@ The rule: **a captcha or rate limit means stop for that source for the day.** Pi
 - "Asia-Pacific" on the new-project form placed the project in Sydney, and the overview showed a warm-pool name (`warm-project-pool_...`) for about half a minute before the real name appeared.
 - On the Free plan the two-project limit counts active projects; a paused project does not take a slot.
 - The new publishable key (`sb_publishable_...`) worked both as `apikey` and as the `Authorization: Bearer` value for anonymous reads, and row-level security refused an anonymous insert with HTTP 401 and code `42501`.
+- A policy that asks `exists (select 1 from maintainers where user_id = auth.uid())` is always false if `maintainers` has RLS on and no policy: the signed-in maintainer cannot see even their own row, so the queue looked empty to them. Give that table one policy, "you may read your own row". Functions marked `security definer` were not affected, which is why merge worked while reading did not.
+- Database triggers can send mail on their own: `pg_net` posting to Resend, with the key, sender and recipient in Vault (`vault.decrypted_secrets`). The first test mail arrived within seconds and landed in the main inbox.
+- Opening `integrations/vault/secrets` by URL sometimes lands on the Integrations overview; go through the left menu (Vault, then Secrets).
+
+**Resend dashboard** (observed 2026-10)
+- The Permission and Domain pickers in "Add API Key" are base-ui comboboxes with no accessible name: open them by CSS (`[role=dialog] button[role=combobox]`), then choose the option by its text.
+- A new key is shown once. The form can be filled by an agent; pressing Add, copying the key and pasting it elsewhere is a human's job.
 
 **Where auth lives**
 - Discord and Telegram Web keep auth in `localStorage`, not cookies. Saving cookies alone does not keep the session.
