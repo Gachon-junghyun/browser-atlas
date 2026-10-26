@@ -49,7 +49,9 @@ CONTROLS_PER_READ = 150
 LINKS_PER_READ = 200
 GENERIC = {"닫기", "close", "x", "×", "확인", "취소", "ok", "cancel", "닫기 버튼", "팝업 닫기",
            "오늘 하루 보지 않기", "다시 보지 않기", "오늘 그만 보기", "dismiss", "got it", "no thanks"}
-DATED_LIST_WORDS = ("news", "뉴스", "공시", "기사", "filing", "filings", "press", "보도")
+# Pages that are lists of dated items, whose newest date says whether the source is current. English
+# words stand alone ("compression" holds "press"); "news" may start a word (newsroom).
+DATED_LIST = re.compile(r"(?<![a-z])news|(?<![a-z])(?:filings?|press)(?![a-z])|뉴스|공시|기사|보도")
 # Controls that change the page in place instead of leaving it.
 TOGGLES = {"radio", "tab", "checkbox", "switch", "option", "menuitemradio", "menuitemcheckbox"}
 
@@ -357,7 +359,8 @@ def _plan(start_url: str, target: str, host: str | None = None, con=None, picks=
     if slot:
         i, prefix, _ = slot
         known = sorted({_segs(p)[i] for p in pages if len(_segs(p)) > i + 1 and _segs(p)[:i] == prefix})
-        named = next((v for v in known if _named(v, picks.get("thing", target))), None)
+        named = _pick_thing(known, picks["thing"]) if picks.get("thing") else \
+            next((v for v in known if _named(v, target)), None)
         if named:
             slot = (i, prefix, named)
     rb = (lambda p: _rebase_path(p, slot)) if slot else (lambda p: p)
@@ -440,18 +443,23 @@ def _plan(start_url: str, target: str, host: str | None = None, con=None, picks=
         # and only the target can say which (observed: from /news, "quarterly" went to whichever stock
         # was looked at last, without a word)
         th = _things(end, [p for _, p in reach])
+        pick = picks.get("thing")
+        if pick:
+            # a picked thing may be one the target words never shortlisted (thirteen stocks, one title)
+            th = _things(end, [p for p in pages if p in dist]) or th
         if th:
             seg, by = th
-            named = [p for v, p in by.items() if _named(v, picks.get("thing", target))]
+            named = ([by[v]] if (v := _pick_thing(list(by), pick)) else []) if pick else \
+                [p for v, p in by.items() if _named(v, target)]
             here = _segs(start) if start else []
             if named:
-                end = min((dist[p] - 2.0 * goal[p], p) for p in named)[1]
+                end = min((dist[p] - 2.0 * goal.get(p, 0.0), p) for p in named)[1]
             elif len(here) > seg + 1 and here[:seg] == _segs(end)[:seg] and here[seg] in by:
                 end = by[here[seg]]                   # the tab is on that thing's other page (/stock/JPM/price)
             else:
                 ambiguous = {"segment": seg, "picked": _segs(end)[seg], "candidates": sorted(by)[:8],
                              "hint": "the start page names no thing; name it in the target ('JPM quarterly') "
-                                     "or start from its page"}
+                                     "or start from its page", **({"unmatched": pick} if pick else {})}
     steps, node = [], end
     while node in prev:
         node, step = prev[node]
@@ -463,7 +471,7 @@ def _plan(start_url: str, target: str, host: str | None = None, con=None, picks=
             return {"found": False, "host": host, "target": target, "hint": "path left the host; refused"}
     out = {"found": True, "host": host, "target": target, "page": end,
            "title": (pages[end]["title"] or "") if end in pages else "",
-           "match": round(goal[end], 2), "cost": round(dist[end], 2), "steps": steps,
+           "match": round(goal.get(end, max(goal.values())), 2), "cost": round(dist[end], 2), "steps": steps,
            "others": [p for p in dict.fromkeys(rb(p) for _, p in targets) if p != end][:4]}
     if steps and steps[-1][0] == "goto" and "://" not in target and not target.startswith("/"):
         searched = with_search(steps[-1][1], target)   # a search page holds the last search; this one is meant
@@ -484,7 +492,7 @@ def _plan(start_url: str, target: str, host: str | None = None, con=None, picks=
             if c["role"] in TOGGLES and len(n) >= 2 and n in t:
                 s = max(s, 0.8)                       # "NVDA quarterly": the toggle is named inside the target
             best = max(best, (s, (c["role"], c["name"])), key=lambda x: x[0])
-    if best[0] >= 0.8 and "toggle" not in picks:
+    if best[0] >= 0.8 and not ("toggle" in picks and best[1][0] in TOGGLES):   # a toggle pick decides toggles only
         steps.append(["click", *best[1]])
     return out
 
@@ -508,10 +516,24 @@ def _things(end: str, paths) -> tuple[int, dict[str, str]] | None:
 
 
 def _named(value: str, target: str) -> bool:
-    """Whether the target names this thing ("NVDA" for NVDA.O), as a word of its own."""
-    t = target.casefold()
-    return any(re.search(r"(?<![0-9a-z])" + re.escape(x) + r"(?![0-9a-z])", t)
-               for x in re.split(r"[^0-9a-z가-힣]+", value.casefold()) if len(x) >= 2)
+    """Whether the target names this thing ("NVDA" for NVDA.O), as a word of its own and in its own
+    case: a ticker ON is not the word "on" in "return on equity"."""
+    return any(re.search(r"(?<![0-9A-Za-z])" + re.escape(x) + r"(?![0-9A-Za-z])", target)
+               for x in re.split(r"[^0-9A-Za-z가-힣]+", value) if len(x) >= 2)
+
+
+def _pick_thing(values, pick) -> str | None:
+    """The thing an explicit pick means: the whole value or its first part (NVDA for NVDA.O), any
+    length and case (a pick of "F" is the stock F, which free text could never name)."""
+    p = " ".join(str(pick or "").split()).casefold()
+    if not p:
+        return None
+    return next((v for v in values if v.casefold() == p), None) or \
+        next((v for v in values if re.split(r"[^0-9a-z가-힣]+", v.casefold())[0] == p), None)
+
+
+def _norm(name: str) -> str:
+    return " ".join((name or "").split()).casefold()
 
 
 def _search_or_nothing(con, host: str, target: str) -> dict:
@@ -540,7 +562,7 @@ def plan(start_url: str, target: str, host: str | None = None, con=None, picks=N
         return out
     end = out["page"]
     texts = " ".join((end, out["title"], target)).casefold()
-    fresh = picks.get("fresh", 14 if any(w in texts for w in DATED_LIST_WORDS) else 0)
+    fresh = picks.get("fresh", 14 if DATED_LIST.search(texts) else 0)
     if fresh:
         out["checks"] = {"fresh_days": fresh}
     controls = con.execute("select path, role, name, used, seen from g_controls where host=?"
@@ -548,24 +570,40 @@ def plan(start_url: str, target: str, host: str | None = None, con=None, picks=N
     slot = _slot(end, [r[0] for r in con.execute("select path from g_pages where host=?", (out["host"],))])
     toggles = [c for c in controls if c["role"] in TOGGLES
                and (_rebase_path(c["path"], slot) if slot else c["path"]) == end]
-    t = " ".join(target.split()).casefold()
-    named = any(_score(target, [c["name"]]) >= 0.8
-                or (len(n := " ".join(c["name"].split()).casefold()) >= 2 and n in t) for c in toggles)
-    if "toggle" in picks and picks["toggle"]:
-        chosen = next((c for c in toggles if c["name"] == picks["toggle"]), None)
+    t = _norm(target)
+    steps = out["steps"]
+
+    def press(c):
+        if ["click", c["role"], c["name"]] not in steps:
+            steps.append(["click", c["role"], c["name"]])
+
+    unmatched = None
+    if picks.get("toggle"):
+        chosen = next((c for c in toggles if _norm(c["name"]) == _norm(picks["toggle"])), None)
         if chosen:
-            out["steps"].append(["click", chosen["role"], chosen["name"]])
+            press(chosen)
+        elif toggles:
+            unmatched = picks["toggle"]                # a pick that names no toggle here is asked again, not dropped
+    elif "toggle" not in picks:
+        # the target names a toggle, used before or only seen: press it (the used ones are pressed already)
+        named = next((c for c in toggles if _score(target, [c["name"]]) >= 0.8
+                      or (len(_norm(c["name"])) >= 2 and _norm(c["name"]) in t)), None)
+        if named:
+            press(named)
+        elif any(c["used"] > 0 for c in toggles):
+            unmatched = ""
     if out.get("ambiguous"):
         a = out["ambiguous"]
         out["choose"] = {"kind": "thing", "at": 0, "candidates": a["candidates"], "picked": a["picked"],
                          "read": "the target and the page: which thing is meant",
-                         "answer": 'picks={"thing": "<name>"}'}
-    elif any(c["used"] > 0 for c in toggles) and not named and "toggle" not in picks:
-        out["choose"] = {"kind": "toggle", "at": len(out["steps"]),
+                         "answer": 'picks={"thing": "<name>"}', **({"unmatched": a["unmatched"]} if "unmatched" in a else {})}
+    elif unmatched is not None:
+        out["choose"] = {"kind": "toggle", "at": len(steps),
                          "candidates": [list(c) for c in dict.fromkeys((c["role"], c["name"]) for c in toggles)][:8],
                          "picked": None,
                          "read": "the page's toggles: which one answers the target",
-                         "answer": 'picks={"toggle": "<name>"} or {"toggle": ""} to keep the default'}
+                         "answer": 'picks={"toggle": "<name>"} or {"toggle": ""} to keep the default',
+                         **({"unmatched": unmatched} if unmatched else {})}
     return out
 
 

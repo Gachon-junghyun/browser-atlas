@@ -444,5 +444,62 @@ class ToolsTest(unittest.TestCase):
         self.assertNotIn("my+search", json.dumps(_memory.shareable(), ensure_ascii=False))
 
 
+class ChoiceReviewTest(unittest.TestCase):
+    """Cases a review found in the first choice-point version, each reproduced before the fix."""
+
+    def setUp(self):
+        os.environ["BROWSER_ATLAS_HOME"] = tempfile.mkdtemp()
+        os.environ.pop("BROWSER_ATLAS_MAP", None)
+
+    def test_an_ordinary_word_is_not_a_ticker(self):
+        for thing in ("AMD", "ON"):
+            for suffix, title in (("price", "Price"), ("finance", "Return on equity")):
+                _graph.page(H + f"/stock/{thing}/{suffix}", title, direct=True)
+        self.assertEqual(_graph.plan(H + "/stock/AMD/price", "return on equity")["page"], "/stock/AMD/finance")
+        self.assertEqual(_graph.plan(H + "/stock/AMD/price", "ON return on equity")["page"], "/stock/ON/finance")
+
+    def test_a_named_toggle_only_seen_is_pressed(self):
+        _graph.page(H + "/fin", "Financials", direct=True)
+        _graph.control(H + "/fin", "radio", "Annual", used=True)
+        _graph.control(H + "/fin", "radio", "Quarterly")
+        p = _graph.plan(H + "/", "Financials Quarterly")
+        self.assertEqual(p["steps"][-1], ["click", "radio", "Quarterly"])
+        self.assertNotIn("choose", p)
+
+    def test_an_unknown_toggle_pick_is_asked_again(self):
+        _graph.page(H + "/fin", "Financials", direct=True)
+        _graph.control(H + "/fin", "radio", "Annual", used=True)
+        p = _graph.plan(H + "/", "Financials", picks={"toggle": "Monthly"})
+        self.assertEqual((p["choose"]["kind"], p["choose"]["unmatched"]), ("toggle", "Monthly"))
+        p = _graph.plan(H + "/", "Financials", picks={"toggle": " annual "})
+        self.assertEqual(p["steps"][-1], ["click", "radio", "Annual"])
+
+    def test_a_one_letter_thing_can_be_picked(self):
+        for thing in ("F", "T"):
+            _graph.page(H + f"/stock/{thing}/finance", "Financials", direct=True)
+        p = _graph.plan(H + "/", "Financials", picks={"thing": "F"})
+        self.assertEqual((p["page"], "choose" in p), ("/stock/F/finance", False))
+
+    def test_a_pick_reaches_a_thing_past_the_shortlist(self):
+        for i in range(13):
+            _graph.page(H + f"/stock/T{i:02}/finance", "Financials", direct=True)
+        p = _graph.plan(H + "/", "Financials", picks={"thing": "T00"})
+        self.assertEqual((p["page"], "choose" in p), ("/stock/T00/finance", False))
+        p = _graph.plan(H + "/", "Financials", picks={"thing": "ZZZ"})
+        self.assertEqual(p["choose"]["unmatched"], "ZZZ")
+
+    def test_a_toggle_pick_keeps_other_buttons(self):
+        _graph.page(H + "/fin", "Financials", direct=True)
+        _graph.control(H + "/fin", "button", "Download", used=True)
+        p = _graph.plan(H + "/", "Download", picks={"toggle": ""})
+        self.assertEqual(p["steps"][-1], ["click", "button", "Download"])
+
+    def test_press_inside_a_word_is_not_a_dated_list(self):
+        _graph.page(H + "/compression", "Compression", direct=True)
+        self.assertNotIn("checks", _graph.plan(H + "/", "Compression"))
+        _graph.page(H + "/newsroom", "Newsroom", direct=True)
+        self.assertIn("checks", _graph.plan(H + "/", "Newsroom"))
+
+
 if __name__ == "__main__":
     unittest.main()
