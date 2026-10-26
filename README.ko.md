@@ -80,6 +80,24 @@ claude mcp add browser-atlas -- python -m browser_atlas mcp
 에이전트는 디버그 포트에 따로 쓰는 프로필로 크롬을 새로 띄웁니다(`browser_launch`). 평소 쓰는 브라우저는
 건드리지 않습니다. 로그인이 필요한 사이트는 그 창에서 사람이 한 번 직접 로그인합니다.
 
+## 🧰 CLI
+
+```bash
+python -m browser_atlas launch --port 9222          # 따로 쓰는 프로필로 크롬 띄우기
+python -m browser_atlas guard https://example.com   # 이 주소에서 에이전트가 움직여도 되나
+python -m browser_atlas controls --tab example.com  # 지금 화면 버튼의 역할과 이름
+python -m browser_atlas check kosis                 # 지도의 버튼이 아직 그대로 있나
+
+python -m browser_atlas atlas validate              # 형식, 안전, 개인 흔적 검사 (오프라인)
+python -m browser_atlas atlas merge new.json --dry-run
+
+python -m browser_atlas lesson kosis --page search "결과는 필터 줄 다음에 뜬다. 기다려야 한다"
+python -m browser_atlas learned                     # 이 컴퓨터가 배운 레슨과 버튼 수정
+python -m browser_atlas share                       # 무엇이 공유될지 미리 보기 (보내지 않음)
+python -m browser_atlas share --yes                 # 검토 대기열로 제출
+python -m browser_atlas share sync                  # 관리자가 병합한 것 받기
+```
+
 ## 🛡️ 지키는 규칙
 
 - **캡차나 요청 제한이 뜨면 그날은 멈춥니다.** 캡차를 풀지 않고, 풀려고 하지도 않습니다.
@@ -103,6 +121,31 @@ claude mcp add browser-atlas -- python -m browser_atlas mcp
 전부 내 컴퓨터에만 있습니다. «공유해 줘»라고 하면 `share_upload` 가 개인정보를 걸러 낸 사본을 **검토 대기열**로
 보냅니다. GitHub 처럼 누구나 계정 없이 올릴 수 있고, 대기열은 관리자만 읽을 수 있으며, 관리자가 병합한 것만
 공개됩니다(`browser-atlas share review`, `share merge ID`). 병합된 내용은 `share sync` 로 모두가 받습니다.
+
+**공유 DB 에 붙기.** 아래 내용을 `~/.browser_atlas/shared.json` 으로 저장하면 됩니다. 이 키는 공개용 키라서
+대기열에 제출(분당 한도 있음)하고 병합된 것을 읽는 일만 할 수 있습니다.
+
+```json
+{"url": "https://sfgjkzwvagjelkgldrmt.supabase.co",
+ "anon_key": "sb_publishable_gqj5LVr_ub6tVmWw_XZW7g_4Bjn_yoY"}
+```
+
+이 파일이 없으면 공유도 받기도 하지 않고, 나머지 기능은 똑같이 동작합니다.
+
+<details>
+<summary><b>공유 DB 를 직접 운영하기</b></summary>
+
+1. Supabase 프로젝트를 만들고 SQL 편집기에서 [`server/schema.sql`](server/schema.sql) 을 실행합니다.
+   공개 표, 검토 대기열, 한도(분당 120건, 대기 5000건), 병합 함수가 만들어집니다.
+2. Authentication › Users 에서 관리자 사용자를 만들고
+   `insert into maintainers (user_id) values ('<그 사용자 id>');` 를 실행합니다.
+3. 관리자 컴퓨터에서 `python -m browser_atlas set-cred shared_email` 과 `set-cred shared_password` 를
+   실행합니다(입력은 화면에 보이지 않고 운영체제 자격증명 저장소로 갑니다).
+4. 제출이 들어올 때 메일을 받으려면(선택) Vault 에 `resend_api_key`(보내기 전용 Resend 키),
+   `notify_from`(Resend 에서 인증한 도메인의 보내는 주소), `notify_to` 를 넣습니다. 한 시간에 한 통까지만 가고,
+   메일에는 건수만 들어갑니다. 제출된 글은 DB 밖으로 나가지 않습니다.
+
+</details>
 
 ## 🤝 사이트 보태기
 

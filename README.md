@@ -118,6 +118,12 @@ python -m browser_atlas check kosis                 # are the mapped controls st
 python -m browser_atlas atlas validate              # schema, safety and personal-trace checks, offline
 python -m browser_atlas atlas merge new.json --dry-run
 
+python -m browser_atlas lesson kosis --page search "Results load after the filter bar; wait for it"
+python -m browser_atlas learned                     # lessons and button fixes this machine picked up
+python -m browser_atlas share                       # preview what would be shared (nothing is sent)
+python -m browser_atlas share --yes                 # submit it to the review queue
+python -m browser_atlas share sync                  # pull what maintainers merged
+
 python -m browser_atlas mouse record --seconds 300  # teach it your mouse
 python -m browser_atlas mouse fit
 python -m browser_atlas mouse plot                  # grey: yours, blue: generated
@@ -150,6 +156,32 @@ All of it stays on your machine. When you say "share it", `share_upload` sends a
 **review queue**, GitHub-style: anyone can submit without an account, nobody but maintainers can read the
 queue, and only what a maintainer merges (`browser-atlas share review`, `share merge ID`) becomes public.
 Everyone then pulls merged rows with `share sync`.
+
+**Join the shared database.** Save this as `~/.browser_atlas/shared.json`. The key is a publishable
+key: it can only submit to the queue (rate-limited) and read what was merged.
+
+```json
+{"url": "https://sfgjkzwvagjelkgldrmt.supabase.co",
+ "anon_key": "sb_publishable_gqj5LVr_ub6tVmWw_XZW7g_4Bjn_yoY"}
+```
+
+Without the file nothing is shared or pulled, and everything else works the same.
+
+<details>
+<summary><b>Run your own shared database</b></summary>
+
+1. Create a Supabase project and run [`server/schema.sql`](server/schema.sql) in its SQL editor.
+   It creates the public tables, the review queue, the limits (120 submissions a minute, 5000 waiting)
+   and the merge functions.
+2. Create the maintainer in Authentication > Users, then run
+   `insert into maintainers (user_id) values ('<that user id>');`
+3. On the maintainer's machine: `python -m browser_atlas set-cred shared_email` and
+   `set-cred shared_password` (hidden prompts; the values go to the OS credential store).
+4. Optional mail when submissions arrive: add Vault secrets `resend_api_key` (a sending-only Resend key),
+   `notify_from` (a sender on a domain verified in Resend) and `notify_to`. At most one mail an hour,
+   and it carries only the count: submitted text never leaves the database.
+
+</details>
 
 ## 🤝 Add a site
 
