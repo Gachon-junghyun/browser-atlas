@@ -631,6 +631,95 @@ class TimingTest(unittest.TestCase):
                 mock.patch.object(mcp_server._graph, "plan", return_value=plan):
             return mcp_server._run({"tab": "T", "steps": steps or [["go", "x"]]})
 
+    @unittest.skipUnless(shutil.which("node"), "Node is needed to execute the DOM fixture")
+    def test_short_tables_and_metric_tables(self):
+        fixture = r"""
+const nodes = [];
+function el(tagName, text = '', children = []) {
+  const node = {tagName, className: '', children,
+    innerText: text || children.map(c => c.innerText).join('\n')};
+  for (const child of children) child.parentElement = node;
+  if (tagName === 'TR') node.cells = children;
+  if (tagName === 'TABLE') node.rows = children;
+  nodes.push(node);
+  return node;
+}
+function row(parts) { return el('TR', '', parts.map(t => el('TD', t))); }
+const dates = ['2025-01-01', '2025-01-02', '2025-01-03'];
+const table = el('TABLE', '', dates.map(d => row(PARTS)));
+const news = dates.map(d => el('DIV', '', [
+  el('DIV', 'Fictional company reports research results with a detailed account of progress.'),
+  el('DIV', d)]));
+if (METRIC) el('DIV', '', news);
+const document = {querySelectorAll: () => nodes};
+"""
+        for metric in (False, True):
+            with self.subTest(metric=metric):
+                script = fixture.replace('PARTS', "['As of', '2026-10-27']" if metric else
+                                         "['10-Q', 'Quarterly report', d, '001-12345']")
+                script = script.replace('METRIC', str(metric).lower())
+                result = subprocess.run([shutil.which("node"), "-e", script +
+                                         "console.log(JSON.stringify(" + mcp_server._LIST_DATES_JS + "));"],
+                                        check=True, capture_output=True, encoding="utf-8")
+                rows = json.loads(result.stdout)
+                self.assertEqual(rows, ['2025-01-01', '2025-01-02', '2025-01-03'])
+                self.clock = 0
+                reads = []
+                def tracked(name, args):
+                    reads.append(self.clock)
+                    return {"untrusted_page_content": "2026-10-27", "list_dates": rows}
+                with mock.patch.object(mcp_server, "_tracked", side_effect=tracked):
+                    checked, failure = mcp_server._check_arrival(
+                        "T", {"checks": {"fresh_days": 14}}, None, None)
+                self.assertEqual(reads, [0, 0.3])
+                self.assertEqual(checked["from"], "list")
+                self.assertEqual(failure["why"], "stale")
+
+    def test_complete_text_fallback_waits_for_three_stable_looks(self):
+        reads = []
+        def tracked(name, args):
+            reads.append(self.clock)
+            return {"untrusted_page_content": "2025-01-01", "list_dates": [],
+                    "ready_state": "complete"}
+        with mock.patch.object(mcp_server, "_tracked", side_effect=tracked):
+            checked, failure = mcp_server._check_arrival(
+                "T", {"checks": {"fresh_days": 14}}, None, None)
+        self.assertAlmostEqual(reads[-1], 1.2)
+        self.assertGreaterEqual(len(reads), 3)
+        self.assertEqual(checked["from"], "text")
+        self.assertEqual(failure["why"], "stale")
+
+    def test_text_fallback_restarts_when_dates_change_at_same_length(self):
+        def tracked(name, args):
+            return {"untrusted_page_content": "2025-01-01" if self.clock < 0.9 else "2025-01-02",
+                    "list_dates": [], "ready_state": "complete"}
+        with mock.patch.object(mcp_server, "_tracked", side_effect=tracked):
+            checked, failure = mcp_server._check_arrival(
+                "T", {"checks": {"fresh_days": 14}}, None, None)
+        self.assertGreaterEqual(self.clock, 2.1)
+        self.assertEqual(checked["fresh"], "2025-01-02")
+        self.assertEqual(failure["why"], "stale")
+
+    def test_freshness_read_includes_document_state(self):
+        c = mock.Mock()
+        c.eval.side_effect = [{"text": "2025-01-01", "ready_state": "complete"}, H, []]
+        result = mcp_server._read(c, {"mode": "text", "list_dates": True})
+        self.assertEqual(result["ready_state"], "complete")
+        self.assertEqual(result["untrusted_page_content"], "2025-01-01")
+        self.assertIn("document.readyState", c.eval.call_args_list[0].args[0])
+
+    def test_loading_text_fallback_keeps_cap(self):
+        for state, marker in [('loading', ''), ('complete', 'Loading'),
+                              ('complete', '\uB85C\uB529'), ('complete', '\uBD88\uB7EC\uC624\uB294 \uC911'),
+                              ('complete', 'spinner')]:
+            with self.subTest(state=state, marker=marker):
+                self.clock = 0
+                with mock.patch.object(mcp_server, "_tracked", return_value={
+                        "untrusted_page_content": "2025-01-01 " + marker,
+                        "list_dates": [], "ready_state": state}):
+                    mcp_server._check_arrival("T", {"checks": {"fresh_days": 14}}, None, None)
+                self.assertAlmostEqual(self.clock, 6.0)
+
     def test_loading_header_waits_for_stable_dated_rows(self):
         reads = []
         def tracked(name, args):
