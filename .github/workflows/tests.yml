@@ -1,0 +1,25 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  unittest:
+    # Only Windows is verified so far; the driver has win32-specific launch and DPAPI paths.
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Run unit tests (no Chrome, no network)
+        env:
+          PYTHONIOENCODING: utf-8
+          BROWSER_ATLAS_HOME: ${{ runner.temp }}/browser-atlas-home
+        run: python -m unittest discover -s tests -v
