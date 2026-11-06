@@ -1,5 +1,7 @@
 # browser-atlas
 
+[![tests](https://github.com/Gachon-junghyun/browser-atlas/actions/workflows/tests.yml/badge.svg)](https://github.com/Gachon-junghyun/browser-atlas/actions/workflows/tests.yml)
+
 An MCP server that gives browser agents a reviewed atlas of 127 sites, a standard-library-only Chrome driver, an experience memory, and safety rules enforced in code (blocked sites, robots.txt, human-approved irreversible clicks).
 
 English version and shared database setup: [README.en.md](README.en.md)
@@ -174,7 +176,7 @@ tests/                  단위 테스트 17개 파일
 
 ### 개발 환경에 대해 한 일
 
-- 크롬 없이 도는 테스트 244개. `tests/test_go.py`의 가짜 브라우저(`_Browser`)가 주소별 페이지 텍스트와 클릭으로 인한 이동, 새 탭, 지연된 리다이렉트를 흉내 낸다. 덕분에 `go`의 수정이 실제 사이트 없이 몇 초 단위로 반복되었다. 전체 실행은 30초 남짓이다(Windows, Python 3.11 한 곳에서만 확인).
+- 크롬 없이 도는 테스트 244개. `tests/test_go.py`의 가짜 브라우저(`_Browser`)가 주소별 페이지 텍스트와 클릭으로 인한 이동, 새 탭, 지연된 리다이렉트를 흉내 낸다. 덕분에 `go`의 수정이 실제 사이트 없이 몇 초 단위로 반복되었다. 전체 실행은 30초 남짓이다. 커밋마다 GitHub Actions가 Windows에서 Python 3.11과 3.12로 돌린다(`.github/workflows/tests.yml`).
 - 에이전트로 쓴 결함 찾기. 결함을 찾으면 `tests/test_regressions.py`에 한 건당 테스트 하나를 붙이는 규칙으로 진행했다(`Wave1`). 커밋 메시지에 AI 모델의 공동 작성자 표기가 있듯 개발 자체도 AI 모델과 함께 했다.
 - 지도 검증기. `atlas validate`는 중복 키, 닫힌 역할 목록, 안정적이지 않은 CSS(해시된 클래스 이름), 개인 흔적(로컬 경로, 이메일, 전화번호, 토큰 모양 문자열)을 오프라인으로 검사한다. 공유 지도에 개인 정보가 섞이는 사고를 병합 전에 막으려는 장치이다.
 
@@ -182,7 +184,7 @@ tests/                  단위 테스트 17개 파일
 
 - Windows에서만 확인했다. 마우스 기록기는 Windows 전용이고(`_mouse.py`가 다른 운영체제에서는 예외를 낸다), 가림 감지 플래그도 Windows 크롬 문제를 겨냥한다. macOS와 Linux에서는 크롬 경로 탐색 코드만 있고 실행해 보지 않았다.
 - 지도는 사람이 만들어서 낡는다. `check`는 실제 크롬이 있어야 돌고, 사이트가 화면을 바꾸면 컨트롤이 사라진다. 현재 `atlas validate`에도 경고 9건(변하는 이름 표시 누락, 중복 컨트롤 이름 등)이 남아 있다.
-- CI 설정이 없다. 테스트는 로컬에서만 돈다.
+- CI는 Windows에서만 돈다. 크롬 실행과 자격증명 암호화(DPAPI)에 Windows 전용 경로가 있고, Linux와 macOS에서는 아직 테스트를 돌려 보지 않았다.
 - 공유 데이터베이스는 외부 서버가 있어야 하며, 테스트는 모의 응답으로만 검증한다. 병합이 유지관리자의 수작업이라 제출이 많아지면 병목이 된다.
 - 판정, 순위, 날짜 읽기, 위험 단어 목록은 규칙과 손으로 정한 가중치이다. 정확도나 성능 수치는 측정한 적이 없어서 적지 않는다.
 - 지도의 `where`와 `does` 설명은 대부분 한국어라 영어 사용자는 닫힌 값(`role`, `name`, `act`)에 의존해야 한다.
