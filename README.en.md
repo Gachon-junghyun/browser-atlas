@@ -109,6 +109,8 @@ Then just ask:
 The agent starts its own Chrome with a separate profile on a debug port (`browser_launch`), so
 your everyday browser is never touched. When a site needs a login, sign in by hand once in that window.
 
+**Keep what it read (optional).** Set `BROWSER_ATLAS_CAPTURE=1` in the server's env and every `browser_read` is saved under `~/.browser_atlas/capture/<date>/` (or `BROWSER_ATLAS_CAPTURE_DIR`): the text it returned, one full-page shot per page, each large image, SVG or canvas clipped as a PNG (charts often have no file behind them), the image file itself when its URL is public, and an `index.jsonl` line per read. It stays on your disk; nothing is shared. Pages behind a login get captured too, so turn it on only where that is acceptable.
+
 ## 🧰 CLI
 
 ```bash

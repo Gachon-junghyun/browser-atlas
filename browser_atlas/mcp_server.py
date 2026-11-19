@@ -692,7 +692,12 @@ def _browser(name: str, args: dict):
         return {"closed": _cdp.close_tab(tab, port)}
     with _cdp.CDP(port, tab) as c:
         if name == "browser_read":
-            return _read(c, args)
+            r = _read(c, args)
+            from . import _capture
+            note = _capture.on_read(c, args, r, port=port, tab=tab, goal=(REC.open.get(tab) or {}).get("goal"))
+            if note:
+                r["captured"] = note
+            return r
         if name == "browser_screenshot":
             return _screenshot(c, bool(args.get("full")), args.get("save"))
         if name == "browser_goto":
