@@ -238,8 +238,9 @@ TOOLS += [
      "inputSchema": {"type": "object", "properties": {"tab": _TAB, "result": {"type": "string",
                      "enum": ["success", "partial", "fail"]}}, "required": ["tab"]}},
     {"name": "browser_close_mine",
-     "description": "Close every tab this server opened (on a port, or all ports it used).",
-     "inputSchema": {"type": "object", "properties": {"port": _PORT}}},
+     "description": "Close the tabs this server opened on one port, and end their episodes. Tabs and "
+                    "episodes on other ports are left alone. port is required: there is no close-all.",
+     "inputSchema": {"type": "object", "properties": {"port": _PORT}, "required": ["port"]}},
     {"name": "lesson_record",
      "description": "After a task: record a pitfall you hit on a site, in one plain sentence with what "
                     "worked (e.g. 'Typing into the topics box drops the last letter; type it separately'). "
@@ -649,19 +650,17 @@ def _browser(name: str, args: dict):
         mine = _opened()
         return [{"tab": t["id"], "title": t.get("title", "")[:80], "url": t.get("url", "")[:150],
                  "opened_by_me": t["id"] in mine} for t in _cdp.tabs(port)]
-    if name == "browser_close_mine":
-        ports = {_tab_port(t) for t in _opened()}
-        if args.get("port"):
-            ports = {port}
+    if name == "browser_close_mine":                  # one port only: other ports may be other work in progress
+        if not args.get("port"):
+            raise ValueError("give port: browser_close_mine closes one port's tabs, never every port")
+        try:
+            live = {t["id"] for t in _cdp.tabs(port)}
+        except OSError:
+            live = set()
         closed = []
-        for p in ports - {None}:
-            try:
-                live = {t["id"] for t in _cdp.tabs(p)}
-            except OSError:
-                live = set()
-            for tid in [t for t in _opened() if _tab_port(t) == p]:
-                closed.append({"tab": tid, "closed": tid in live and _cdp.close_tab(tid, p)})
-                _remember_tab(tid, add=False)
+        for tid in [t for t in _opened() if _tab_port(t) == port]:
+            closed.append({"tab": tid, "closed": tid in live and _cdp.close_tab(tid, port)})
+            _remember_tab(tid, add=False)
         return closed
     if name == "browser_open":
         _atlas.guard(args["url"])
@@ -1465,8 +1464,13 @@ def _tracked(name: str, args: dict):
         r["episode"] = episode
         return r
     if name == "browser_close_mine":
-        mine = [t for t in list(REC.open)]
+        if not args.get("port"):
+            raise ValueError("give port: browser_close_mine closes one port's tabs, never every port")
+        port = int(args["port"])
+        mine = [t for t in list(REC.open) if _tab_port(t) == port]   # read before _browser drops the markers
         verdicts = [v for v in (REC.finish(t) for t in mine) if v]
+        for t in mine:
+            _FULL_URL.pop(t, None)
         return {"closed": _browser(name, args), "episodes": verdicts}
     tab = args.get("tab")
     if tab and tab not in REC.open and tab in _opened():  # our tab with no open episode: start one, never drop steps

@@ -130,3 +130,40 @@ const document = doc('Skip to content', [blocked, frame('outer', 'Table window',
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CloseMineTest(unittest.TestCase):
+    """browser_close_mine closes one port's tabs and ends only their episodes."""
+
+    def setUp(self):
+        os.environ["BROWSER_ATLAS_HOME"] = tempfile.mkdtemp()
+        mcp_server.REC.open.clear()
+        for tid, port in (("A", 9555), ("B", 9666)):
+            mcp_server._remember_tab(tid, port)
+            mcp_server.REC.start(tid, "about:blank", None)
+
+    def tearDown(self):
+        mcp_server.REC.open.clear()
+
+    def test_only_the_given_port_is_closed(self):
+        with mock.patch.object(mcp_server._cdp, "tabs", return_value=[{"id": "A"}]), \
+                mock.patch.object(mcp_server._cdp, "close_tab", return_value=True) as close:
+            r = mcp_server.call("browser_close_mine", {"port": 9555})
+        self.assertEqual(close.call_args_list, [mock.call("A", 9555)])
+        self.assertEqual([c["tab"] for c in r["closed"]], ["A"])
+        self.assertNotIn("A", mcp_server._opened())
+        self.assertIn("B", mcp_server._opened())                  # the other port's tab is untouched
+        self.assertNotIn("A", mcp_server.REC.open)
+        self.assertIn("B", mcp_server.REC.open)                   # and so is its episode
+
+    def test_no_port_closes_nothing(self):
+        with mock.patch.object(mcp_server._cdp, "close_tab") as close:
+            with self.assertRaises(ValueError):
+                mcp_server.call("browser_close_mine", {})
+        close.assert_not_called()
+        self.assertEqual(mcp_server._opened(), {"A", "B"})
+        self.assertEqual(set(mcp_server.REC.open), {"A", "B"})
+
+    def test_schema_requires_port(self):
+        tool = next(t for t in mcp_server.TOOLS if t["name"] == "browser_close_mine")
+        self.assertEqual(tool["inputSchema"]["required"], ["port"])
