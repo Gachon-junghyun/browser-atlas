@@ -210,5 +210,75 @@ class RefoundTest(unittest.TestCase):
         self.assertEqual(c.marks, 1)
 
 
+class WheelRevealTest(unittest.TestCase):
+    """An element 1500 px below the fold: human pace reaches it with wheel events, never a jump."""
+
+    def make(self, scrolls=True, start_top=1500.0):
+        class Page:
+            target = {"id": "wheel"}
+
+            def __init__(self):
+                self.top, self.scroll, self.calls, self.jumps = start_top, 0.0, [], 0
+
+            def call(self, method, params=None, timeout=30):
+                self.calls.append((method, params))
+                if method == "Input.dispatchMouseEvent" and params["type"] == "mouseWheel" and scrolls:
+                    self.scroll += params["deltaY"]
+                    self.top -= params["deltaY"]
+                return {}
+
+            def eval(self, js, timeout=30):
+                if js == "location.href":
+                    return "https://example.com"
+                if "elementFromPoint" in js:
+                    if "if (true)" in js:
+                        self.jumps += 1
+                        self.scroll += self.top - 280
+                        self.top = 280
+                    return {"x": 100, "y": self.top + 10, "w": 80, "h": 20, "vw": 800, "vh": 600,
+                            "name": "Go", "role": "button", "search": False}
+                return {"top": self.top, "bottom": self.top + 20, "left": 60, "right": 140,
+                        "box": {"left": 0, "top": 0, "right": 800, "bottom": 600}, "vw": 800, "vh": 600,
+                        "pos": self.scroll}
+        return Page()
+
+    def run_target(self, page, pace="human"):
+        from unittest.mock import patch
+        from browser_atlas._pointer import Pointer
+        with patch("browser_atlas._pointer._load_state", return_value={}), \
+                patch("browser_atlas._pointer._save_state"), \
+                patch("browser_atlas._pointer.time.sleep"):
+            return Pointer(page, model=_mouse.Model(), seed=3, pace=pace).target("button")
+
+    def wheels(self, page):
+        return [p for m, p in page.calls if m == "Input.dispatchMouseEvent" and p["type"] == "mouseWheel"]
+
+    def test_wheels_into_view_without_jumping(self):
+        page = self.make()
+        self.run_target(page)
+        ticks = self.wheels(page)
+        self.assertGreater(len(ticks), 5)
+        self.assertTrue(all(0 < t["deltaY"] <= 125 for t in ticks))
+        self.assertEqual(page.jumps, 0)
+        self.assertTrue(48 <= page.top <= 532)          # inside the 8% margins of a 600 px viewport
+
+    def test_already_visible_sends_no_wheel(self):
+        page = self.make(start_top=250)
+        self.run_target(page)
+        self.assertEqual(self.wheels(page), [])
+        self.assertEqual(page.jumps, 0)
+
+    def test_falls_back_to_jump_when_wheel_moves_nothing(self):
+        page = self.make(scrolls=False)
+        self.run_target(page)
+        self.assertEqual(page.jumps, 1)
+
+    def test_quick_pace_still_jumps(self):
+        page = self.make()
+        self.run_target(page, pace="quick")
+        self.assertEqual(self.wheels(page), [])
+        self.assertEqual(page.jumps, 1)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -75,7 +75,7 @@ flowchart TD
 
 연구용 읽기와 검색(`_search.py`, `browser_read`). `browser_search`는 다섯 검색 엔진(naver, google, bing, daum, duckduckgo)에 같은 질문을 던지고 엔진을 번갈아 가며 사이트당 결과 하나씩 섞어 돌려준다. 이미 많이 읽은 사이트는 표시한다. `browser_read`는 `outline`, `text`, `controls`, `links` 모드가 있고, 긴 글은 개요를 먼저 읽게 한다.
 
-자기 마우스 학습(`_mouse.py`, `_keys.py`, `_pointer.py`). 사용자가 직접 마우스를 쓴 기록(Windows에서 ctypes로 커서와 왼쪽 버튼만 기록하고 키는 기록하지 않는다)으로 Fitts 법칙 `T = a + b * log2(1 + D/W)`의 계수와 경로 라이브러리를 맞추고, 클릭은 요소 안에서 `elementFromPoint`가 실제로 그 요소를 가리키는 지점에만 한다. 타이핑은 키 단위이며 한글 조합 과정을 재현한다. 기록이 없으면 최소 저크 곡선을 쓴다.
+자기 마우스 학습(`_mouse.py`, `_keys.py`, `_pointer.py`). 사용자가 직접 마우스를 쓴 기록(Windows에서 ctypes로 커서와 왼쪽 버튼만 기록하고 키는 기록하지 않는다)으로 Fitts 법칙 `T = a + b * log2(1 + D/W)`의 계수와 경로 라이브러리를 맞추고, 클릭은 요소 안에서 `elementFromPoint`가 실제로 그 요소를 가리키는 지점에만 한다. 타이핑은 키 단위이며 한글 조합 과정을 재현한다. 기록이 없으면 최소 저크 곡선을 쓴다. 화면 밖 요소로 갈 때는 `scrollIntoView`로 순간이동하지 않고 포인터 아래에서 휠을 몇 번씩 끊어 굴려 다가간다(`human` 속도만, 휠이 안 먹으면 예전처럼 이동한다).
 
 공유 데이터베이스(`_shared.py`, `server/schema.sql`). 기본은 모두 로컬이다. 사용자가 공유하겠다고 말한 경우에만 정제한 사본이 검토 대기열로 올라가고, 유지관리자가 병합한 행만 공개 테이블에 들어간다. 설정 파일이 없으면 아무것도 보내거나 받지 않는다.
 

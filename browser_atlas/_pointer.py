@@ -10,6 +10,8 @@
 - **How**: from the last pointer position (remembered per tab, across processes) to that
   point along a path planned by `Model.plan`, as real `mouseMoved` events on its timeline,
   then a hover pause, press, hold, release.
+- **Scrolling** to an offscreen target is mouse-wheel bursts under the pointer (`_reveal`), not
+  `scrollIntoView`, which detectors flag as a scroll with no wheel. `quick` pace still jumps.
 - **Never** on a site the atlas marks `access: blocked`: every action checks the URL first.
 - **Stops** before anything irreversible (pay, submit, send, delete...): `_safety` judges the
   live control by its own name and role, and only a human's one-time `allow` lets it through.
@@ -32,7 +34,7 @@ _TARGET_JS = r"""
 (() => {
   const e = document.querySelector(%(css)s);
   if (!e) return {err: 'no-element'};
-  e.scrollIntoView({block: 'center', inline: 'center', behavior: 'instant'});
+  if (%(jump)s) e.scrollIntoView({block: 'center', inline: 'center', behavior: 'instant'});
   const r = e.getBoundingClientRect();
   if (r.width === 0 || r.height === 0) return {err: 'zero-size'};
   let by = null;
@@ -72,6 +74,34 @@ _TARGET_JS = r"""
   return {err: 'covered', by: by || '(nothing)'};
 })()
 """
+
+# Where an element sits relative to the box that scrolls it (its nearest vertically scrolling
+# ancestor, else the viewport), plus that box's scroll offset so a wheel that moved nothing shows.
+_VIEW_JS = r"""
+(() => {
+  const e = document.querySelector(%(css)s);
+  if (!e) return {err: 'no-element'};
+  const r = e.getBoundingClientRect();
+  if (r.width === 0 || r.height === 0) return {err: 'zero-size'};
+  const vw = innerWidth, vh = innerHeight;
+  let sc = null;
+  for (let p = e.parentElement; p && p !== document.body && p !== document.documentElement; p = p.parentElement) {
+    const s = getComputedStyle(p);
+    if (/(auto|scroll|overlay)/.test(s.overflowY) && p.scrollHeight > p.clientHeight + 1) { sc = p; break; }
+  }
+  let box = {left: 0, top: 0, right: vw, bottom: vh};
+  if (sc) {
+    const b = sc.getBoundingClientRect();
+    box = {left: Math.max(0, b.left), top: Math.max(0, b.top), right: Math.min(vw, b.right), bottom: Math.min(vh, b.bottom)};
+  }
+  return {top: r.top, bottom: r.bottom, left: r.left, right: r.right, box, vw, vh,
+          pos: (sc ? sc.scrollTop : 0) + scrollY};
+})()
+"""
+
+WHEEL_TICK_PX = (80, 125)      # one notch of a desktop wheel is ~100 px in Chrome
+WHEEL_TICK_GAP_S = (0.018, 0.055)
+WHEEL_LOOK_S = (0.12, 0.35)    # pause between bursts, while the eye catches up
 
 
 def _nearest(role: str, name: str, nodes: list[dict], n: int = 6) -> list[str]:
@@ -152,8 +182,70 @@ class Pointer:
             pts.append([round(fx, 3), round(fy, 3)])
         return pts + [[0.5, 0.5]]
 
+    def _reveal(self, css: str) -> bool:
+        """Bring the element into view with mouse-wheel bursts, the way a person scrolls to it.
+
+        A page that scrolls with no wheel, touch or key before it is a bot signal
+        (`scrollIntoView`), so `human` pace wheels first. Returns False when the wheel cannot do
+        it (no such element, sideways offscreen, nothing moved): the caller then jumps as before.
+        """
+        v = self.c.eval(_VIEW_JS % {"css": json.dumps(css)})
+        if not isinstance(v, dict) or "box" not in v:
+            return False
+        goal = self.rng.uniform(0.3, 0.6)               # where on screen it should end up
+        stalls = 0
+        for _ in range(40):
+            box = v["box"]
+            H = box["bottom"] - box["top"]
+            if H < 60 or v["right"] < box["left"] or v["left"] > box["right"]:
+                return False
+            lo, hi = box["top"] + 0.08 * H, box["bottom"] - 0.08 * H
+            tall = v["bottom"] - v["top"] > hi - lo
+            if (lo <= v["top"] <= box["top"] + 0.5 * H) if tall else (v["top"] >= lo and v["bottom"] <= hi):
+                return True
+            remaining = (v["top"] - (box["top"] + 0.15 * H)) if tall else \
+                ((v["top"] + v["bottom"]) / 2 - (box["top"] + goal * H))
+            at = self._wheel_spot(box, v)
+            for _ in range(self.rng.randint(2, 6)):
+                if abs(remaining) < 1:
+                    break
+                step = abs(remaining) if abs(remaining) < 40 else min(abs(remaining), self.rng.uniform(*WHEEL_TICK_PX))
+                d = step if remaining > 0 else -step
+                self.c.call("Input.dispatchMouseEvent", {"type": "mouseWheel", "x": at[0], "y": at[1],
+                                                         "deltaX": 0, "deltaY": round(d, 1),
+                                                         "button": "none", "buttons": 0})
+                remaining -= d
+                time.sleep(self.rng.uniform(*WHEEL_TICK_GAP_S))
+            time.sleep(self.rng.uniform(*WHEEL_LOOK_S))
+            before = v["pos"]
+            v = self.c.eval(_VIEW_JS % {"css": json.dumps(css)})
+            if not isinstance(v, dict) or "box" not in v:
+                return False
+            stalls = stalls + 1 if abs(v["pos"] - before) < 1 else 0
+            if stalls >= 2:
+                return False
+        return False
+
+    def _wheel_spot(self, box: dict, v: dict) -> tuple[float, float]:
+        """The wheel scrolls what is under the pointer: keep the pointer where it is if that is
+        inside the scrolling box, else move it there first along a learned path."""
+        mx, my = 0.1 * (box["right"] - box["left"]), 0.1 * (box["bottom"] - box["top"])
+        if self.pos is not None and box["left"] + mx <= self.pos[0] <= box["right"] - mx \
+                and box["top"] + my <= self.pos[1] <= box["bottom"] - my:
+            return self.pos
+        end = (self.rng.uniform(box["left"] + 2 * mx, box["right"] - 2 * mx),
+               self.rng.uniform(box["top"] + 2 * my, box["bottom"] - 2 * my))
+        self._move(self._start(v), end, 200.0)
+        return self.pos
+
     def target(self, css: str) -> dict:
-        info = self.c.eval(_TARGET_JS % {"css": json.dumps(css), "cands": json.dumps(self._candidates())})
+        def look(jump: bool) -> dict:
+            return self.c.eval(_TARGET_JS % {"css": json.dumps(css), "cands": json.dumps(self._candidates()),
+                                             "jump": "true" if jump else "false"})
+        jump = self.pace == "quick" or not self._reveal(css)
+        info = look(jump)
+        if not jump and info.get("err") in ("offscreen", "covered"):
+            info = look(True)                           # wheeled into view but a sticky bar sits on it: centre it
         err = info.get("err")
         if err == "no-element":
             raise RuntimeError(f"no element: {css}")
