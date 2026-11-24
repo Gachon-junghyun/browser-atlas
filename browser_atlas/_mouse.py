@@ -49,14 +49,8 @@ def data_dir() -> Path:
 
 
 # ── record ───────────────────────────────────────────────────────────
-def record(seconds: float = 120, hz: int = 500, out: Path | None = None, quiet: bool = False) -> Path:
-    """Record cursor + left button for `seconds` (Ctrl+C stops early and still saves).
-
-    Coordinates are stored in logical pixels (physical / DPI scale), which equal CSS pixels
-    in a browser at 100% zoom.
-    """
-    if sys.platform != "win32":
-        raise RuntimeError("the recorder is Windows-only for now (ctypes GetCursorPos)")
+def _win_sampler():
+    """Windows: GetCursorPos + GetAsyncKeyState(VK_LBUTTON). Returns (read, scale, screen)."""
     import ctypes
     from ctypes import wintypes
 
@@ -73,6 +67,89 @@ def record(seconds: float = 120, hz: int = 500, out: Path | None = None, quiet: 
     except Exception:
         scale = 1.0
     pt = wintypes.POINT()
+
+    def read():
+        user32.GetCursorPos(ctypes.byref(pt))
+        down = 1 if user32.GetAsyncKeyState(0x01) & 0x8000 else 0
+        return pt.x / scale, pt.y / scale, down
+
+    screen = [user32.GetSystemMetrics(0) / scale, user32.GetSystemMetrics(1) / scale]
+    return read, scale, screen
+
+
+def _mac_sampler():
+    """macOS: poll CoreGraphics through ctypes (no event tap, so no Input Monitoring prompt).
+
+    CGEventGetLocation gives global display points, which are already logical pixels
+    (= CSS px at 100% zoom), so no division by the Retina scale.
+    """
+    import ctypes
+    import ctypes.util
+
+    class CGPoint(ctypes.Structure):
+        _fields_ = [("x", ctypes.c_double), ("y", ctypes.c_double)]
+
+    class CGSize(ctypes.Structure):
+        _fields_ = [("width", ctypes.c_double), ("height", ctypes.c_double)]
+
+    class CGRect(ctypes.Structure):
+        _fields_ = [("origin", CGPoint), ("size", CGSize)]
+
+    cg = ctypes.cdll.LoadLibrary(ctypes.util.find_library("CoreGraphics")
+                                 or "/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics")
+    cf = ctypes.cdll.LoadLibrary(ctypes.util.find_library("CoreFoundation")
+                                 or "/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation")
+    cg.CGEventCreate.restype = ctypes.c_void_p
+    cg.CGEventCreate.argtypes = [ctypes.c_void_p]
+    cg.CGEventGetLocation.restype = CGPoint
+    cg.CGEventGetLocation.argtypes = [ctypes.c_void_p]
+    cg.CGEventSourceButtonState.restype = ctypes.c_bool
+    cg.CGEventSourceButtonState.argtypes = [ctypes.c_int32, ctypes.c_uint32]
+    cg.CGMainDisplayID.restype = ctypes.c_uint32
+    cg.CGDisplayBounds.restype = CGRect
+    cg.CGDisplayBounds.argtypes = [ctypes.c_uint32]
+    cg.CGDisplayCopyDisplayMode.restype = ctypes.c_void_p
+    cg.CGDisplayCopyDisplayMode.argtypes = [ctypes.c_uint32]
+    cg.CGDisplayModeGetPixelWidth.restype = ctypes.c_size_t
+    cg.CGDisplayModeGetPixelWidth.argtypes = [ctypes.c_void_p]
+    cg.CGDisplayModeGetWidth.restype = ctypes.c_size_t
+    cg.CGDisplayModeGetWidth.argtypes = [ctypes.c_void_p]
+    cg.CGDisplayModeRelease.argtypes = [ctypes.c_void_p]
+    cf.CFRelease.argtypes = [ctypes.c_void_p]
+    COMBINED_SESSION, LEFT = 0, 0   # kCGEventSourceStateCombinedSessionState, kCGMouseButtonLeft
+
+    display = cg.CGMainDisplayID()
+    bounds = cg.CGDisplayBounds(display)
+    scale = 1.0
+    mode = cg.CGDisplayCopyDisplayMode(display)
+    if mode:
+        w = cg.CGDisplayModeGetWidth(mode)
+        if w:
+            scale = cg.CGDisplayModeGetPixelWidth(mode) / w
+        cg.CGDisplayModeRelease(mode)
+
+    def read():
+        ev = cg.CGEventCreate(None)
+        p = cg.CGEventGetLocation(ev)
+        cf.CFRelease(ev)
+        down = 1 if cg.CGEventSourceButtonState(COMBINED_SESSION, LEFT) else 0
+        return p.x, p.y, down
+
+    return read, scale, [bounds.size.width, bounds.size.height]
+
+
+def record(seconds: float = 120, hz: int = 500, out: Path | None = None, quiet: bool = False) -> Path:
+    """Record cursor + left button for `seconds` (Ctrl+C stops early and still saves).
+
+    Coordinates are stored in logical pixels (physical / DPI scale), which equal CSS pixels
+    in a browser at 100% zoom. Windows and macOS.
+    """
+    if sys.platform == "win32":
+        read, scale, screen = _win_sampler()
+    elif sys.platform == "darwin":
+        read, scale, screen = _mac_sampler()
+    else:
+        raise RuntimeError("the recorder runs on Windows and macOS only")
     samples: list[list[float]] = []
     last = None
     t0 = time.perf_counter()
@@ -84,13 +161,12 @@ def record(seconds: float = 120, hz: int = 500, out: Path | None = None, quiet: 
             now = time.perf_counter() - t0
             if now >= seconds:
                 break
-            user32.GetCursorPos(ctypes.byref(pt))
-            down = 1 if user32.GetAsyncKeyState(0x01) & 0x8000 else 0
-            cur = (pt.x, pt.y, down)
+            x, y, down = read()
+            cur = (round(x, 2), round(y, 2), down)
             if cur != last:
                 if last is not None and down and not last[2]:
                     clicks += 1
-                samples.append([round(now * 1000, 1), round(pt.x / scale, 2), round(pt.y / scale, 2), down])
+                samples.append([round(now * 1000, 1), cur[0], cur[1], down])
                 last = cur
             if not quiet and now >= next_note:
                 print(f"  {now:5.0f}s  clicks {clicks}", flush=True)
@@ -99,9 +175,8 @@ def record(seconds: float = 120, hz: int = 500, out: Path | None = None, quiet: 
     except KeyboardInterrupt:
         pass
     out = Path(out) if out else data_dir() / f"rec_{time.strftime('%Y%m%d_%H%M%S')}.json"
-    out.write_text(json.dumps({"version": 1, "hz": hz, "scale": scale,
-                               "screen": [user32.GetSystemMetrics(0) / scale, user32.GetSystemMetrics(1) / scale],
-                               "samples": samples}), encoding="utf-8")
+    out.write_text(json.dumps({"version": 1, "hz": hz, "scale": scale, "platform": sys.platform,
+                               "screen": screen, "samples": samples}), encoding="utf-8")
     return out
 
 

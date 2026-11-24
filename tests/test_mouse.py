@@ -210,5 +210,17 @@ class RefoundTest(unittest.TestCase):
         self.assertEqual(c.marks, 1)
 
 
+@unittest.skipUnless(__import__("sys").platform == "darwin", "macOS CoreGraphics sampler")
+class MacSamplerTest(unittest.TestCase):
+    def test_reads_logical_cursor_and_button(self):
+        read, scale, screen = _mouse._mac_sampler()
+        x, y, down = read()
+        self.assertGreaterEqual(scale, 1.0)
+        self.assertTrue(screen[0] > 0 and screen[1] > 0)
+        self.assertIn(down, (0, 1))
+        self.assertIsInstance(x, float)
+        self.assertIsInstance(y, float)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -75,7 +75,7 @@ flowchart TD
 
 연구용 읽기와 검색(`_search.py`, `browser_read`). `browser_search`는 다섯 검색 엔진(naver, google, bing, daum, duckduckgo)에 같은 질문을 던지고 엔진을 번갈아 가며 사이트당 결과 하나씩 섞어 돌려준다. 이미 많이 읽은 사이트는 표시한다. `browser_read`는 `outline`, `text`, `controls`, `links` 모드가 있고, 긴 글은 개요를 먼저 읽게 한다.
 
-자기 마우스 학습(`_mouse.py`, `_keys.py`, `_pointer.py`). 사용자가 직접 마우스를 쓴 기록(Windows에서 ctypes로 커서와 왼쪽 버튼만 기록하고 키는 기록하지 않는다)으로 Fitts 법칙 `T = a + b * log2(1 + D/W)`의 계수와 경로 라이브러리를 맞추고, 클릭은 요소 안에서 `elementFromPoint`가 실제로 그 요소를 가리키는 지점에만 한다. 타이핑은 키 단위이며 한글 조합 과정을 재현한다. 기록이 없으면 최소 저크 곡선을 쓴다.
+자기 마우스 학습(`_mouse.py`, `_keys.py`, `_pointer.py`). 사용자가 직접 마우스를 쓴 기록(Windows는 user32, macOS는 CoreGraphics를 ctypes로 불러 커서와 왼쪽 버튼만 기록하고 키는 기록하지 않는다. macOS는 이벤트 탭이 아니라 상태를 읽기만 해서 입력 모니터링 권한을 묻지 않는다)으로 Fitts 법칙 `T = a + b * log2(1 + D/W)`의 계수와 경로 라이브러리를 맞추고, 클릭은 요소 안에서 `elementFromPoint`가 실제로 그 요소를 가리키는 지점에만 한다. 타이핑은 키 단위이며 한글 조합 과정을 재현한다. 기록이 없으면 최소 저크 곡선을 쓴다.
 
 공유 데이터베이스(`_shared.py`, `server/schema.sql`). 기본은 모두 로컬이다. 사용자가 공유하겠다고 말한 경우에만 정제한 사본이 검토 대기열로 올라가고, 유지관리자가 병합한 행만 공개 테이블에 들어간다. 설정 파일이 없으면 아무것도 보내거나 받지 않는다.
 
@@ -116,7 +116,7 @@ python -m browser_atlas launch --port 9222          # (검증 안 함) 별도 �
 python -m browser_atlas controls --tab example.com  # (검증 안 함) 화면의 역할과 이름
 python -m browser_atlas check kosis                 # (검증 안 함) 지도의 컨트롤이 아직 있는가
 python -m browser_atlas robots https://example.com/ # (검증 안 함) robots.txt 판정, 네트워크 사용
-python -m browser_atlas mouse record --seconds 300  # (검증 안 함) Windows 전용
+python -m browser_atlas mouse record --seconds 300  # Windows·macOS (macOS는 40초 녹화로 확인)
 ```
 
 MCP로 연결하면 에이전트에게 "KOSIS에서 최근 실업률 표를 찾아 줘"처럼 말하는 것으로 충분하다. 에이전트는 `browser_launch`로 별도 프로필의 크롬을 띄우고, 로그인이 필요한 사이트는 사람이 그 창에서 한 번 직접 로그인한다. 사이트 하나를 지도에 더하는 방법은 `docs/SCHEMA.md`의 검증과 병합 절을 따른다(`atlas validate`, `atlas merge --dry-run`).
@@ -182,9 +182,9 @@ tests/                  단위 테스트 17개 파일
 
 ### 한계
 
-- Windows에서만 확인했다. 마우스 기록기는 Windows 전용이고(`_mouse.py`가 다른 운영체제에서는 예외를 낸다), 가림 감지 플래그도 Windows 크롬 문제를 겨냥한다. macOS와 Linux에서는 크롬 경로 탐색 코드만 있고 실행해 보지 않았다.
+- 주로 Windows에서 확인했다. 마우스 기록기는 Windows와 macOS에서 돈다(macOS는 2026-11-24 녹화·fit 확인, 다른 운영체제에서는 예외를 낸다). 가림 감지 플래그도 Windows 크롬 문제를 겨냥한다. macOS에서는 크롬 실행·MCP 도구를 실제로 써 봤지만 CI는 없고, Linux는 실행해 보지 않았다.
 - 지도는 사람이 만들어서 낡는다. `check`는 실제 크롬이 있어야 돌고, 사이트가 화면을 바꾸면 컨트롤이 사라진다. 현재 `atlas validate`에도 경고 9건(변하는 이름 표시 누락, 중복 컨트롤 이름 등)이 남아 있다.
-- CI는 Windows에서만 돈다. 크롬 실행과 자격증명 암호화(DPAPI)에 Windows 전용 경로가 있고, Linux와 macOS에서는 아직 테스트를 돌려 보지 않았다.
+- CI는 Windows에서만 돈다. 크롬 실행과 자격증명 암호화(DPAPI)에 Windows 전용 경로가 있고, macOS에서는 손으로 한 번 돌려 통과했고(2026-11-24, 248개), Linux는 돌려 보지 않았다.
 - 공유 데이터베이스는 외부 서버가 있어야 하며, 테스트는 모의 응답으로만 검증한다. 병합이 유지관리자의 수작업이라 제출이 많아지면 병목이 된다.
 - 판정, 순위, 날짜 읽기, 위험 단어 목록은 규칙과 손으로 정한 가중치이다. 정확도나 성능 수치는 측정한 적이 없어서 적지 않는다.
 - 지도의 `where`와 `does` 설명은 대부분 한국어라 영어 사용자는 닫힌 값(`role`, `name`, `act`)에 의존해야 한다.
