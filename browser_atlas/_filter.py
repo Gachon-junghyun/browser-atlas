@@ -17,6 +17,11 @@ screenshots are withheld when "block_media" is true (the words on an image canno
 This covers what this server returns, in any client. What the client reads by itself (its own file
 or shell tools, the user's prompt) is outside this server and not filtered here.
 
+What this server keeps is masked too, on the way to disk: the memory and page-graph database
+(`MaskedConnection`, every string bound into a query), open episodes and proposals, and captures. So a
+word listed while a page is read never lands in storage, and switching the filter off or editing the
+list later cannot bring it back. Storage written before a word was listed still holds it.
+
 CLI. Its output can reach a model, so it never prints the words themselves:
   python -m browser_atlas filter status
   python -m browser_atlas filter on [SET ...]       # no names: every set
@@ -28,6 +33,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import sqlite3
 import sys
 from pathlib import Path
 
@@ -53,7 +59,7 @@ def load() -> dict:
         st = p.stat()
     except OSError:
         return {"on": [], "sets": {}}
-    key = (st.st_mtime_ns, st.st_size)
+    key = (str(p), st.st_mtime_ns, st.st_size)
     if _cache["key"] != key:
         try:
             cfg = json.loads(p.read_text(encoding="utf-8-sig"))
@@ -117,6 +123,50 @@ def matcher(cfg: dict | None = None) -> Matcher | None:
     if cached:
         _cache["m"] = m or False
     return m
+
+
+def sub(s):
+    """One string through the active filter; anything else, or no filter, comes back as it is."""
+    m = matcher()
+    return m.sub(s) if m and isinstance(s, str) else s
+
+
+def _deep(o, m: Matcher):
+    if isinstance(o, str):
+        return m.sub(o)
+    if isinstance(o, dict):
+        return {(m.sub(k) if isinstance(k, str) else k): _deep(v, m) for k, v in o.items()}
+    if isinstance(o, list):
+        return [_deep(x, m) for x in o]
+    if isinstance(o, tuple):
+        return tuple(_deep(x, m) for x in o)
+    return o
+
+
+def mask(obj):
+    """Every string in a JSON-like structure (keys included) through the active filter."""
+    m = matcher()
+    return _deep(obj, m) if m else obj
+
+
+def _params(p):
+    m = matcher()
+    if not m or not p:
+        return p
+    if isinstance(p, dict):
+        return {k: (m.sub(v) if isinstance(v, str) else v) for k, v in p.items()}
+    return tuple(m.sub(v) if isinstance(v, str) else v for v in p)
+
+
+class MaskedConnection(sqlite3.Connection):
+    """sqlite3 connection whose bound string parameters go through the filter: what is written is
+    masked, and lookups by a masked key find the masked row."""
+
+    def execute(self, sql, parameters=(), /):
+        return super().execute(sql, _params(parameters))
+
+    def executemany(self, sql, seq, /):
+        return super().executemany(sql, (_params(p) for p in seq))
 
 
 def mcp_result(result: dict) -> dict:

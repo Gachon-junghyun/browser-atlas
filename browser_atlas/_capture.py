@@ -25,6 +25,8 @@ import time
 from pathlib import Path
 from urllib.parse import urlparse
 
+from . import _filter
+
 PAGE_MAX_PX = 12000          # full-page shot is cut here (very long pages)
 FIG_MIN = (200, 120)         # smaller images are icons and logos, not charts
 FIG_MAX = 20                 # per page
@@ -128,18 +130,21 @@ def on_read(c, args: dict, result: dict, *, port=None, tab: str = "", goal: str 
         url = result.get("url") or c.eval("location.href") or ""
         if not url.startswith(("http://", "https://")):
             return None
-        title = c.eval("document.title") or ""
+        title = _filter.sub(c.eval("document.title") or "")
+        goal = _filter.sub(goal)
         host = _safe(urlparse(url).netloc, 80)
         day = root() / time.strftime("%Y-%m-%d")
         d = day / host
         d.mkdir(parents=True, exist_ok=True)
         key = hashlib.sha1(url.encode("utf-8")).hexdigest()[:10]
-        text = _text_of(result)
+        text = _filter.sub(_text_of(result))
+        masked_url = _filter.sub(url)
         tf = d / f"{time.strftime('%H%M%S')}_{key}_{_safe(row['mode'], 10)}{row['offset'] or ''}.txt"
-        head = f"url: {url}\ntitle: {title}\nread: {row['ts']} mode={row['mode']} offset={row['offset']} find={row['find']}\ngoal: {goal}\n\n"
+        head = f"url: {masked_url}\ntitle: {title}\nread: {row['ts']} mode={row['mode']} offset={row['offset']} find={row['find']}\ngoal: {goal}\n\n"
         tf.write_text(head + text, encoding="utf-8")
-        row.update(url=url, title=title[:300], chars=len(text), text=str(tf.relative_to(root())))
-        if (tab, url) not in _done:
+        row.update(url=masked_url, title=title[:300], chars=len(text), text=str(tf.relative_to(root())))
+        media_off = _filter.matcher() is not None and _filter.load().get("block_media", True)
+        if (tab, url) not in _done and not media_off:   # words on an image cannot be masked
             _done.add((tab, url))
             try:
                 row["page"] = _page_shot(c, d / f"{key}_page.jpg")
@@ -156,7 +161,7 @@ def on_read(c, args: dict, result: dict, *, port=None, tab: str = "", goal: str 
         day = root() / time.strftime("%Y-%m-%d")
         day.mkdir(parents=True, exist_ok=True)
         with open(day / "index.jsonl", "a", encoding="utf-8") as w:
-            w.write(json.dumps(row, ensure_ascii=False) + "\n")
+            w.write(json.dumps(_filter.mask(row), ensure_ascii=False) + "\n")
     except Exception:
         return None
     if "text" not in row:

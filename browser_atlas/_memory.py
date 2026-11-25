@@ -64,7 +64,8 @@ def db_path() -> Path:
 
 
 def connect(path: Path | str | None = None) -> sqlite3.Connection:
-    con = sqlite3.connect(str(path or db_path()))
+    from . import _filter
+    con = sqlite3.connect(str(path or db_path()), factory=_filter.MaskedConnection)
     con.row_factory = sqlite3.Row
     con.executescript(_SCHEMA)
     cols = {r["name"] for r in con.execute("pragma table_info(experience)")}

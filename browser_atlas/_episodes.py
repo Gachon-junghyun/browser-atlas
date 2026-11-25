@@ -27,7 +27,7 @@ import time
 import uuid
 from urllib.parse import urlparse, urlunparse
 
-from . import _atlas, _memory
+from . import _atlas, _filter, _memory
 from ._mouse import home
 
 IDLE_SECONDS = 900
@@ -171,7 +171,7 @@ class Recorder:
         try:
             _open_path().parent.mkdir(parents=True, exist_ok=True)
             if self.open:
-                _open_path().write_text(json.dumps(self.open, ensure_ascii=False), encoding="utf-8")
+                _open_path().write_text(json.dumps(_filter.mask(self.open), ensure_ascii=False), encoding="utf-8")
             elif _open_path().exists():
                 _open_path().unlink()
         except OSError:
@@ -325,7 +325,7 @@ def propose(p: dict) -> None:
                       "last": time.strftime("%Y-%m-%d")})
     path = _atlas.learned_path()
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(items, ensure_ascii=False, indent=1), encoding="utf-8")
+    path.write_text(json.dumps(_filter.mask(items), ensure_ascii=False, indent=1), encoding="utf-8")
 
 
 LESSON_MAX = 200
