@@ -692,7 +692,10 @@ def _browser(name: str, args: dict):
         return {"closed": _cdp.close_tab(tab, port)}
     with _cdp.CDP(port, tab) as c:
         if name == "browser_read":
+            pruned = _filter.prune(c)              # filter prune_up: cut what holds a listed word first
             r = _read(c, args)
+            if pruned:
+                r["filter_pruned"] = pruned
             from . import _capture
             note = _capture.on_read(c, args, r, port=port, tab=tab, goal=(REC.open.get(tab) or {}).get("goal"))
             if note:

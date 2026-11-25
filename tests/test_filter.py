@@ -47,3 +47,42 @@ class FilterStorageTest(unittest.TestCase):
         write_cfg(self.home, {"on": [], "sets": {"s": {"홍길동": "사람A"}}})
         _graph.page("https://ex.com/b", title="홍길동", con=self.con)
         self.assertEqual(self.con.execute("select title from g_pages").fetchone()["title"], "홍길동")
+
+
+class FakeTab:
+    def __init__(self, texts):
+        self.texts, self.calls = texts, []
+
+    def eval(self, js):
+        self.calls.append(js)
+        if js.startswith("(() =>"):
+            return self.texts
+        if js.startswith("((idx, up)"):
+            return 1
+        return None
+
+
+class FilterPruneTest(unittest.TestCase):
+    def setUp(self):
+        self.home = tempfile.mkdtemp()
+        os.environ["BROWSER_ATLAS_HOME"] = self.home
+
+    def test_off_by_default(self):
+        write_cfg(self.home, {"on": ["s"], "sets": {"s": {"홍길동": "사람A"}}})
+        tab = FakeTab(["홍길동"])
+        self.assertEqual(_filter.prune(tab), 0)
+        self.assertEqual(tab.calls, [])
+
+    def test_only_hit_indices_go_back_and_words_never_enter_the_page(self):
+        write_cfg(self.home, {"on": ["s"], "sets": {"s": {"홍길동": "사람A"}}, "prune_up": 2})
+        tab = FakeTab(["안녕", "담당 홍길동", "끝"])
+        self.assertEqual(_filter.prune(tab), 1)
+        cut = tab.calls[-1]
+        self.assertIn("([1], 2)", cut)
+        self.assertTrue(all("홍길동" not in js for js in tab.calls))
+
+    def test_no_hit_sends_no_cut(self):
+        write_cfg(self.home, {"on": ["s"], "sets": {"s": {"홍길동": "사람A"}}, "prune_up": 2})
+        tab = FakeTab(["안녕"])
+        self.assertEqual(_filter.prune(tab), 0)
+        self.assertFalse(any(js.startswith("((idx, up)") for js in tab.calls))

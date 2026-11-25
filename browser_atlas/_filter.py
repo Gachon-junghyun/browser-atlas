@@ -6,7 +6,8 @@ Switchable word sets live outside the repo, in ~/.browser_atlas/filters.json (or
      "sets": {"filter1": {"Acme Corp": "Company A", "Jane Doe": "Person B"},
               "filter2": {"...": "..."}},
      "ignore_case": true,
-     "block_media": true}
+     "block_media": true,
+     "prune_up": 0}
 
 Each set maps a word to its stand-in; only sets named in "on" apply. The file is re-read when it
 changes, so switching needs no restart. Edit it by hand (`edit` opens it): never type the words into
@@ -16,6 +17,11 @@ While a set is on, every tool result is masked in `mcp_result()` (the server's l
 screenshots are withheld when "block_media" is true (the words on an image cannot be masked).
 This covers what this server returns, in any client. What the client reads by itself (its own file
 or shell tools, the user's prompt) is outside this server and not filtered here.
+
+"prune_up": N (default 0, off) goes further on reads: before `browser_read`, every element whose text
+or alt/title/aria-label/placeholder/value holds a listed word is found, and the ancestor N levels above
+it is deleted from the live page (never body or html; the highest element below body instead). The
+words never enter the page: it hands its texts over, matching happens here, only indices go back.
 
 What this server keeps is masked too, on the way to disk: the memory and page-graph database
 (`MaskedConnection`, every string bound into a query), open episodes and proposals, and captures. So a
@@ -38,7 +44,7 @@ import sys
 from pathlib import Path
 
 TEMPLATE = {"on": [], "sets": {"filter1": {"example word": "stand-in"}},
-            "ignore_case": True, "block_media": True}
+            "ignore_case": True, "block_media": True, "prune_up": 0}
 
 
 def home() -> Path:
@@ -169,6 +175,70 @@ class MaskedConnection(sqlite3.Connection):
         return super().executemany(sql, (_params(p) for p in seq))
 
 
+_PRUNE_COLLECT_JS = r"""(() => {
+  const root = document.body || document.documentElement, els = [], texts = [];
+  if (!root) return [];
+  const skip = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEMPLATE']);
+  const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  let n;
+  while ((n = w.nextNode())) {
+    const el = n.parentElement;
+    if (el && !skip.has(el.tagName) && n.nodeValue && n.nodeValue.trim()) { els.push(el); texts.push(n.nodeValue); }
+  }
+  const attrs = ['alt', 'title', 'aria-label', 'placeholder', 'value'];
+  for (const el of root.querySelectorAll('[alt],[title],[aria-label],[placeholder],input[value]')) {
+    const t = attrs.map(a => el.getAttribute(a) || '').join(' ');
+    if (t.trim()) { els.push(el); texts.push(t); }
+  }
+  window.__atlasPrune = els;
+  return texts;
+})()"""
+
+_PRUNE_CUT_JS = """((idx, up) => {
+  const els = window.__atlasPrune || [], body = document.body, top = document.documentElement, cut = new Set();
+  window.__atlasPrune = null;
+  for (const i of idx) {
+    let el = els[i];
+    if (!el || el === body || el === top) continue;
+    for (let k = 0; k < up; k++) {
+      const p = el.parentElement;
+      if (!p || p === body || p === top) break;
+      el = p;
+    }
+    cut.add(el);
+  }
+  let removed = 0;
+  for (const el of cut) {
+    let a = el.parentElement, inside = false;
+    while (a) { if (cut.has(a)) { inside = true; break; } a = a.parentElement; }
+    if (!inside && el.isConnected) { el.remove(); removed++; }
+  }
+  return removed;
+})(%s, %d)"""
+
+
+def prune_up(cfg: dict | None = None) -> int:
+    try:
+        return max(0, int((cfg or load()).get("prune_up", 0) or 0))
+    except (TypeError, ValueError):
+        return 0
+
+
+def prune(c) -> int:
+    """Delete from the live page the ancestor `prune_up` levels above every element holding a listed
+    word. Returns how many elements were removed (0 when off). `c` is a CDP session with eval()."""
+    cfg = load()
+    up, m = prune_up(cfg), matcher(cfg)
+    if not m or up <= 0:
+        return 0
+    texts = c.eval(_PRUNE_COLLECT_JS) or []
+    idx = [i for i, t in enumerate(texts) if m.hit(t)]
+    if not idx:
+        c.eval("window.__atlasPrune = null")
+        return 0
+    return int(c.eval(_PRUNE_CUT_JS % (json.dumps(idx), up)) or 0)
+
+
 def mcp_result(result: dict) -> dict:
     """The server's last step: mask text blocks, withhold images while a filter is on."""
     m = matcher()
@@ -198,7 +268,8 @@ def status() -> dict:
             "active_words": len(m.map) if m else 0,
             "unstable_stand_ins": m.chained() if m else 0,
             "ignore_case": bool(cfg.get("ignore_case", True)),
-            "block_media": bool(cfg.get("block_media", True))}
+            "block_media": bool(cfg.get("block_media", True)),
+            "prune_up": prune_up(cfg)}
 
 
 def cli(argv: list[str]) -> int:
