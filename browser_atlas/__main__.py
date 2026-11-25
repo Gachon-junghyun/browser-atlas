@@ -25,7 +25,7 @@
   python -m browser_atlas share [--yes] | share sync    # preview / submit to the review queue, or pull merged rows
   python -m browser_atlas share review | share merge ID... | share reject ID...   # maintainers only
   python -m browser_atlas mcp                           # MCP server on stdio
-  python -m browser_atlas filter status|on [SET]|off [SET]|edit   # sensitive-word filter on tool results
+  python -m browser_atlas filter status|on [SET]|off [SET]|mode SET swap|prune [UP]|edit   # sensitive-word filter
   python -m browser_atlas memory stats|recall <GOAL>|shareable
 
   python -m browser_atlas mouse record [--seconds 120]  # use your mouse normally; clicks are the labels
