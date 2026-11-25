@@ -20,7 +20,7 @@ import sys
 from datetime import date, datetime, timedelta
 from urllib.parse import urlparse
 
-from . import _atlas, _ax, _cdp, _episodes, _graph, _memory, _robots, _safety
+from . import _atlas, _ax, _cdp, _episodes, _filter, _graph, _memory, _robots, _safety
 
 VERSION = "0.1.0"
 
@@ -1625,6 +1625,7 @@ def handle(msg: dict) -> dict | None:
             result = {"content": [{"type": "text", "text": f"NEEDS HUMAN: {e}"}], "isError": True}
         except Exception as e:     # tool errors go back to the model, the server keeps running
             result = {"content": [{"type": "text", "text": f"{type(e).__name__}: {e}"}], "isError": True}
+        result = _filter.mcp_result(result)    # sensitive-word filter, last thing before it leaves
     else:
         return {"jsonrpc": "2.0", "id": mid, "error": {"code": -32601, "message": f"no method {method}"}}
     return {"jsonrpc": "2.0", "id": mid, "result": result}
